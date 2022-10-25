@@ -25,7 +25,7 @@ def merge_required_lookups(inputdf: pd.DataFrame,
     
     # merge to MSOA_NoRMS lookup
     if metric == 'employment':
-        data = pd.merge(data, MSOA_NoRMS_lookup,
+        data = pd.merge(data, msoa_norms_lookup,
                         left_on=['msoa_zone_id'], right_on=['msoa11cd'],
                         how='left')
         
@@ -38,7 +38,7 @@ def merge_required_lookups(inputdf: pd.DataFrame,
                              'soc_cat']).agg({metric: 'sum'}).reset_index()    
 
     elif metric == 'people':
-        data = pd.merge(data, MSOA_NoRMS_lookup,
+        data = pd.merge(data, msoa_norms_lookup,
                         left_on=['MSOA'], right_on=['msoa11cd'],
                         how='left')
         
@@ -70,9 +70,9 @@ if __name__ == '__main__':
             os.mkdir(temp_wd)
 
         # --- MSOA to NoRMS zone lookup:
-        MSOA_NoRMS_lookup = pd.read_csv(
+        msoa_norms_lookup = pd.read_csv(
             os.path.join(nelum_inputs_file_path, 'aggregations', 'MSOA_to_Norms1300.csv'))
-        MSOA_NoRMS_lookup = MSOA_NoRMS_lookup[['msoa11cd', 'norms_zone_id', 'msoa_to_norms']]
+        msoa_norms_lookup = msoa_norms_lookup[['msoa11cd', 'norms_zone_id', 'msoa_to_norms']]
 
         emp_zone_total_diff = {}
         pop_zone_total_diff = {}
