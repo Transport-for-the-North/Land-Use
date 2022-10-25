@@ -57,7 +57,7 @@ def merge_required_lookups(inputdf: pd.DataFrame,
 
 if __name__ == '__main__':
 
-    scenarios = ['CAS High', 'CAS Low', 'CAS Regional Scenario']
+    scenarios = ['Nov 21 central', 'CAS High', 'CAS Low', 'CAS Regional Scenario']
 
     for scenario in scenarios:
 
