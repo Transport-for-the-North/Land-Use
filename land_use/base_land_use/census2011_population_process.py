@@ -278,14 +278,14 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     cols_chosen = ['z', 'A', 'ntem_tt', 'a', 'g', 'h', 'e', 'P_NTEM']
     NTEM_pop_2011 = NTEM_pop_2011[cols_chosen]
     # NTEM_pop_2011 = ntem_pop_interpolation(census_and_by_lu_obj)
-    NTEM_pop_2011 = NTEM_pop_2011[cols_chosen]
+    # NTEM_pop_2011 = NTEM_pop_2011[cols_chosen]
     print('Total 2011 ntem household population is : ', NTEM_pop_2011.P_NTEM.sum())
     # Obtain 2011 Census data
     # Start processing data
     # Only the following vairiables are required from the census micro data
     census_micro_trimmed = census_micro[['caseno',
-                                         'country',
-                                         'region',
+                                         # 'country',
+                                         # 'region',
                                          'la_group',
                                          'residence_type',
                                          'ageh',
