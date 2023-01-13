@@ -303,8 +303,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 2]
     census_micro_cer_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 1]
 
-    census_micro_hh_pop_working = census_micro_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(columns={
+    census_micro_hh_pop = census_micro_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
+    census_micro_hh_pop = census_micro_hh_pop.rename(columns={
         "ageh": "Age", "sex": "Sex", "nsshuk11": "HRP NSSEC",
         "ahchuk11": "Household size", "carsnoc": "Household car",
         "ecopuk11": "Employment type code", "hours": "Hours worked ", "occg": "SOC"
@@ -327,80 +327,80 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         return master_df
 
     # Process age
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_ageh,
-                                               key_variable="Age",
-                                               output_variable="a")
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_ageh,
+                                       key_variable="Age",
+                                       output_variable="a")
 
     # Process NSSEC
     # TODO: Move to start as dropna reduces processing time(?)
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_nsshuk11,
-                                               key_variable="HRP NSSEC",
-                                               output_variable="n")
-    census_micro_hh_pop_working = census_micro_hh_pop_working.dropna(subset=['n'])
-    census_micro_hh_pop_working['n'] = census_micro_hh_pop_working['n'].astype(int)
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_nsshuk11,
+                                       key_variable="HRP NSSEC",
+                                       output_variable="n")
+    census_micro_hh_pop = census_micro_hh_pop.dropna(subset=['n'])
+    census_micro_hh_pop['n'] = census_micro_hh_pop['n'].astype(int)
 
     # Process HH comp - lookup adults and cars to NorMITs and then the combination
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_ahchuk11,
-                                               key_variable="Household size",
-                                               output_variable="_Adults")
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_carsnoc,
-                                               key_variable="Household car",
-                                               output_variable="_Cars")
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_ahchuk11,
+                                       key_variable="Household size",
+                                       output_variable="_Adults")
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_carsnoc,
+                                       key_variable="Household car",
+                                       output_variable="_Cars")
 
-    census_micro_hh_pop_working[["_Adults", "_Cars"]] = census_micro_hh_pop_working[["_Adults", "_Cars"]].astype(str)
-    census_micro_hh_pop_working['Household Composition Key'] = census_micro_hh_pop_working[["_Adults", "_Cars"]].agg('_'.join, axis=1)
-    census_micro_hh_pop_working = census_micro_hh_pop_working.drop(columns=["_Adults", "_Cars"])
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_h,
-                                               key_variable="Household Composition Key",
-                                               output_variable="h",
-                                               value_variable="Household_composition_code")
+    census_micro_hh_pop[["_Adults", "_Cars"]] = census_micro_hh_pop[["_Adults", "_Cars"]].astype(str)
+    census_micro_hh_pop['Household Composition Key'] = census_micro_hh_pop[["_Adults", "_Cars"]].agg('_'.join, axis=1)
+    census_micro_hh_pop = census_micro_hh_pop.drop(columns=["_Adults", "_Cars"])
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_h,
+                                       key_variable="Household Composition Key",
+                                       output_variable="h",
+                                       value_variable="Household_composition_code")
 
     # Process gender
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_sex,
-                                               key_variable="Sex",
-                                               output_variable="g")
-    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["a"] == 1, "g"] = 1
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_sex,
+                                       key_variable="Sex",
+                                       output_variable="g")
+    census_micro_hh_pop.loc[census_micro_hh_pop["a"] == 1, "g"] = 1
 
     # Process employment type
     #  - Check emplyoment type
     #  - Check age (children and retirees cannot work)
     #  - Check if students (ecopuk11 type 8) are fte or pte via hours
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_ecopuk11,
-                                               key_variable="Employment type code",
-                                               output_variable="e")
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_ecopuk11,
+                                       key_variable="Employment type code",
+                                       output_variable="e")
 
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_hours,
-                                               key_variable="Hours worked ",
-                                               output_variable="ft-pt")
-    census_micro_hh_pop_working["ft-pt"] = census_micro_hh_pop_working["ft-pt"].fillna(2)
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_hours,
+                                       key_variable="Hours worked ",
+                                       output_variable="ft-pt")
+    census_micro_hh_pop["ft-pt"] = census_micro_hh_pop["ft-pt"].fillna(2)
 
-    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["Employment type code"] == 8, "e"] = census_micro_hh_pop_working['ft-pt']
-    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["a"] != 2, "e"] = 5
+    census_micro_hh_pop.loc[census_micro_hh_pop["Employment type code"] == 8, "e"] = census_micro_hh_pop['ft-pt']
+    census_micro_hh_pop.loc[census_micro_hh_pop["a"] != 2, "e"] = 5
 
-    census_micro_hh_pop_working['e'].replace('', np.nan, inplace=True)
-    census_micro_hh_pop_working.dropna(subset=['e'], inplace=True)
-    census_micro_hh_pop_working['e'] = census_micro_hh_pop_working['e'].astype(int)
+    census_micro_hh_pop['e'].replace('', np.nan, inplace=True)
+    census_micro_hh_pop.dropna(subset=['e'], inplace=True)
+    census_micro_hh_pop['e'] = census_micro_hh_pop['e'].astype(int)
 
     # Process SOC
-    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
-                                               lookup_df=lookup_occg,
-                                               key_variable="SOC",
-                                               output_variable="s")
-    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["e"] > 2, "s"] = 4
-    census_micro_hh_pop_working['s'] = census_micro_hh_pop_working['s'].astype(int)
-    census_micro_hh_pop_working['t'] = census_micro_hh_pop_working['t'].astype(int)
+    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
+                                       lookup_df=lookup_occg,
+                                       key_variable="SOC",
+                                       output_variable="s")
+    census_micro_hh_pop.loc[census_micro_hh_pop["e"] > 2, "s"] = 4
+    census_micro_hh_pop['s'] = census_micro_hh_pop['s'].astype(int)
+    census_micro_hh_pop['t'] = census_micro_hh_pop['t'].astype(int)
 
     # Have now produced all values
     # Trim down to just d,a,g,h,e,t,n,s (plus caseno)
-    census_micro_hh_pop_by_caseno = census_micro_hh_pop_working[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
+    census_micro_hh_pop_by_caseno = census_micro_hh_pop[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
 
     # Group into unique a, g, h, e, t, n, s to get workers "pivot table"
     census_micro_hh_pop_pivot = census_micro_hh_pop_by_caseno.copy()
