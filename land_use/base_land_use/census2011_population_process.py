@@ -303,6 +303,21 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 2]
     census_micro_cer_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 1]
 
+    def lookup_merge(master_df, lookup_df, key_variable, output_variable, value_variable="NorMITs_Segment Band Value"):
+        """
+        Merge lookup into micro census on shared variable. Rename value column.
+
+        :param master_df: Micro census dataframe with column of name {key}
+        :param lookup_df: Lookup dataframe with column of name {key} and {value_variable}
+        :param key_variable: Variable used to join master_df and lookup_df
+        :param output_variable: Name for {value_variable} column to take after joined onto master_df
+        :param value_variable: Value column from lookup_df to join onto master_df
+        :return: Micro census dataframe with value column joined.
+        """
+        lookup_df = lookup_df[[key_variable, value_variable]].copy()
+        lookup_df = lookup_df.rename(columns={value_variable: output_variable})
+        master_df = pd.merge(master_df, lookup_df, on=key_variable, how="left", validate="m:1")
+        return master_df
 
     # Process age
     census_micro_hh_pop_working = pd.merge(
