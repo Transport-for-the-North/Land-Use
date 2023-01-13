@@ -303,6 +303,14 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 2]
     census_micro_cer_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 1]
 
+    census_micro_hh_pop_working = census_micro_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
+    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(columns={
+        "ageh": "Age", "sex": "Sex", "nsshuk11": "HRP NSSEC",
+        "ahchuk11": "Household size", "carsnoc": "Household car",
+        "ecopuk11": "Employment type code", "hours": "Hours worked ", "occg": "SOC"
+    })
+    # TODO: left_on columns in later merges
+
     def lookup_merge(master_df, lookup_df, key_variable, output_variable, value_variable="NorMITs_Segment Band Value"):
         """
         Merge lookup into micro census on shared variable. Rename value column.
