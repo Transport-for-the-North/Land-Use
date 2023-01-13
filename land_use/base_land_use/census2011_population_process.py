@@ -384,6 +384,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop = census_micro_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
     census_micro_hh_pop[["e", "s", "t", "n"]] = census_micro_hh_pop[["e", "s", "t", "n"]].astype(int)
 
+    # POST FORMATTING
     # Have now produced all values
     # Trim down to just d,a,g,h,e,t,n,s (plus caseno)
     census_micro_hh_pop_by_caseno = census_micro_hh_pop[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
@@ -392,9 +393,12 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop_pivot = census_micro_hh_pop_by_caseno.copy()
     census_micro_hh_pop_pivot = census_micro_hh_pop_pivot.groupby(
         ['d','a','g','h','e','t','n','s'])['caseno'].nunique().reset_index()
-    census_micro_hh_pop_pivot_workers = census_micro_hh_pop_pivot.loc[
-        (census_micro_hh_pop_pivot['e'] <= 2) &
-        (census_micro_hh_pop_pivot['s'] < 4)]
+
+    ###########
+    # WORKERS
+    ###########
+    census_micro_hh_pop_pivot_workers = census_micro_hh_pop_pivot[(census_micro_hh_pop_pivot['e'] <= 2) &
+                                                                  (census_micro_hh_pop_pivot['s'] < 4)]
 
     worker_iterator = zip(census_micro_hh_pop_pivot_workers['d'],
                           census_micro_hh_pop_pivot_workers['a'],
@@ -411,13 +415,15 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     workers_n = census_micro_hh_pop_pivot_workers['n'].unique()
     workers_s = census_micro_hh_pop_pivot_workers['s'].unique()
     all_workers_tt_t_n_s = pd.DataFrame(itertools.product(ntem_tt_workers, workers_t, workers_n, workers_s))
-    all_workers_tt_t_n_s = all_workers_tt_t_n_s.rename(columns={0:'ntem_tt_Key', 1:'t', 2:'n', 3:'s'})
+    all_workers_tt_t_n_s = all_workers_tt_t_n_s.rename(columns={0: 'ntem_tt_Key', 1: 't', 2: 'n', 3: 's'})
 
+    ###########
+    # NON WORKERS
+    ###########
     # Group into unique a, g, h, e, t, n to get non-workers "pivot table"
     census_micro_hh_pop_pivot2 = census_micro_hh_pop_by_caseno.groupby(
         ['d','a','g','h','e','t','n'])['caseno'].nunique().reset_index()
-    census_micro_hh_pop_pivot_non_workers = census_micro_hh_pop_pivot2.loc[
-        (census_micro_hh_pop_pivot2['e'] > 2)]
+    census_micro_hh_pop_pivot_non_workers = census_micro_hh_pop_pivot2[census_micro_hh_pop_pivot2['e'] > 2]
 
 
     census_micro_hh_pop_pivot_non_workers['s'] = 4 # Explictally state we are looking at non-workers
@@ -483,7 +489,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     model_districts = model_districts.drop(columns=['index', 'level_0'])
 
     missing_tt_df = pd.DataFrame(itertools.product(model_districts['Grouped_LA'], missing_tt_df['aghe_Key']))
-    missing_tt_df = missing_tt_df.rename(columns={0:'z', 1:'aghe_key'})
+    missing_tt_df = missing_tt_df.rename(columns={0: 'z', 1: 'aghe_key'})
     missing_tt_df['aghe_Key'] = [
         '_'.join([str(x), y]) for x, y in zip(missing_tt_df['z'], missing_tt_df['aghe_key'])]
     missing_tt_df = missing_tt_df[['aghe_Key', 'z', 'aghe_key']]
@@ -510,7 +516,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     P_for_average_EW_f = P_for_average_EW_f.groupby('aghe_Key')['P_aghe'].sum().reset_index()
 
     average_EW_f = pd.merge(average_EW_f, P_for_average_EW_f, how='left')
-    average_EW_f['f_tns/aghe'] = (average_EW_f['Persons'] / average_EW_f ['P_aghe'])
+    average_EW_f['f_tns/aghe'] = average_EW_f['Persons'] / average_EW_f['P_aghe']
     average_EW_f = average_EW_f.rename(columns={'aghe_Key': 'aghe_key'})
     average_EW_f = average_EW_f.drop(columns=['Persons', 'P_aghe'])
 
@@ -599,7 +605,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                       NTEM_pop_2011_EW['h'],
                                       NTEM_pop_2011_EW['e'])
     NTEM_pop_2011_EW['aghe_Key'] = ['_'.join([str(d), str(a), str(g), str(h), str(e)])
-                                  for d, a, g, h, e in NTEM_population_iterator_EW]
+                                    for d, a, g, h, e in NTEM_population_iterator_EW]
     NTEM_pop_2011_EW = pd.merge(NTEM_pop_2011_EW,
                                 cencus_micro_complete_f,
                                 on='aghe_Key')
@@ -621,12 +627,9 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                   how='left',
                                   left_on=['A','a', 'g', 'h', 'e'],
                                   right_on=['A','a', 'g', 'h', 'e'])
-    NTEM_pop_2011_NENW = NTEM_pop_2011_NENW.rename(
-        columns={'P_NTEM_x': 'Persons',
-                   'P_NTEM_y': 'P_aghe'})
-    NTEM_pop_2011_NENW['f_tns/aghe'] = (NTEM_pop_2011_NENW['Persons']
-                                        / NTEM_pop_2011_NENW['P_aghe'])
-    NTEM_pop_2011_NENW = NTEM_pop_2011_NENW [['A', 'a', 'g', 'h', 'e', 't', 'n', 's', 'f_tns/aghe']]
+    NTEM_pop_2011_NENW = NTEM_pop_2011_NENW.rename(columns={'P_NTEM_x': 'Persons', 'P_NTEM_y': 'P_aghe'})
+    NTEM_pop_2011_NENW['f_tns/aghe'] = NTEM_pop_2011_NENW['Persons'] / NTEM_pop_2011_NENW['P_aghe']
+    NTEM_pop_2011_NENW = NTEM_pop_2011_NENW[['A', 'a', 'g', 'h', 'e', 't', 'n', 's', 'f_tns/aghe']]
     NTEM_population_iterator_NENW = zip(NTEM_pop_2011_NENW['A'],
                                         NTEM_pop_2011_NENW['a'],
                                         NTEM_pop_2011_NENW['g'],
@@ -787,7 +790,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
 
     # Get zonal geography
     lookup_geography_la2z = lookup_geography[['MSOA', 'NorMITs_Zone']]
-    lookup_geography_la2z.columns=['mnemonic', 'z']
+    lookup_geography_la2z.columns = ['mnemonic', 'z']
     QS606_working = pd.merge(QS606_working, lookup_geography_la2z, on='mnemonic')
     QS606_working = pd.merge(QS606_working, NTEM_workers_2011_GB, on='z')
 
@@ -808,14 +811,14 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         columns={'variable': 'SOC', 'value': 'Persons'})
     QS606_working['s'] = np.where(QS606_working['SOC'] == 'higher', 1,
                                   np.where(QS606_working['SOC'] == 'medium', 2,
-                                          np.where(QS606_working['SOC'] == 'skilled', 3, 4)))
+                                           np.where(QS606_working['SOC'] == 'skilled', 3, 4)))
     QS606_working = QS606_working.sort_values(by=['z', 's']).reset_index()
     QS606_working = QS606_working[['z', 's', 'Persons']]
 
     headers_QS609 = list(QS609_raw_census)
     NSSeC_headers_QS609 = []
     for h in headers_QS609:
-        if h[0].isdigit() == True:
+        if h[0].isdigit():
             QS609_head_name_iterator = ['NS-SeC ', h[0]]
         elif h[0:3] == "L15":
             QS609_head_name_iterator = ['NS-SeC ', h[0:3]]
@@ -1061,6 +1064,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_and_by_lu_obj.state['3.1.2 expand population segmentation'] = 1
     logging.info('3.1.2 expand population segmentation completed')
 
+
 def ipf_process(
         seed_path,
         ctrl_NTEM_p_path,
@@ -1098,6 +1102,7 @@ def ipf_process(
         show_pbar=False)
     # logging.info('The iteration and convergence for district ' + dist_str + ' is: ', iters, conv)
     furnessed_df.to_csv(output_path, index=False)
+
 
 def ipfn_process_2011(census_and_by_lu_obj):
     # TODO: Is this slow or not?
