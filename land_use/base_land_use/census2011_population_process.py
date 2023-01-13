@@ -309,7 +309,6 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         "ahchuk11": "Household size", "carsnoc": "Household car",
         "ecopuk11": "Employment type code", "hours": "Hours worked ", "occg": "SOC"
     })
-    # TODO: left_on columns in later merges
 
     def lookup_merge(master_df, lookup_df, key_variable, output_variable, value_variable="NorMITs_Segment Band Value"):
         """
@@ -328,116 +327,74 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         return master_df
 
     # Process age
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop,
-        lookup_ageh[['Age', 'NorMITs_Segment Band Value']],
-        left_on='ageh',
-        right_on='Age',
-        how='left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns={'typaccom': 't',
-                 'la_group': 'd',
-                 'NorMITs_Segment Band Value': 'a'})
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_ageh,
+                                               key_variable="Age",
+                                               output_variable="a")
 
     # Process NSSEC
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_nsshuk11[['HRP NSSEC','NorMITs_Segment Band Value']],
-        left_on='nsshuk11',
-        right_on='HRP NSSEC',
-        how='left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns={'NorMITs_Segment Band Value': 'n'}).dropna(subset = ['n'])
+    # TODO: Move to start as dropna reduces processing time(?)
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_nsshuk11,
+                                               key_variable="HRP NSSEC",
+                                               output_variable="n")
+    census_micro_hh_pop_working = census_micro_hh_pop_working.dropna(subset=['n'])
     census_micro_hh_pop_working['n'] = census_micro_hh_pop_working['n'].astype(int)
 
     # Process HH comp - lookup adults and cars to NorMITs and then the combination
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_ahchuk11[['Household size', 'NorMITs_Segment Band Value']],
-        left_on = 'ahchuk11',
-        right_on = 'Household size',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'NorMITs_Segment Band Value':'NorMITs_adults'})
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_carsnoc[['Household car','NorMITs_Segment Band Value']],
-        left_on = 'carsnoc',
-        right_on = 'Household car',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns={'NorMITs_Segment Band Value':'NorMITs_cars'})
-    census_micro_hh_pop_working['NorMITs_adults'] = census_micro_hh_pop_working[
-        'NorMITs_adults'].astype(str)
-    census_micro_hh_pop_working['NorMITs_cars'] = census_micro_hh_pop_working[
-        'NorMITs_cars'].astype(str)
-    census_micro_hh_pop_working['adults_cars'] = census_micro_hh_pop_working[
-        ['NorMITs_adults', 'NorMITs_cars']].agg('_'.join, axis = 1)
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_h[['Household Composition Key','Household_composition_code']],
-        left_on = 'adults_cars',
-        right_on = 'Household Composition Key',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'Household_composition_code':'h'})
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_ahchuk11,
+                                               key_variable="Household size",
+                                               output_variable="_Adults")
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_carsnoc,
+                                               key_variable="Household car",
+                                               output_variable="_Cars")
+
+    census_micro_hh_pop_working[["_Adults", "_Cars"]] = census_micro_hh_pop_working[["_Adults", "_Cars"]].astype(str)
+    census_micro_hh_pop_working['Household Composition Key'] = census_micro_hh_pop_working[["_Adults", "_Cars"]].agg('_'.join, axis=1)
+    census_micro_hh_pop_working = census_micro_hh_pop_working.drop(columns=["_Adults", "_Cars"])
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_h,
+                                               key_variable="Household Composition Key",
+                                               output_variable="h",
+                                               value_variable="Household_composition_code")
 
     # Process gender
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_sex[['Sex','NorMITs_Segment Band Value']],
-        left_on = 'sex',
-        right_on = 'Sex',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'NorMITs_Segment Band Value':'g'})
-    census_micro_hh_pop_working['g'] = np.where(
-        census_micro_hh_pop_working['a'] == 1,
-        1,
-        census_micro_hh_pop_working['g'])
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_sex,
+                                               key_variable="Sex",
+                                               output_variable="g")
+    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["a"] == 1, "g"] = 1
 
     # Process employment type
     #  - Check emplyoment type
     #  - Check age (children and retirees cannot work)
     #  - Check if students (ecopuk11 type 8) are fte or pte via hours
-    census_micro_hh_pop_working=pd.merge(
-        census_micro_hh_pop_working,
-        lookup_ecopuk11[['Employment type code','NorMITs_Segment Band Value']],
-        left_on = 'ecopuk11',
-        right_on = 'Employment type code',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'NorMITs_Segment Band Value':'e'})
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_hours[['Hours worked ','NorMITs_Segment Definition']],
-        left_on = 'hours',
-        right_on = 'Hours worked ',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'NorMITs_Segment Definition':'ft-pt'})
-    census_micro_hh_pop_working['e'] = np.where(
-        census_micro_hh_pop_working['a'] == 2,
-        np.where(
-            census_micro_hh_pop_working['Employment type code'] == 8,
-            np.where(
-                census_micro_hh_pop_working['ft-pt'] == 'fte',1, 2),
-                census_micro_hh_pop_working['e']), 5)
     census_micro_hh_pop_working['e'].replace('',np.nan, inplace = True)
     census_micro_hh_pop_working.dropna(subset = ['e'], inplace = True)
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_ecopuk11,
+                                               key_variable="Employment type code",
+                                               output_variable="e")
+
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_hours,
+                                               key_variable="Hours worked ",
+                                               output_variable="ft-pt")
+    census_micro_hh_pop_working["ft-pt"] = census_micro_hh_pop_working["ft-pt"].fillna(2)
+
+    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["Employment type code"] == 8, "e"] = census_micro_hh_pop_working['ft-pt']
+    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["a"] != 2, "e"] = 5
+
     census_micro_hh_pop_working['e'] = census_micro_hh_pop_working['e'].astype(int)
 
     # Process SOC
-    census_micro_hh_pop_working = pd.merge(
-        census_micro_hh_pop_working,
-        lookup_occg[['SOC','NorMITs_Segment Band Value']],
-        left_on = 'occg',
-        right_on = 'SOC',
-        how = 'left')
-    census_micro_hh_pop_working = census_micro_hh_pop_working.rename(
-        columns = {'NorMITs_Segment Band Value':'s'})
-    census_micro_hh_pop_working['s'] = np.where(
-        census_micro_hh_pop_working['e'] > 2, 4, census_micro_hh_pop_working['s'])
+    census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
+                                               lookup_df=lookup_occg,
+                                               key_variable="SOC",
+                                               output_variable="s")
+    census_micro_hh_pop_working.loc[census_micro_hh_pop_working["e"] > 2, "s"] = 4
     census_micro_hh_pop_working['s'] = census_micro_hh_pop_working['s'].astype(int)
     census_micro_hh_pop_working['t'] = census_micro_hh_pop_working['t'].astype(int)
 
