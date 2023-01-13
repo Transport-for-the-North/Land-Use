@@ -87,6 +87,7 @@ ntem_pop_segs = pd.read_csv(os.path.join(_NTEM_input_path, 'Pop_Segmentations.cs
 ModelName = 'NorMITs'
 Output_Folder = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
 
+
 # Define function that can be used to get 2011 NTEM data
 def ntem_pop_interpolation(census_and_by_lu_obj):
     """
@@ -242,6 +243,7 @@ def ntem_pop_interpolation(census_and_by_lu_obj):
     logging.info('3.1.1 derive 2011 population from NTEM and convert Scottish zones completed')
 
     return NTEM_HHpop
+
 
 def create_ipfn_inputs_2011(census_and_by_lu_obj):
     """
