@@ -400,13 +400,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop_pivot_workers = census_micro_hh_pop_pivot[(census_micro_hh_pop_pivot['e'] <= 2) &
                                                                   (census_micro_hh_pop_pivot['s'] < 4)]
 
-    worker_iterator = zip(census_micro_hh_pop_pivot_workers['d'],
-                          census_micro_hh_pop_pivot_workers['a'],
-                          census_micro_hh_pop_pivot_workers['g'],
-                          census_micro_hh_pop_pivot_workers['h'],
-                          census_micro_hh_pop_pivot_workers['e'])
-    census_micro_hh_pop_pivot_workers['aghe_Key'] = ['_'.join(
-        [str(d), str(a), str(g), str(h), str(e)]) for d, a, g, h, e in worker_iterator]
+    id_vars = ["d", "a", "g", "h", "e"]
+    census_micro_hh_pop_pivot_workers['aghe_Key'] = census_micro_hh_pop_pivot_workers[id_vars].astype(str).apply('_'.join, axis=1)
 
     # Create df of all possible worker ntem_tt, t, n, s combos as not all are used,
     #    furness process may require them.
@@ -432,13 +427,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                                                                    'e', 't',
                                                                                    'n', 's',
                                                                                    'caseno']]
-    non_worker_iterator = zip(census_micro_hh_pop_pivot_non_workers['d'],
-                              census_micro_hh_pop_pivot_non_workers['a'],
-                              census_micro_hh_pop_pivot_non_workers['g'],
-                              census_micro_hh_pop_pivot_non_workers['h'],
-                              census_micro_hh_pop_pivot_non_workers['e'])
-    census_micro_hh_pop_pivot_non_workers['aghe_Key'] = ['_'.join(
-        [str(d), str(a), str(g), str(h), str(e)]) for d, a, g, h, e in non_worker_iterator]
+    id_vars = ["d", "a", "g", "h", "e"]
+    census_micro_hh_pop_pivot_non_workers['aghe_Key'] = census_micro_hh_pop_pivot_non_workers[id_vars].astype(str).apply('_'.join, axis=1)
 
     # Create df of all possible nonworker ntem_tt, t, n, s combos as not all are used,
     #    furness process may require them.
