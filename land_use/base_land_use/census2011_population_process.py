@@ -285,7 +285,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # Obtain 2011 Census data
     # Start processing data
     # Only the following vairiables are required from the census micro data
-    census_micro_trimmed = census_micro[[
+    # Census Micro -> cen_m
+    cen_m = census_micro[[
         'caseno',
         'la_group',  # 'country', 'region',
         'residence_type', 'typaccom',
@@ -293,10 +294,10 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         'ahchuk11', 'carsnoc',
         'ecopuk11', 'hours', 'occg']]
     # Split into household (hh) population and shared dwelling population
-    census_micro_hh_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 2]
-    census_micro_cer_pop = census_micro_trimmed[census_micro_trimmed.residence_type == 1]
+    cen_m_hh_pop = cen_m[cen_m.residence_type == 2]
+    cen_m_cer_pop = cen_m[cen_m.residence_type == 1]
 
-    census_micro_hh_pop = census_micro_hh_pop.rename(columns={
+    cen_m_hh_pop = cen_m_hh_pop.rename(columns={
         "ageh": "Age", "sex": "Sex", "nsshuk11": "HRP NSSEC",
         "ahchuk11": "Household size", "carsnoc": "Household car",
         "ecopuk11": "Employment type code", "hours": "Hours worked ", "occg": "SOC"
@@ -319,96 +320,80 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         return master_df
 
     # Process NSSEC
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_nsshuk11,
-                                       key_variable="HRP NSSEC",
-                                       output_variable="n")
-    census_micro_hh_pop = census_micro_hh_pop.dropna(subset=['n'])
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_nsshuk11,
+                                key_variable="HRP NSSEC", output_variable="n")
+    cen_m_hh_pop = cen_m_hh_pop.dropna(subset=['n'])
 
     # Process age
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_ageh,
-                                       key_variable="Age",
-                                       output_variable="a")
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_ageh,
+                                key_variable="Age", output_variable="a")
 
     # Process gender
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_sex,
-                                       key_variable="Sex",
-                                       output_variable="g")
-    census_micro_hh_pop.loc[census_micro_hh_pop["a"] == 1, "g"] = 1
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_sex,
+                                key_variable="Sex", output_variable="g")
+    cen_m_hh_pop.loc[cen_m_hh_pop["a"] == 1, "g"] = 1
 
     # Process employment type
-    #  - Check emplyoment type
+    #  - Check employment type
     #  - Check age (children and retirees cannot work)
     #  - Check if students (ecopuk11 type 8) are fte or pte via hours
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_ecopuk11,
-                                       key_variable="Employment type code",
-                                       output_variable="e")
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_hours,
-                                       key_variable="Hours worked ",
-                                       output_variable="ft-pt")
-    census_micro_hh_pop["ft-pt"] = census_micro_hh_pop["ft-pt"].fillna(2)
-    census_micro_hh_pop.loc[census_micro_hh_pop["Employment type code"] == 8, "e"] = census_micro_hh_pop['ft-pt']
-    census_micro_hh_pop.loc[census_micro_hh_pop["a"] != 2, "e"] = 5
-    census_micro_hh_pop['e'].replace('', np.nan, inplace=True)
-    census_micro_hh_pop.dropna(subset=['e'], inplace=True)
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_ecopuk11,
+                                key_variable="Employment type code", output_variable="e")
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_hours,
+                                key_variable="Hours worked ", output_variable="ft-pt")
+    cen_m_hh_pop["ft-pt"] = cen_m_hh_pop["ft-pt"].fillna(2)
+    cen_m_hh_pop.loc[cen_m_hh_pop["Employment type code"] == 8, "e"] = cen_m_hh_pop['ft-pt']
+    cen_m_hh_pop.loc[cen_m_hh_pop["a"] != 2, "e"] = 5
+    cen_m_hh_pop['e'].replace('', np.nan, inplace=True)
+    cen_m_hh_pop.dropna(subset=['e'], inplace=True)
 
     # Process SOC
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_occg,
-                                       key_variable="SOC",
-                                       output_variable="s")
-    census_micro_hh_pop.loc[census_micro_hh_pop["e"].astype(int) > 2, "s"] = 4
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_occg,
+                                key_variable="SOC", output_variable="s")
+    cen_m_hh_pop.loc[cen_m_hh_pop["e"].astype(int) > 2, "s"] = 4
 
     # Process HH comp - lookup adults and cars to NorMITs and then the combination
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_ahchuk11,
-                                       key_variable="Household size",
-                                       output_variable="_Adults")
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_carsnoc,
-                                       key_variable="Household car",
-                                       output_variable="_Cars")
-    census_micro_hh_pop[["_Adults", "_Cars"]] = census_micro_hh_pop[["_Adults", "_Cars"]].astype(str)
-    census_micro_hh_pop['Household Composition Key'] = census_micro_hh_pop[["_Adults", "_Cars"]].agg('_'.join, axis=1)
-    census_micro_hh_pop = lookup_merge(master_df=census_micro_hh_pop,
-                                       lookup_df=lookup_h,
-                                       key_variable="Household Composition Key",
-                                       output_variable="h",
-                                       value_variable="Household_composition_code")
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_ahchuk11,
+                                key_variable="Household size", output_variable="_Adults")
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_carsnoc,
+                                key_variable="Household car",  output_variable="_Cars")
+    cen_m_hh_pop[["_Adults", "_Cars"]] = cen_m_hh_pop[["_Adults", "_Cars"]].astype(str)
+    cen_m_hh_pop['Household Composition Key'] = cen_m_hh_pop[["_Adults", "_Cars"]].agg('_'.join, axis=1)
+    cen_m_hh_pop = lookup_merge(master_df=cen_m_hh_pop, lookup_df=lookup_h,
+                                key_variable="Household Composition Key", output_variable="h",
+                                value_variable="Household_composition_code")
 
     # Type and column name formatting
-    census_micro_hh_pop = census_micro_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
-    census_micro_hh_pop[["e", "s", "t", "n"]] = census_micro_hh_pop[["e", "s", "t", "n"]].astype(int)
+    cen_m_hh_pop = cen_m_hh_pop.rename(columns={'la_group': 'd', 'typaccom': 't'})
+    cen_m_hh_pop[["e", "s", "t", "n"]] = cen_m_hh_pop[["e", "s", "t", "n"]].astype(int)
 
+    ##################
     # POST FORMATTING
+    ##################
     # Have now produced all values
     # Trim down to just d,a,g,h,e,t,n,s (plus caseno)
-    census_micro_hh_pop_by_caseno = census_micro_hh_pop[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
+    cen_m_hh_pop_by_caseno = cen_m_hh_pop[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
 
     # Group into unique a, g, h, e, t, n, s to get workers "pivot table"
-    census_micro_hh_pop_pivot = census_micro_hh_pop_by_caseno.copy()
-    census_micro_hh_pop_pivot = census_micro_hh_pop_pivot.groupby(
+    cen_m_hh_pop_pivot = cen_m_hh_pop_by_caseno.copy()
+    cen_m_hh_pop_pivot = cen_m_hh_pop_pivot.groupby(
         ['d','a','g','h','e','t','n','s'])['caseno'].nunique().reset_index()
 
     ###########
     # WORKERS
     ###########
-    census_micro_hh_pop_pivot_workers = census_micro_hh_pop_pivot[(census_micro_hh_pop_pivot['e'] <= 2) &
-                                                                  (census_micro_hh_pop_pivot['s'] < 4)]
+    cen_m_hh_pop_pivot_workers = cen_m_hh_pop_pivot[(cen_m_hh_pop_pivot['e'] <= 2) &
+                                                                  (cen_m_hh_pop_pivot['s'] < 4)]
 
     id_vars = ["d", "a", "g", "h", "e"]
-    census_micro_hh_pop_pivot_workers['aghe_Key'] = census_micro_hh_pop_pivot_workers[id_vars].astype(str).apply('_'.join, axis=1)
+    cen_m_hh_pop_pivot_workers['aghe_Key'] = cen_m_hh_pop_pivot_workers[id_vars].astype(str).apply('_'.join, axis=1)
 
     # Create df of all possible worker ntem_tt, t, n, s combos as not all are used,
     #    furness process may require them.
-    ntem_tt_workers = census_micro_hh_pop_pivot_workers['aghe_Key'].str[-7:].unique()
-    workers_t = census_micro_hh_pop_pivot_workers['t'].unique()
-    workers_n = census_micro_hh_pop_pivot_workers['n'].unique()
-    workers_s = census_micro_hh_pop_pivot_workers['s'].unique()
+    ntem_tt_workers = cen_m_hh_pop_pivot_workers['aghe_Key'].str[-7:].unique()
+    workers_t = cen_m_hh_pop_pivot_workers['t'].unique()
+    workers_n = cen_m_hh_pop_pivot_workers['n'].unique()
+    workers_s = cen_m_hh_pop_pivot_workers['s'].unique()
     all_workers_tt_t_n_s = pd.DataFrame(itertools.product(ntem_tt_workers, workers_t, workers_n, workers_s))
     all_workers_tt_t_n_s = all_workers_tt_t_n_s.rename(columns={0: 'ntem_tt_Key', 1: 't', 2: 'n', 3: 's'})
 
@@ -416,48 +401,47 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # NON WORKERS
     ###########
     # Group into unique a, g, h, e, t, n to get non-workers "pivot table"
-    census_micro_hh_pop_pivot2 = census_micro_hh_pop_by_caseno.groupby(
+    cen_m_hh_pop_pivot2 = cen_m_hh_pop_by_caseno.groupby(
         ['d','a','g','h','e','t','n'])['caseno'].nunique().reset_index()
-    census_micro_hh_pop_pivot_non_workers = census_micro_hh_pop_pivot2[census_micro_hh_pop_pivot2['e'] > 2]
+    cen_m_hh_pop_pivot_non_workers = cen_m_hh_pop_pivot2[cen_m_hh_pop_pivot2['e'] > 2]
 
 
-    census_micro_hh_pop_pivot_non_workers['s'] = 4 # Explictally state we are looking at non-workers
-    census_micro_hh_pop_pivot_non_workers = census_micro_hh_pop_pivot_non_workers[['d', 'a',
-                                                                                   'g', 'h',
-                                                                                   'e', 't',
-                                                                                   'n', 's',
-                                                                                   'caseno']]
+    cen_m_hh_pop_pivot_non_workers['s'] = 4 # Explictally state we are looking at non-workers
+    cen_m_hh_pop_pivot_non_workers = cen_m_hh_pop_pivot_non_workers[['d', 'a',
+                                                                     'g', 'h',
+                                                                     'e', 't',
+                                                                     'n', 's',
+                                                                     'caseno']]
     id_vars = ["d", "a", "g", "h", "e"]
-    census_micro_hh_pop_pivot_non_workers['aghe_Key'] = census_micro_hh_pop_pivot_non_workers[id_vars].astype(str).apply('_'.join, axis=1)
+    cen_m_hh_pop_pivot_non_workers['aghe_Key'] = cen_m_hh_pop_pivot_non_workers[id_vars].astype(str).apply('_'.join, axis=1)
 
     # Create df of all possible nonworker ntem_tt, t, n, s combos as not all are used,
     #    furness process may require them.
-    ntem_tt_non_workers = census_micro_hh_pop_pivot_non_workers['aghe_Key'].str[-7:].unique()
-    non_workers_t = census_micro_hh_pop_pivot_non_workers['t'].unique()
-    non_workers_n = census_micro_hh_pop_pivot_non_workers['n'].unique()
+    ntem_tt_non_workers = cen_m_hh_pop_pivot_non_workers['aghe_Key'].str[-7:].unique()
+    non_workers_t = cen_m_hh_pop_pivot_non_workers['t'].unique()
+    non_workers_n = cen_m_hh_pop_pivot_non_workers['n'].unique()
     all_non_workers_tt_t_n = pd.DataFrame(itertools.product(ntem_tt_non_workers, non_workers_t, non_workers_n))
     all_non_workers_tt_t_n = all_non_workers_tt_t_n.rename(columns={0: 'ntem_tt_Key', 1: 't', 2: 'n'})
     all_non_workers_tt_t_n_s = all_non_workers_tt_t_n.copy()
     all_non_workers_tt_t_n_s['s'] = 4 # s is always 4 for nonworkers, see above
 
     # Group into unique a, g, h, e to get P_(a, g, h, e)
-    census_micro_hh_pop_pivot_pop_aghe = census_micro_hh_pop_by_caseno.groupby(
+    cen_m_hh_pop_pivot_pop_aghe = cen_m_hh_pop_by_caseno.groupby(
         ['d','a','g','h','e'])['caseno'].nunique().reset_index()
-    population_iterator = zip(census_micro_hh_pop_pivot_pop_aghe['d'],
-                              census_micro_hh_pop_pivot_pop_aghe['a'],
-                              census_micro_hh_pop_pivot_pop_aghe['g'],
-                              census_micro_hh_pop_pivot_pop_aghe['h'],
-                              census_micro_hh_pop_pivot_pop_aghe['e'])
-    census_micro_hh_pop_pivot_pop_aghe['aghe_Key'] = ['_'.join(
+    population_iterator = zip(cen_m_hh_pop_pivot_pop_aghe['d'],
+                              cen_m_hh_pop_pivot_pop_aghe['a'],
+                              cen_m_hh_pop_pivot_pop_aghe['g'],
+                              cen_m_hh_pop_pivot_pop_aghe['h'],
+                              cen_m_hh_pop_pivot_pop_aghe['e'])
+    cen_m_hh_pop_pivot_pop_aghe['aghe_Key'] = ['_'.join(
         [str(d), str(a), str(g), str(h), str(e)]) for d, a, g, h, e in population_iterator]
-    census_micro_hh_pop_pivot_pop_aghe = census_micro_hh_pop_pivot_pop_aghe.drop(columns=['d', 'a', 'g', 'h', 'e'])
+    cen_m_hh_pop_pivot_pop_aghe = cen_m_hh_pop_pivot_pop_aghe.drop(columns=['d', 'a', 'g', 'h', 'e'])
 
-    all_pop_aghetns_combos = all_workers_tt_t_n_s.append(
-        all_non_workers_tt_t_n_s, ignore_index=True)
+    all_pop_aghetns_combos = all_workers_tt_t_n_s.append(all_non_workers_tt_t_n_s, ignore_index=True)
 
     # Find and replace missing zonal Census micro NTEM traveller types with EW averages
     # Find missing NTEM_tts.
-    missing_tt_df = census_micro_hh_pop_pivot_pop_aghe.copy()
+    missing_tt_df = cen_m_hh_pop_pivot_pop_aghe.copy()
     missing_tt_df = missing_tt_df[['aghe_Key']]
     missing_tt_df['aghe_Key'] = missing_tt_df['aghe_Key'].str[-7:]
     missing_tt_df = missing_tt_df.drop_duplicates(subset=['aghe_Key']).reset_index()
@@ -480,27 +464,20 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
 
     missing_tt_df = pd.DataFrame(itertools.product(model_districts['Grouped_LA'], missing_tt_df['aghe_Key']))
     missing_tt_df = missing_tt_df.rename(columns={0: 'z', 1: 'aghe_key'})
-    missing_tt_df['aghe_Key'] = [
-        '_'.join([str(x), y]) for x, y in zip(missing_tt_df['z'], missing_tt_df['aghe_key'])]
+    missing_tt_df['aghe_Key'] = ['_'.join([str(x), y]) for x, y in zip(missing_tt_df['z'], missing_tt_df['aghe_key'])]
     missing_tt_df = missing_tt_df[['aghe_Key', 'z', 'aghe_key']]
 
     # START - Formula from next (original f creating) cell
     # Create function that relates tns to aghe
-    census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_workers.append(
-        census_micro_hh_pop_pivot_non_workers, ignore_index=True)
-    census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_aghe.rename(
-        columns={'caseno': 'Persons'})
-    census_micro_hh_pop_pivot_aghe = pd.merge(census_micro_hh_pop_pivot_aghe,
-                                              census_micro_hh_pop_pivot_pop_aghe,
-                                              on='aghe_Key')
-    census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_aghe.rename(
-        columns={'caseno': 'P_aghe'})
+    cen_m_hh_pop_pivot_aghe = cen_m_hh_pop_pivot_workers.append(cen_m_hh_pop_pivot_non_workers, ignore_index=True)
+    cen_m_hh_pop_pivot_aghe = cen_m_hh_pop_pivot_aghe.rename(columns={'caseno': 'Persons'})
+    cen_m_hh_pop_pivot_aghe = pd.merge(cen_m_hh_pop_pivot_aghe, cen_m_hh_pop_pivot_pop_aghe, on='aghe_Key')
+    cen_m_hh_pop_pivot_aghe = cen_m_hh_pop_pivot_aghe.rename(columns={'caseno': 'P_aghe'})
     # New bit
-    average_EW_f = census_micro_hh_pop_pivot_aghe.copy()
+    average_EW_f = cen_m_hh_pop_pivot_aghe.copy()
     average_EW_f['aghe_Key'] = average_EW_f['aghe_Key'].str[-7:]
-    average_EW_f = average_EW_f.groupby(
-        ['aghe_Key', 't', 'n', 's'])['Persons'].sum().reset_index()
-    P_for_average_EW_f = census_micro_hh_pop_pivot_aghe.copy()
+    average_EW_f = average_EW_f.groupby(['aghe_Key', 't', 'n', 's'])['Persons'].sum().reset_index()
+    P_for_average_EW_f = cen_m_hh_pop_pivot_aghe.copy()
     P_for_average_EW_f = P_for_average_EW_f.drop_duplicates(subset=['aghe_Key']).reset_index()
     P_for_average_EW_f['aghe_Key'] = P_for_average_EW_f['aghe_Key'].str[-7:]
     P_for_average_EW_f = P_for_average_EW_f.groupby('aghe_Key')['P_aghe'].sum().reset_index()
@@ -511,15 +488,13 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     average_EW_f = average_EW_f.drop(columns=['Persons', 'P_aghe'])
 
     #End new bit
-    census_micro_hh_pop_pivot_aghe['f_tns/aghe'] = (census_micro_hh_pop_pivot_aghe['Persons']
-                                                    / census_micro_hh_pop_pivot_aghe['P_aghe'])
-    census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_aghe.drop(
-        columns=['Persons', 'P_aghe'])
+    cen_m_hh_pop_pivot_aghe['f_tns/aghe'] = cen_m_hh_pop_pivot_aghe['Persons'] / cen_m_hh_pop_pivot_aghe['P_aghe']
+    cen_m_hh_pop_pivot_aghe = cen_m_hh_pop_pivot_aghe.drop(columns=['Persons', 'P_aghe'])
     # END - Formula from next (original f creating) cell
 
-    fill_missing_aghe = missing_tt_df.copy() # Create df to become output of process
-    fill_missing_aghe = pd.merge(fill_missing_aghe, census_micro_hh_pop_pivot_aghe, how='outer')
-    find_missing_aghe = fill_missing_aghe.copy() # Create df to become 'missing' rows only
+    fill_missing_aghe = missing_tt_df.copy()  # Create df to become output of process
+    fill_missing_aghe = pd.merge(fill_missing_aghe, cen_m_hh_pop_pivot_aghe, how='outer')
+    find_missing_aghe = fill_missing_aghe.copy()  # Create df to become 'missing' rows only
     find_missing_aghe = find_missing_aghe[fill_missing_aghe.isnull().any(axis=1)].reset_index()
     find_missing_aghe = find_missing_aghe[['aghe_Key']]
     find_missing_aghe['flag'] = 'flag' # flag the missing rows to attach to a df of all possible daghe combos
@@ -558,7 +533,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         missing_aghe, ignore_index=True)
     fill_missing_aghe.sort_values(by=['d', 'aghe_key', 't', 'n', 's',], inplace=True)
     fill_missing_aghe = fill_missing_aghe.reset_index().drop(columns=['index'])
-    fill_missing_aghe = fill_missing_aghe[census_micro_hh_pop_pivot_aghe.columns]
+    fill_missing_aghe = fill_missing_aghe[cen_m_hh_pop_pivot_aghe.columns]
     # Name output of this process something that makes a bit more sense in later stages!
     cencus_micro_complete_f = fill_missing_aghe.copy()
 
