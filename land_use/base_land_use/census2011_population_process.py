@@ -371,8 +371,6 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     #  - Check emplyoment type
     #  - Check age (children and retirees cannot work)
     #  - Check if students (ecopuk11 type 8) are fte or pte via hours
-    census_micro_hh_pop_working['e'].replace('',np.nan, inplace = True)
-    census_micro_hh_pop_working.dropna(subset = ['e'], inplace = True)
     census_micro_hh_pop_working = lookup_merge(master_df=census_micro_hh_pop_working,
                                                lookup_df=lookup_ecopuk11,
                                                key_variable="Employment type code",
@@ -387,6 +385,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop_working.loc[census_micro_hh_pop_working["Employment type code"] == 8, "e"] = census_micro_hh_pop_working['ft-pt']
     census_micro_hh_pop_working.loc[census_micro_hh_pop_working["a"] != 2, "e"] = 5
 
+    census_micro_hh_pop_working['e'].replace('', np.nan, inplace=True)
+    census_micro_hh_pop_working.dropna(subset=['e'], inplace=True)
     census_micro_hh_pop_working['e'] = census_micro_hh_pop_working['e'].astype(int)
 
     # Process SOC
@@ -400,9 +400,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
 
     # Have now produced all values
     # Trim down to just d,a,g,h,e,t,n,s (plus caseno)
-    census_micro_hh_pop_by_caseno = census_micro_hh_pop_working[['caseno', 'd', 'a',
-                                                                 'g', 'h', 'e',
-                                                                 't', 'n', 's']]
+    census_micro_hh_pop_by_caseno = census_micro_hh_pop_working[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
 
     # Group into unique a, g, h, e, t, n, s to get workers "pivot table"
     census_micro_hh_pop_pivot = census_micro_hh_pop_by_caseno.copy()
@@ -427,7 +425,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     workers_n = census_micro_hh_pop_pivot_workers['n'].unique()
     workers_s = census_micro_hh_pop_pivot_workers['s'].unique()
     all_workers_tt_t_n_s = pd.DataFrame(itertools.product(ntem_tt_workers, workers_t, workers_n, workers_s))
-    all_workers_tt_t_n_s = all_workers_tt_t_n_s.rename(columns = {0:'ntem_tt_Key', 1:'t', 2:'n', 3:'s'})
+    all_workers_tt_t_n_s = all_workers_tt_t_n_s.rename(columns={0:'ntem_tt_Key', 1:'t', 2:'n', 3:'s'})
 
     # Group into unique a, g, h, e, t, n to get non-workers "pivot table"
     census_micro_hh_pop_pivot2 = census_micro_hh_pop_by_caseno.groupby(
@@ -456,7 +454,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     non_workers_t = census_micro_hh_pop_pivot_non_workers['t'].unique()
     non_workers_n = census_micro_hh_pop_pivot_non_workers['n'].unique()
     all_non_workers_tt_t_n = pd.DataFrame(itertools.product(ntem_tt_non_workers, non_workers_t, non_workers_n))
-    all_non_workers_tt_t_n = all_non_workers_tt_t_n.rename(columns = {0:'ntem_tt_Key', 1:'t', 2:'n'})
+    all_non_workers_tt_t_n = all_non_workers_tt_t_n.rename(columns={0: 'ntem_tt_Key', 1: 't', 2: 'n'})
     all_non_workers_tt_t_n_s = all_non_workers_tt_t_n.copy()
     all_non_workers_tt_t_n_s['s'] = 4 # s is always 4 for nonworkers, see above
 
@@ -470,9 +468,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                               census_micro_hh_pop_pivot_pop_aghe['e'])
     census_micro_hh_pop_pivot_pop_aghe['aghe_Key'] = ['_'.join(
         [str(d), str(a), str(g), str(h), str(e)]) for d, a, g, h, e in population_iterator]
-    census_micro_hh_pop_pivot_pop_aghe = census_micro_hh_pop_pivot_pop_aghe.drop(columns = ['d', 'a',
-                                                                                            'g', 'h',
-                                                                                            'e'])
+    census_micro_hh_pop_pivot_pop_aghe = census_micro_hh_pop_pivot_pop_aghe.drop(columns=['d', 'a', 'g', 'h', 'e'])
 
     all_pop_aghetns_combos = all_workers_tt_t_n_s.append(
         all_non_workers_tt_t_n_s, ignore_index=True)
@@ -483,7 +479,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     missing_tt_df = missing_tt_df[['aghe_Key']]
     missing_tt_df['aghe_Key'] = missing_tt_df['aghe_Key'].str[-7:]
     missing_tt_df = missing_tt_df.drop_duplicates(subset=['aghe_Key']).reset_index()
-    missing_tt_df = missing_tt_df.drop(columns = ['index'])
+    missing_tt_df = missing_tt_df.drop(columns=['index'])
     expected_tt_count = 88
     if len(missing_tt_df) == expected_tt_count:
         print('No globally missing NTEM_tt')
@@ -498,10 +494,10 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     model_districts = model_districts.dropna(subset=['Grouped_LA'])
     model_districts['Grouped_LA'] = model_districts['Grouped_LA'].astype(int)
     model_districts = model_districts.sort_values('Grouped_LA').reset_index()
-    model_districts = model_districts.drop(columns = ['index', 'level_0'])
+    model_districts = model_districts.drop(columns=['index', 'level_0'])
 
     missing_tt_df = pd.DataFrame(itertools.product(model_districts['Grouped_LA'], missing_tt_df['aghe_Key']))
-    missing_tt_df = missing_tt_df.rename(columns = {0:'z', 1:'aghe_key'})
+    missing_tt_df = missing_tt_df.rename(columns={0:'z', 1:'aghe_key'})
     missing_tt_df['aghe_Key'] = [
         '_'.join([str(x), y]) for x, y in zip(missing_tt_df['z'], missing_tt_df['aghe_key'])]
     missing_tt_df = missing_tt_df[['aghe_Key', 'z', 'aghe_key']]
@@ -511,12 +507,12 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_workers.append(
         census_micro_hh_pop_pivot_non_workers, ignore_index=True)
     census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_aghe.rename(
-        columns = {'caseno':'Persons'})
+        columns={'caseno': 'Persons'})
     census_micro_hh_pop_pivot_aghe = pd.merge(census_micro_hh_pop_pivot_aghe,
                                               census_micro_hh_pop_pivot_pop_aghe,
                                               on='aghe_Key')
     census_micro_hh_pop_pivot_aghe = census_micro_hh_pop_pivot_aghe.rename(
-        columns = {'caseno':'P_aghe'})
+        columns={'caseno': 'P_aghe'})
     # New bit
     average_EW_f = census_micro_hh_pop_pivot_aghe.copy()
     average_EW_f['aghe_Key'] = average_EW_f['aghe_Key'].str[-7:]
@@ -527,10 +523,10 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     P_for_average_EW_f['aghe_Key'] = P_for_average_EW_f['aghe_Key'].str[-7:]
     P_for_average_EW_f = P_for_average_EW_f.groupby('aghe_Key')['P_aghe'].sum().reset_index()
 
-    average_EW_f = pd.merge(average_EW_f, P_for_average_EW_f, how = 'left')
-    average_EW_f['f_tns/aghe'] = (average_EW_f ['Persons'] / average_EW_f ['P_aghe'])
-    average_EW_f = average_EW_f.rename(columns = {'aghe_Key':'aghe_key'})
-    average_EW_f = average_EW_f.drop(columns = ['Persons', 'P_aghe'])
+    average_EW_f = pd.merge(average_EW_f, P_for_average_EW_f, how='left')
+    average_EW_f['f_tns/aghe'] = (average_EW_f['Persons'] / average_EW_f ['P_aghe'])
+    average_EW_f = average_EW_f.rename(columns={'aghe_Key': 'aghe_key'})
+    average_EW_f = average_EW_f.drop(columns=['Persons', 'P_aghe'])
 
     #End new bit
     census_micro_hh_pop_pivot_aghe['f_tns/aghe'] = (census_micro_hh_pop_pivot_aghe['Persons']
@@ -540,7 +536,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # END - Formula from next (original f creating) cell
 
     fill_missing_aghe = missing_tt_df.copy() # Create df to become output of process
-    fill_missing_aghe = pd.merge(fill_missing_aghe, census_micro_hh_pop_pivot_aghe, how = 'outer')
+    fill_missing_aghe = pd.merge(fill_missing_aghe, census_micro_hh_pop_pivot_aghe, how='outer')
     find_missing_aghe = fill_missing_aghe.copy() # Create df to become 'missing' rows only
     find_missing_aghe = find_missing_aghe[fill_missing_aghe.isnull().any(axis=1)].reset_index()
     find_missing_aghe = find_missing_aghe[['aghe_Key']]
@@ -554,7 +550,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
 
     # Create every possible d, a, g, h, e, t, n, s combination
     fill_missing_aghe_all_combos = missing_tt_df.copy()
-    fill_missing_aghe_all_combos = pd.merge(fill_missing_aghe_all_combos, average_EW_f, how = 'outer')
+    fill_missing_aghe_all_combos = pd.merge(fill_missing_aghe_all_combos, average_EW_f, how='outer')
 
     # Attach the flags that say a combination is missing in the Census Microdata
     #     to the matching instances in the df that contains every possible
@@ -562,8 +558,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # Then cut the df down to just the 'missing' rows.
     # Finally reformat the df to match fill_missing_aghe frame for easy appending.
     missing_aghe = fill_missing_aghe_all_combos.copy()
-    missing_aghe = pd.merge(missing_aghe, find_missing_aghe, how = 'outer')
-    missing_aghe = missing_aghe.dropna(subset=['flag']).drop(columns = ['flag'])
+    missing_aghe = pd.merge(missing_aghe, find_missing_aghe, how='outer')
+    missing_aghe = missing_aghe.dropna(subset=['flag']).drop(columns=['flag'])
     missing_aghe['d'] = missing_aghe['z']
     missing_aghe['a'] = missing_aghe['aghe_key'].str[0].astype(int)
     missing_aghe['g'] = missing_aghe['aghe_key'].str[2].astype(int)
@@ -577,9 +573,9 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # Append all the rows we flagged as being required to fill in missing values to the df
     #     where we first noted they were missing.
     fill_missing_aghe = fill_missing_aghe.append(
-        missing_aghe, ignore_index = True)
-    fill_missing_aghe.sort_values(by = ['d', 'aghe_key', 't', 'n', 's',], inplace = True)
-    fill_missing_aghe = fill_missing_aghe.reset_index().drop(columns = ['index'])
+        missing_aghe, ignore_index=True)
+    fill_missing_aghe.sort_values(by=['d', 'aghe_key', 't', 'n', 's',], inplace=True)
+    fill_missing_aghe = fill_missing_aghe.reset_index().drop(columns=['index'])
     fill_missing_aghe = fill_missing_aghe[census_micro_hh_pop_pivot_aghe.columns]
     # Name output of this process something that makes a bit more sense in later stages!
     cencus_micro_complete_f = fill_missing_aghe.copy()
@@ -601,14 +597,14 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                                'Grouped_LA',
                                                'NorMITs_Region']]
     lookup_geography_z2d2r = lookup_geography_z2d2r.rename(
-        columns={'NorMITs_Zone':'z','Grouped_LA':'d', 'NorMITs_Region':'r'})
+        columns={'NorMITs_Zone': 'z','Grouped_LA': 'd', 'NorMITs_Region': 'r'})
     NTEM_pop_2011_trim = pd.merge(NTEM_pop_2011_trim,
                                   lookup_geography_z2d2r,
                                   on='z')
 
     # Drop the Scottish districts and apply f to England and Wales
     NTEM_pop_2011_EW = NTEM_pop_2011_trim.copy()
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.dropna(subset = ['d']) # Only Scotland has n/a in districts
+    NTEM_pop_2011_EW = NTEM_pop_2011_EW.dropna(subset=['d']) # Only Scotland has n/a in districts
     test_tot_EW = NTEM_pop_2011_EW['P_NTEM'].sum()
     NTEM_pop_2011_EW['d'] = NTEM_pop_2011_EW['d'].astype(int)
     NTEM_population_iterator_EW = zip(NTEM_pop_2011_EW['d'],
@@ -621,10 +617,8 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     NTEM_pop_2011_EW = pd.merge(NTEM_pop_2011_EW,
                                 cencus_micro_complete_f,
                                 on='aghe_Key')
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.drop(
-        columns = ['d_x','a_x','g_x','h_x','e_x'])
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.rename(
-        columns = {'d_y':'d', 'a_y':'a', 'g_y':'g', 'h_y':'h', 'e_y':'e'})
+    NTEM_pop_2011_EW = NTEM_pop_2011_EW.drop(columns=['d_x', 'a_x', 'g_x', 'h_x', 'e_x'])
+    NTEM_pop_2011_EW = NTEM_pop_2011_EW.rename(columns={'d_y': 'd', 'a_y': 'a', 'g_y': 'g', 'h_y': 'h', 'e_y': 'e'})
 
     # Filter to obtain just North East/North West.
     # Recalculate f by A for these regions.
@@ -640,10 +634,10 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                   NTEM_pop_2011_NENW_Aaghe,
                                   how='left',
                                   left_on=['A','a', 'g', 'h', 'e'],
-                                  right_on = ['A','a', 'g', 'h', 'e'])
+                                  right_on=['A','a', 'g', 'h', 'e'])
     NTEM_pop_2011_NENW = NTEM_pop_2011_NENW.rename(
-        columns = {'P_NTEM_x':'Persons',
-                   'P_NTEM_y':'P_aghe'})
+        columns={'P_NTEM_x': 'Persons',
+                   'P_NTEM_y': 'P_aghe'})
     NTEM_pop_2011_NENW['f_tns/aghe'] = (NTEM_pop_2011_NENW['Persons']
                                         / NTEM_pop_2011_NENW['P_aghe'])
     NTEM_pop_2011_NENW = NTEM_pop_2011_NENW [['A', 'a', 'g', 'h', 'e', 't', 'n', 's', 'f_tns/aghe']]
@@ -670,16 +664,16 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         for A, a, g, h, e in NTEM_population_iterator_S]
     NTEM_pop_2011_S = pd.merge(NTEM_pop_2011_S,
                                NTEM_pop_2011_NENW,
-                               on = 'Aaghe_Key')
+                               on='Aaghe_Key')
     NTEM_pop_2011_S = NTEM_pop_2011_S.drop(
-        columns = ['A_x', 'a_x', 'g_x', 'h_x', 'e_x', 'Aaghe_Key'])
+        columns=['A_x', 'a_x', 'g_x', 'h_x', 'e_x', 'Aaghe_Key'])
     NTEM_pop_2011_S = NTEM_pop_2011_S.rename(
-        columns = {'A_y':'A', 'a_y':'a', 'g_y':'g', 'h_y':'h', 'e_y':'e'})
+        columns={'A_y': 'A', 'a_y': 'a', 'g_y': 'g', 'h_y': 'h', 'e_y': 'e'})
     NTEM_pop_2011_S['d'] = NTEM_pop_2011_S['d'].fillna(0).astype(int)
     NTEM_pop_2011_S['r'] = NTEM_pop_2011_S['r'].fillna('Scotland')
 
     # Merge the England&Wales and Scotland dataframes
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.drop(columns = ['aghe_Key'])
+    NTEM_pop_2011_EW = NTEM_pop_2011_EW.drop(columns=['aghe_Key'])
     NTEM_pop_2011_col_order = ['z', 'A', 'd', 'r', 'a', 'g', 'h', 'e', 't', 'n', 's',
                                'ntem_tt', 'P_NTEM', 'f_tns/aghe']
     NTEM_pop_2011_EW = NTEM_pop_2011_EW[NTEM_pop_2011_col_order]
@@ -701,7 +695,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     NTEM_workers_2011_GB = NTEM_workers_2011_GB.groupby(
         ['z'])['P_NTEM'].sum().reset_index()
     NTEM_workers_2011_GB = NTEM_workers_2011_GB.rename(
-        columns = {'P_NTEM':'Workers_NTEM'})
+        columns={'P_NTEM': 'Workers_NTEM'})
 
     # Start seed creation process
     all_zones = NTEM_pop_2011_GB['z'].unique()
@@ -715,17 +709,15 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     all_pop_z_tt_t_n_s = pd.DataFrame(itertools.product(
         all_zones,
         all_pop_aghetns_combos['all_aghetns']))
-    all_pop_z_tt_t_n_s = all_pop_z_tt_t_n_s.rename(columns = {0:'z', 1:'aghetns'})
+    all_pop_z_tt_t_n_s = all_pop_z_tt_t_n_s.rename(columns={0: 'z', 1: 'aghetns'})
     all_pop_z_tt_t_n_s['zaghetns'] = [
-        '_'.join(i) for i in zip(all_pop_z_tt_t_n_s['z'].map(str),
-                                 all_pop_z_tt_t_n_s['aghetns'])]
-    all_pop_z_tt_t_n_s = all_pop_z_tt_t_n_s[['z','zaghetns']]
+        '_'.join(i) for i in zip(all_pop_z_tt_t_n_s['z'].map(str), all_pop_z_tt_t_n_s['aghetns'])]
+    all_pop_z_tt_t_n_s = all_pop_z_tt_t_n_s[['z', 'zaghetns']]
 
     # This step is required to remove duplicate zaghetns combos in Scotland.
     # These occur as Scottish zones can have multiple area types
     #    and are determined by Area type.
-    NTEM_pop_2011_GB['P_aghetns'] = (NTEM_pop_2011_GB['f_tns/aghe']
-                                     * NTEM_pop_2011_GB['P_NTEM'])
+    NTEM_pop_2011_GB['P_aghetns'] = NTEM_pop_2011_GB['f_tns/aghe'] * NTEM_pop_2011_GB['P_NTEM']
     NTEM_aghetns_iterator = zip(NTEM_pop_2011_GB['z'],
                                 NTEM_pop_2011_GB['a'],
                                 NTEM_pop_2011_GB['g'],
@@ -741,9 +733,9 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
         ['z', 'a', 'g', 'h', 'e', 't', 'n', 's', 'ntem_tt', 'zaghetns'])['P_aghetns'].sum().reset_index()
 
     # Drop z again as we don't really need it until later
-    NTEM_pop_2011_GB_for_seeds = NTEM_pop_2011_GB_for_seeds.drop(columns = ['z'])
+    NTEM_pop_2011_GB_for_seeds = NTEM_pop_2011_GB_for_seeds.drop(columns=['z'])
 
-    NTEM_pop_2011_GB_for_seeds = all_pop_z_tt_t_n_s.merge(NTEM_pop_2011_GB_for_seeds, on = 'zaghetns', how = 'left')
+    NTEM_pop_2011_GB_for_seeds = all_pop_z_tt_t_n_s.merge(NTEM_pop_2011_GB_for_seeds, on='zaghetns', how='left')
 
     NTEM_pop_2011_GB_for_seeds['a'] = NTEM_pop_2011_GB_for_seeds['zaghetns'].str[-13:-12].astype(int)
     NTEM_pop_2011_GB_for_seeds['g'] = NTEM_pop_2011_GB_for_seeds['zaghetns'].str[-11:-10].astype(int)
@@ -758,16 +750,14 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     ntem_tt_key = NTEM_pop_2011_GB_for_seeds.groupby(['a', 'g', 'h', 'e'])['ntem_tt'].mean().reset_index()
     ntem_tt_key['ntem_tt'] = ntem_tt_key['ntem_tt'].astype(int)
 
-    NTEM_pop_2011_GB_for_seeds = NTEM_pop_2011_GB_for_seeds.drop(columns = ['ntem_tt'])
+    NTEM_pop_2011_GB_for_seeds = NTEM_pop_2011_GB_for_seeds.drop(columns=['ntem_tt'])
     NTEM_pop_2011_GB_for_seeds = pd.merge(
         NTEM_pop_2011_GB_for_seeds,
         ntem_tt_key,
-        how = 'left',
-        on = ['a', 'g', 'h', 'e'])
+        how='left',
+        on=['a', 'g', 'h', 'e'])
 
-    NTEM_pop_2011_GB_for_dr_seeds = pd.merge(NTEM_pop_2011_GB_for_seeds,
-                                            lookup_geography_z2d2r,
-                                            on='z')
+    NTEM_pop_2011_GB_for_dr_seeds = pd.merge(NTEM_pop_2011_GB_for_seeds, lookup_geography_z2d2r, on='z')
     NTEM_pop_2011_GB_for_dr_seeds['d'] = NTEM_pop_2011_GB_for_dr_seeds['d'].fillna(999).astype(int)
     NTEM_pop_2011_GB_for_dr_seeds['r'] = NTEM_pop_2011_GB_for_dr_seeds['r'].fillna('Scotland')
     seed_r_NW = NTEM_pop_2011_GB_for_dr_seeds.loc[
@@ -777,13 +767,13 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     seed_headers = ['z', 'a', 'g', 'h', 'e', 't', 'n', 's', 'P_aghetns']
     seed_r_NW = seed_r_NW[seed_headers]
     seed_d_184 = seed_d_184[seed_headers]
-    seed_r_NW = seed_r_NW.rename(columns = {'P_aghetns':'population'})
-    seed_d_184 = seed_d_184.rename(columns = {'P_aghetns':'population'})
+    seed_r_NW = seed_r_NW.rename(columns={'P_aghetns': 'population'})
+    seed_d_184 = seed_d_184.rename(columns={'P_aghetns': 'population'})
 
     seed_df = NTEM_pop_2011_GB_for_seeds[['z', 'a', 'g', 'h', 'e', 't', 'n', 's', 'P_aghetns']]
-    seed_df = seed_df.rename(columns = {'P_aghetns':'population'})
+    seed_df = seed_df.rename(columns={'P_aghetns': 'population'})
     seed_df_dr = NTEM_pop_2011_GB_for_dr_seeds[['d', 'r', 'z', 'a', 'g', 'h', 'e', 't', 'n', 's', 'P_aghetns']]
-    seed_df_dr = seed_df_dr.rename(columns = {'P_aghetns':'population'})
+    seed_df_dr = seed_df_dr.rename(columns={'P_aghetns': 'population'})
 
     headers_QS606 = list(QS606_raw_census)
     grouped_headers_QS606 = []
@@ -807,19 +797,17 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     QS606_working = QS606_working[['mnemonic', 'higher', 'medium', 'skilled',
                                    'All categories: Occupation']]
     QS606_working = QS606_working.rename(
-        columns = {'All categories: Occupation':'Workers_Census'})
+        columns={'All categories: Occupation': 'Workers_Census'})
 
     # Get zonal geography
     lookup_geography_la2z = lookup_geography[['MSOA', 'NorMITs_Zone']]
-    lookup_geography_la2z.columns = ['mnemonic', 'z']
+    lookup_geography_la2z.columns=['mnemonic', 'z']
     QS606_working = pd.merge(QS606_working, lookup_geography_la2z, on='mnemonic')
     QS606_working = pd.merge(QS606_working, NTEM_workers_2011_GB, on='z')
 
     # Get nonworkers (NTEM values, not scaled)
-    QS606_nonworkers = NTEM_pop_2011_trim.loc[
-        NTEM_pop_2011_trim['e'] >= 3].reset_index() # SOC categories >= 3 == nonworkers
-    QS606_nonworkers = QS606_nonworkers.rename(
-        columns = {'P_NTEM':'non-workers'})
+    QS606_nonworkers = NTEM_pop_2011_trim.loc[NTEM_pop_2011_trim['e'] >= 3].reset_index() # SOC categories >= 3 == nonworkers
+    QS606_nonworkers = QS606_nonworkers.rename(columns={'P_NTEM': 'non-workers'})
     QS606_nonworkers = QS606_nonworkers.groupby(['z'])['non-workers'].sum().reset_index()
     QS606_working = pd.merge(QS606_working, QS606_nonworkers, on='z')
 
@@ -829,17 +817,13 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     QS606_working['higher'] = QS606_working['higher'] * QS606_working['Scaler']
     QS606_working['medium'] = QS606_working['medium'] * QS606_working['Scaler']
     QS606_working['skilled'] = QS606_working['skilled'] * QS606_working['Scaler']
-    QS606_working = QS606_working.melt(id_vars = ['z'],
-                                       value_vars = ['higher',
-                                                     'medium',
-                                                     'skilled',
-                                                     'non-workers'])
+    QS606_working = QS606_working.melt(id_vars=['z'], value_vars=['higher', 'medium', 'skilled', 'non-workers'])
     QS606_working = QS606_working.rename(
-        columns = {'variable':'SOC','value':'Persons'})
+        columns={'variable': 'SOC', 'value': 'Persons'})
     QS606_working['s'] = np.where(QS606_working['SOC'] == 'higher', 1,
                                   np.where(QS606_working['SOC'] == 'medium', 2,
                                           np.where(QS606_working['SOC'] == 'skilled', 3, 4)))
-    QS606_working = QS606_working.sort_values(by = ['z', 's']).reset_index()
+    QS606_working = QS606_working.sort_values(by=['z', 's']).reset_index()
     QS606_working = QS606_working[['z', 's', 'Persons']]
 
     headers_QS609 = list(QS609_raw_census)
@@ -865,11 +849,11 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                    'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15',
                                    'All categories: NS-SeC']]
     QS609_working = QS609_working.rename(
-        columns = {'All categories: NS-SeC':'Total'})
+        columns={'All categories: NS-SeC': 'Total'})
     NTEM_pop_2011_zonal = NTEM_pop_2011_trim.groupby(['z'])['P_NTEM'].sum().reset_index()
     QS609_working = pd.merge(QS609_working, lookup_geography_la2z,
-                             on = 'mnemonic')
-    QS609_working = pd.merge(QS609_working, NTEM_pop_2011_zonal, on = 'z')
+                             on='mnemonic')
+    QS609_working = pd.merge(QS609_working, NTEM_pop_2011_zonal, on='z')
     QS609_working['Scaler'] = QS609_working['P_NTEM'] / QS609_working['Total']
     QS609_working['NS-SeC 1-2'] = (QS609_working['NS-SeC 1-2']
                                    * QS609_working['Scaler'])
@@ -881,21 +865,21 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                  * QS609_working['Scaler'])
     QS609_working['NS-SeC L15'] = (QS609_working['NS-SeC L15']
                                    * QS609_working['Scaler'])
-    QS609_working = QS609_working.melt(id_vars = ['z'],
-                                       value_vars = ['NS-SeC 1-2',
-                                                     'NS-SeC 3-5',
-                                                     'NS-SeC 6-7',
-                                                     'NS-SeC 8',
-                                                     'NS-SeC L15'])
-    QS609_working = QS609_working.sort_values(by = ['z', 'variable']).reset_index()
+    QS609_working = QS609_working.melt(id_vars=['z'],
+                                       value_vars=['NS-SeC 1-2',
+                                                   'NS-SeC 3-5',
+                                                   'NS-SeC 6-7',
+                                                   'NS-SeC 8',
+                                                   'NS-SeC L15'])
+    QS609_working = QS609_working.sort_values(by=['z', 'variable']).reset_index()
     QS609_working = QS609_working.rename(
-        columns = {'variable':'NSSEC', 'value':'Persons'})
+        columns={'variable': 'NSSEC', 'value': 'Persons'})
     QS609_working['n'] = np.where(QS609_working['NSSEC'] == 'NS-SeC 1-2', 1,
                                   np.where(QS609_working['NSSEC'] == 'NS-SeC 3-5', 2,
                                            np.where(QS609_working['NSSEC'] == 'NS-SeC 6-7', 3,
                                                     np.where(QS609_working['NSSEC'] == 'NS-SeC 8', 4,
                                                              5))))
-    QS609_working = QS609_working.drop(columns = ['index', 'NSSEC'])
+    QS609_working = QS609_working.drop(columns=['index', 'NSSEC'])
     QS609_working = QS609_working[['z', 'n', 'Persons']]
 
     headers_QS401 = list(QS401_raw_census)
@@ -937,7 +921,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
                                    'Flat',
                                    'All categories: Accommodation type']]
     QS401_working = QS401_working.rename(
-        columns = {'All categories: Accommodation type':'Census_Pop'})
+        columns={'All categories: Accommodation type': 'Census_Pop'})
     QS401_working = pd.merge(QS401_working, lookup_geography_la2z, on='mnemonic')
     QS401_working = pd.merge(QS401_working, NTEM_pop_2011_zonal, on='z')
     QS401_working['Scaler'] = QS401_working['P_NTEM'] / QS401_working['Census_Pop']
@@ -945,23 +929,18 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     QS401_working['Semi-detached'] = QS401_working['Semi-detached'] * QS401_working['Scaler']
     QS401_working['Terraced'] = QS401_working['Terraced'] * QS401_working['Scaler']
     QS401_working['Flat'] = QS401_working['Flat'] * QS401_working['Scaler']
-    QS401_working = QS401_working.melt(id_vars = ['z'],
-                                       value_vars = ['Detached',
-                                                     'Semi-detached',
-                                                     'Terraced',
-                                                     'Flat'])
-    QS401_working = QS401_working.sort_values(by = ['z', 'variable']).reset_index()
-    QS401_working = QS401_working.rename(
-        columns = {'variable':'DT', 'value':'Persons'})
+    QS401_working = QS401_working.melt(id_vars=['z'], value_vars=['Detached', 'Semi-detached', 'Terraced', 'Flat'])
+    QS401_working = QS401_working.sort_values(by=['z', 'variable']).reset_index()
+    QS401_working = QS401_working.rename(columns={'variable': 'DT', 'value': 'Persons'})
     QS401_working['t'] = np.where(QS401_working['DT'] == 'Detached', 1,
                                   np.where(QS401_working['DT'] == 'Semi-detached', 2,
                                            np.where(QS401_working['DT'] == 'Terraced', 3, 4)))
-    QS401_working = QS401_working.drop(columns = ['index', 'DT'])
+    QS401_working = QS401_working.drop(columns=['index', 'DT'])
     QS401_working = QS401_working[['z', 't', 'Persons']]
 
     # Sort out district lookups and apply 'districts' to Scotland
     # by grouping zones numerically to the NW average district size.
-    lookup_geography_EW = lookup_geography.dropna(subset = ['Grouped_LA'])
+    lookup_geography_EW = lookup_geography.dropna(subset=['Grouped_LA'])
     lookup_geography_EW = lookup_geography_EW.copy() # Prevents next line tripping a warning for no apparent reason!
     lookup_geography_EW['d'] = lookup_geography_EW['Grouped_LA'].astype(int)
     lookup_geography_GB = lookup_geography_EW.copy()
@@ -970,22 +949,22 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     max_EW_district = lookup_geography_EW['d'].max()
     ave_district_size_rounded = round(average_EW_district_size)
 
-    lookup_geography_S = lookup_geography[lookup_geography['Grouped_LA'].isnull()].reset_index(drop = True)
+    lookup_geography_S = lookup_geography[lookup_geography['Grouped_LA'].isnull()].reset_index(drop=True)
     lookup_geography_S = lookup_geography_S[['NorMITs_Zone', 'Grouped_LA']]
-    lookup_geography_S = lookup_geography_S.rename(columns = {'NorMITs_Zone':'z', 'Grouped_LA':'d'})
+    lookup_geography_S = lookup_geography_S.rename(columns={'NorMITs_Zone': 'z', 'Grouped_LA': 'd'})
     lookup_geography_S['scottish_z_count'] = lookup_geography_S.index
     lookup_geography_S['d'] = (lookup_geography_S['scottish_z_count'] // ave_district_size_rounded) + 1
     lookup_geography_S['d'] = lookup_geography_S['d'] + max_EW_district
     lookup_geography_S = lookup_geography_S[['z', 'd']]
 
     lookup_geography_GB = lookup_geography_GB[['NorMITs_Zone', 'd']]
-    lookup_geography_GB = lookup_geography_GB.rename(columns = {'NorMITs_Zone':'z', 'Grouped_LA':'d'})
+    lookup_geography_GB = lookup_geography_GB.rename(columns={'NorMITs_Zone': 'z', 'Grouped_LA': 'd'})
     lookup_geography_GB = lookup_geography_GB.append(lookup_geography_S, ignore_index=True)
 
     lookup_geography_z2d2r_with_S = lookup_geography_GB.merge(lookup_geography_z2d2r,
                                                               left_on=['z', 'd'],
                                                               right_on=['z', 'd'],
-                                                              how = 'left')
+                                                              how='left')
     lookup_geography_z2d2r_with_S['r'] = lookup_geography_z2d2r_with_S['r'].fillna('Scotland')
     lookup_geography_filename = 'lookup_geography_z2d2r.csv'
     lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
@@ -1074,19 +1053,19 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     QS401_check_tot = QS401_working.groupby(['z'])['Persons'].sum().reset_index()
     seed_df_zonal = seed_df.groupby(['z'])['population'].sum().reset_index()
     Ctrl1_NTEM_zonal = Ctrl1_NTEM.groupby(['z'])['population'].sum().reset_index()
-    QS606_check_tot = QS606_check_tot.rename(columns = {'Persons':'QS606_pop'})
-    QS609_check_tot = QS609_check_tot.rename(columns = {'Persons':'QS609_pop'})
-    QS401_check_tot = QS401_check_tot.rename(columns = {'Persons':'QS401_pop'})
-    seed_df_zonal = seed_df_zonal.rename(columns = {'population':'Seed_pop'})
-    Ctrl1_NTEM_zonal = Ctrl1_NTEM_zonal.rename(columns = {'population':'Ctrl1_pop'})
+    QS606_check_tot = QS606_check_tot.rename(columns={'Persons': 'QS606_pop'})
+    QS609_check_tot = QS609_check_tot.rename(columns={'Persons': 'QS609_pop'})
+    QS401_check_tot = QS401_check_tot.rename(columns={'Persons': 'QS401_pop'})
+    seed_df_zonal = seed_df_zonal.rename(columns={'population': 'Seed_pop'})
+    Ctrl1_NTEM_zonal = Ctrl1_NTEM_zonal.rename(columns={'population': 'Ctrl1_pop'})
     QS_check_totals = pd.merge(QS606_check_tot, QS609_check_tot,
-                               left_on = 'z', right_on = 'z', how = 'left')
+                               left_on='z', right_on='z', how='left')
     QS_check_totals = pd.merge(QS_check_totals, QS401_check_tot,
-                               left_on = 'z', right_on = 'z', how = 'left')
+                               left_on='z', right_on='z', how='left')
     QS_check_totals = pd.merge(QS_check_totals, seed_df_zonal,
-                               left_on = 'z', right_on = 'z', how = 'left')
+                               left_on='z', right_on='z', how='left')
     QS_check_totals = pd.merge(QS_check_totals, Ctrl1_NTEM_zonal,
-                               left_on = 'z', right_on = 'z', how = 'left')
+                               left_on='z', right_on='z', how='left')
 
     check_output_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
     check_output_name = r'check_seed+control_totals.csv'
