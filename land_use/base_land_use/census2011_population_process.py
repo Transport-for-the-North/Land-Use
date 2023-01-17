@@ -372,18 +372,17 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     ##################
     # Have now produced all values
     # Trim down to just d,a,g,h,e,t,n,s (plus caseno)
-    cen_m_hh_pop_by_caseno = cen_m_hh_pop[['caseno', 'd', 'a', 'g', 'h', 'e', 't', 'n', 's']]
+    full_vars = ['d', 'a', 'g', 'h', 'e', 't', 'n', 's']
+    cen_m_hh_pop_by_caseno = cen_m_hh_pop[['caseno'] + full_vars]
 
     # Group into unique a, g, h, e, t, n, s to get workers "pivot table"
     cen_m_hh_pop_pivot = cen_m_hh_pop_by_caseno.copy()
-    cen_m_hh_pop_pivot = cen_m_hh_pop_pivot.groupby(
-        ['d','a','g','h','e','t','n','s'])['caseno'].nunique().reset_index()
+    cen_m_hh_pop_pivot = cen_m_hh_pop_pivot.groupby(full_vars)['caseno'].nunique().reset_index()
 
     ###########
     # WORKERS
     ###########
-    cen_m_hh_pop_pivot_workers = cen_m_hh_pop_pivot[(cen_m_hh_pop_pivot['e'] <= 2) &
-                                                                  (cen_m_hh_pop_pivot['s'] < 4)]
+    cen_m_hh_pop_pivot_workers = cen_m_hh_pop_pivot[(cen_m_hh_pop_pivot['e'] <= 2) & (cen_m_hh_pop_pivot['s'] < 4)]
 
     id_vars = ["d", "a", "g", "h", "e"]
     cen_m_hh_pop_pivot_workers['aghe_Key'] = cen_m_hh_pop_pivot_workers[id_vars].astype(str).apply('_'.join, axis=1)
@@ -401,18 +400,12 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # NON WORKERS
     ###########
     # Group into unique a, g, h, e, t, n to get non-workers "pivot table"
-    cen_m_hh_pop_pivot2 = cen_m_hh_pop_by_caseno.groupby(
-        ['d','a','g','h','e','t','n'])['caseno'].nunique().reset_index()
+    cen_m_hh_pop_pivot2 = cen_m_hh_pop_by_caseno.groupby(['d','a','g','h','e','t','n'])['caseno'].nunique().reset_index()
     cen_m_hh_pop_pivot_non_workers = cen_m_hh_pop_pivot2[cen_m_hh_pop_pivot2['e'] > 2]
-
-
     cen_m_hh_pop_pivot_non_workers['s'] = 4 # Explictally state we are looking at non-workers
-    cen_m_hh_pop_pivot_non_workers = cen_m_hh_pop_pivot_non_workers[['d', 'a',
-                                                                     'g', 'h',
-                                                                     'e', 't',
-                                                                     'n', 's',
-                                                                     'caseno']]
+
     id_vars = ["d", "a", "g", "h", "e"]
+    # cen_m_hh_pop_pivot_non_workers = cen_m_hh_pop_pivot_non_workers[['d', 'a', 'g', 'h', 'e', 't', 'n', 's', 'caseno']]
     cen_m_hh_pop_pivot_non_workers['aghe_Key'] = cen_m_hh_pop_pivot_non_workers[id_vars].astype(str).apply('_'.join, axis=1)
 
     # Create df of all possible nonworker ntem_tt, t, n, s combos as not all are used,
@@ -422,19 +415,17 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     non_workers_n = cen_m_hh_pop_pivot_non_workers['n'].unique()
     all_non_workers_tt_t_n = pd.DataFrame(itertools.product(ntem_tt_non_workers, non_workers_t, non_workers_n))
     all_non_workers_tt_t_n = all_non_workers_tt_t_n.rename(columns={0: 'ntem_tt_Key', 1: 't', 2: 'n'})
+
     all_non_workers_tt_t_n_s = all_non_workers_tt_t_n.copy()
     all_non_workers_tt_t_n_s['s'] = 4 # s is always 4 for nonworkers, see above
 
+    ###########
+    # POPULATION
+    ###########
     # Group into unique a, g, h, e to get P_(a, g, h, e)
-    cen_m_hh_pop_pivot_pop_aghe = cen_m_hh_pop_by_caseno.groupby(
-        ['d','a','g','h','e'])['caseno'].nunique().reset_index()
-    population_iterator = zip(cen_m_hh_pop_pivot_pop_aghe['d'],
-                              cen_m_hh_pop_pivot_pop_aghe['a'],
-                              cen_m_hh_pop_pivot_pop_aghe['g'],
-                              cen_m_hh_pop_pivot_pop_aghe['h'],
-                              cen_m_hh_pop_pivot_pop_aghe['e'])
-    cen_m_hh_pop_pivot_pop_aghe['aghe_Key'] = ['_'.join(
-        [str(d), str(a), str(g), str(h), str(e)]) for d, a, g, h, e in population_iterator]
+    cen_m_hh_pop_pivot_pop_aghe = cen_m_hh_pop_by_caseno.groupby(['d','a','g','h','e'])['caseno'].nunique().reset_index()
+    id_vars = ["d", "a", "g", "h", "e"]
+    cen_m_hh_pop_pivot_pop_aghe['aghe_Key'] = cen_m_hh_pop_pivot_pop_aghe[id_vars].astype(str).apply('_'.join, axis=1)
     cen_m_hh_pop_pivot_pop_aghe = cen_m_hh_pop_pivot_pop_aghe.drop(columns=['d', 'a', 'g', 'h', 'e'])
 
     all_pop_aghetns_combos = all_workers_tt_t_n_s.append(all_non_workers_tt_t_n_s, ignore_index=True)
@@ -465,7 +456,7 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     missing_tt_df = pd.DataFrame(itertools.product(model_districts['Grouped_LA'], missing_tt_df['aghe_Key']))
     missing_tt_df = missing_tt_df.rename(columns={0: 'z', 1: 'aghe_key'})
     missing_tt_df['aghe_Key'] = ['_'.join([str(x), y]) for x, y in zip(missing_tt_df['z'], missing_tt_df['aghe_key'])]
-    missing_tt_df = missing_tt_df[['aghe_Key', 'z', 'aghe_key']]
+    missing_tt_df = missing_tt_df[['aghe_Key', 'z', 'aghe_key']]    # FIXME: Should this not be zaghe_Key ?
 
     # START - Formula from next (original f creating) cell
     # Create function that relates tns to aghe
@@ -564,16 +555,10 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     NTEM_pop_2011_EW = NTEM_pop_2011_EW.dropna(subset=['d']) # Only Scotland has n/a in districts
     test_tot_EW = NTEM_pop_2011_EW['P_NTEM'].sum()
     NTEM_pop_2011_EW['d'] = NTEM_pop_2011_EW['d'].astype(int)
-    NTEM_population_iterator_EW = zip(NTEM_pop_2011_EW['d'],
-                                      NTEM_pop_2011_EW['a'],
-                                      NTEM_pop_2011_EW['g'],
-                                      NTEM_pop_2011_EW['h'],
-                                      NTEM_pop_2011_EW['e'])
-    NTEM_pop_2011_EW['aghe_Key'] = ['_'.join([str(d), str(a), str(g), str(h), str(e)])
-                                    for d, a, g, h, e in NTEM_population_iterator_EW]
-    NTEM_pop_2011_EW = pd.merge(NTEM_pop_2011_EW,
-                                cencus_micro_complete_f,
-                                on='aghe_Key')
+    id_vars = ["d", "a", "g", "h", "e"]
+    NTEM_pop_2011_EW['aghe_Key'] = NTEM_pop_2011_EW[id_vars].astype(str).apply('_'.join, axis=1)
+
+    NTEM_pop_2011_EW = pd.merge(NTEM_pop_2011_EW, cencus_micro_complete_f, on='aghe_Key')
     NTEM_pop_2011_EW = NTEM_pop_2011_EW.drop(columns=['d_x', 'a_x', 'g_x', 'h_x', 'e_x'])
     NTEM_pop_2011_EW = NTEM_pop_2011_EW.rename(columns={'d_y': 'd', 'a_y': 'a', 'g_y': 'g', 'h_y': 'h', 'e_y': 'e'})
 
