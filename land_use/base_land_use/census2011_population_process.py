@@ -245,6 +245,90 @@ def ntem_pop_interpolation(census_and_by_lu_obj):
     return NTEM_HHpop
 
 
+def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lookup_dict):
+    """
+    Convert census segmentation to NorMITs segmentation. Count each unique segmentation combination.
+
+
+    :param census_microdata_df:
+    :param ntem_normits_lookup_dict:
+    :return:
+    """
+
+    census_microdata_df = census_microdata_df.copy()
+    census = census_microdata_df[['caseno', 'la_group', 'residence_type', 'typaccom', 'ageh', 'sex', 'nsshuk11',
+                                  'ahchuk11', 'carsnoc', 'ecopuk11', 'hours', 'occg']]
+    census = census.rename(columns={'ageh': 'Age', 'sex': 'Sex', 'nsshuk11': 'HRP NSSEC',
+                                    'ahchuk11': 'Household size', 'carsnoc': 'Household car',
+                                    'ecopuk11': 'Employment type code', 'hours': 'Hours worked ', 'occg': 'SOC'})
+    hh_census = census[census["residence_type"] == 2]
+
+    # Convert segmentations
+    def convert_seg(census_df, lookup_df, key_variable, output_variable, value_variable="NorMITs_Segment Band Value"):
+        """
+        Merge lookup into census on shared variable. Rename value column.
+
+        :param census_df: Micro census dataframe with column of name {key}
+        :param lookup_df: Lookup dataframe with column of name {key} and {value_variable}
+        :param key_variable: Variable used to join census_df and lookup_df
+        :param output_variable: Name for {value_variable} column to take after joined onto census_df
+        :param value_variable: Value column from lookup_df to join onto census_df
+        :return: Census microdata dataframe with value column joined.
+        """
+        lookup_df = lookup_df[[key_variable, value_variable]].copy()
+        lookup_df = lookup_df.rename(columns={value_variable: output_variable})
+        census_df = pd.merge(census_df, lookup_df, on=key_variable, how="left", validate="m:1")
+        return census_df
+
+    # NSSEC
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["nsshuk11"],
+                            key_variable="HRP NSSEC", output_variable="n")
+    hh_census = hh_census.dropna(subset=['n'])
+    # Age
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["ageh"],
+                            key_variable="Age", output_variable="a")
+    # Gender
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["sex"],
+                            key_variable="Sex", output_variable="g")
+    hh_census.loc[hh_census["a"] == 1, "g"] = 1
+    # Hours worked
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["hours"],
+                            key_variable="Hours worked", output_variable="_FT-PT")
+    hh_census["_FT-PT"] = hh_census["_FT-PT"].fillna(2)
+
+    # Employment type
+    # Consider age (children and retirees cannot work), if students (ecopuk11 type 8) are fte or pte via hours
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["ecopuk11"],
+                            key_variable="Employment type code", output_variable="e")
+    hh_census.loc[hh_census["Employment type code"] == 8, "e"] = hh_census['_FT-PT']
+    hh_census.loc[hh_census["a"] != 2, "e"] = 5
+    hh_census['e'].replace('', np.nan, inplace=True)
+    hh_census.dropna(subset=['e'], inplace=True)
+    # SOC
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["occg"],
+                            key_variable="SOC", output_variable="s")
+    hh_census.loc[hh_census["e"].astype(int) > 2, "s"] = 4
+    # Adults
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["ahchuk11"],
+                            key_variable="Household size", output_variable="_Adults")
+    # Cars
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["carsnoc"],
+                            key_variable="Household car",  output_variable="_Cars")
+    # Household composition
+    hh_census['Household Composition Key'] = hh_census[["_Adults", "_Cars"]].astype(str).agg('_'.join, axis=1)
+    hh_census = convert_seg(census_df=hh_census, lookup_df=ntem_normits_lookup_dict["h"],
+                            key_variable="Household Composition Key", output_variable="h",
+                            value_variable="Household_composition_code")
+
+    # Type and column name formatting
+    hh_census = hh_census.rename(columns={'la_group': 'd', 'typaccom': 't'})
+    hh_census[["e", "s", "t", "n"]] = hh_census[["e", "s", "t", "n"]].astype(int)
+
+    hh_census = hh_census.groupby(['d', 'a', 'g', 'h', 'e', 't', 'n', 's'])['caseno'].nunique().reset_index()
+    hh_census = hh_census.rename(columns={'caseno': "count"})
+    return hh_census
+
+
 def create_ipfn_inputs_2011(census_and_by_lu_obj):
     """
     Create seed and control files at district sector level for IPFN process by:
