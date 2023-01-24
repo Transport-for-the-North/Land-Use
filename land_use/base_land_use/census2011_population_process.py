@@ -337,6 +337,15 @@ def generate_segments(household_census, ntem_normits_lookup_dict):
     workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
     non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
 
+    # P(t,n,s|a,g,h,e)
+    # TODO: Swap from workers+non_workers to just using pop? Unless theirs a neither group (which is currently pop = 0)
+    aghe_tns_split = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "P_daghetns"})
+    aghe_tns_split = aghe_tns_split.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "P_daghe"})
+    aghe_tns_split['f_tns/aghe'] = aghe_tns_split['P_daghetns'] / aghe_tns_split['P_daghe']
+
+    EW_aghe_tns_split = aghe_tns_split.groupby([*aghe,'t','n','s'])["P_daghetns"].sum() / pop.groupby(aghe)["count"].sum()
+    EW_aghe_tns_split  = EW_aghe_tns_split.reset_index().rename(columns={0: "f_tns/aghe"})
+
     # Total population (a,g,h,e) combinations
     pop_seg = pop[aghe].drop_duplicates()
     if len(pop_seg) == expected_tt_count:
