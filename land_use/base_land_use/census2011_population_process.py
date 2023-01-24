@@ -368,7 +368,7 @@ def generate_segments(household_census, ntem_normits_lookup_dict):
     non_worker_seg = itertools.product(non_workers[aghe].drop_duplicates().itertuples(index=False),
                                        non_workers["t"].unique(), non_workers["n"].unique(), non_workers["s"].unique())
     non_worker_seg = pd.DataFrame(non_worker_seg, columns=["aghe", "t", "n", "s"])
-    all_seg = pd.concat([worker_seg, non_worker_seg], axis=0, ignore_index)
+    all_seg = pd.concat([worker_seg, non_worker_seg], axis=0, ignore_index=True)
 
 
 
