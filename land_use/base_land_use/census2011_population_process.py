@@ -328,6 +328,43 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
     hh_census = hh_census.rename(columns={'caseno': "count"})
     return hh_census
 
+def generate_segments(household_census, ntem_normits_lookup_dict):
+    expected_tt_count = 88  # TODO: Deal with this
+
+    hh_census = household_census.copy()
+    pop = hh_census.groupby(['d', 'a', 'g', 'h', 'e'])[["count"]].sum().reset_index()
+    workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
+    non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
+
+    # Total population (a,g,h,e) combinations
+    pop_seg = pop[['a', 'g', 'h', 'e']].drop_duplicates()
+    if len(pop_seg) == expected_tt_count:
+        print('No globally missing NTEM_tt')
+    else:
+        print('INCORRECT GLOBAL NTEM_tt TOTAL!')
+        print('Expected', expected_tt_count)
+        print('Got', len(pop_seg))
+
+    model_districts = ntem_normits_lookup_dict["geography"].copy()
+    model_districts = model_districts['Grouped LA'].dropna().astype(int).sort_values()
+    pop_seg = itertools.product(pop_seg[["a", "g", "h", "e"]].drop_duplicates().itertuples(index=False),
+                                model_districts.unique())
+    pop_seg = pd.DataFrame(pop_seg, columns=["aghe", "z"])
+
+
+
+
+
+    # Worker/Non-worker (a,g,h,e: t,n,s) combinations
+    worker_seg = itertools.product(workers[["a", "g", "h", "e"]].drop_duplicates().itertuples(index=False),
+                                   workers["t"].unique(), workers["n"].unique(), workers["s"].unique())
+    worker_seg = pd.DataFrame(worker_seg, columns=["aghe", "t", "n", "s"])
+    non_worker_seg = itertools.product(non_workers[["a", "g", "h", "e"]].drop_duplicates().itertuples(index=False),
+                                       non_workers["t"].unique(), non_workers["n"].unique(), non_workers["s"].unique())
+    non_worker_seg = pd.DataFrame(non_worker_seg, columns=["aghe", "t", "n", "s"])
+    all_seg = pd.concat([worker_seg, non_worker_seg], axis=0)
+
+
 
 def create_ipfn_inputs_2011(census_and_by_lu_obj):
     """
