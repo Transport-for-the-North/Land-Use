@@ -328,47 +328,88 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
     hh_census = hh_census.rename(columns={'caseno': "count"})
     return hh_census
 
-def generate_segments(household_census, ntem_normits_lookup_dict):
-    hh_census = household_census.copy()
+
+def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     expected_tt_count = 88  # TODO: Deal with this
     aghe = ['a', 'g', 'h', 'e']
+    tns = ['t', 'n', 's']
 
-    pop = hh_census.groupby(['d', *aghe])[["count"]].sum().reset_index()
-    workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
-    non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
+    hh_census = household_census.copy()[['d']+aghe+tns]
 
-    # P(t,n,s|a,g,h,e)
-    # TODO: Swap from workers+non_workers to just using pop? Unless theirs a neither group (which is currently pop = 0)
-    aghe_tns_split = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "P_daghetns"})
-    aghe_tns_split = aghe_tns_split.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "P_daghe"})
-    aghe_tns_split['f_tns/aghe'] = aghe_tns_split['P_daghetns'] / aghe_tns_split['P_daghe']
-
-    EW_aghe_tns_split = aghe_tns_split.groupby([*aghe,'t','n','s'])["P_daghetns"].sum() / pop.groupby(aghe)["count"].sum()
-    EW_aghe_tns_split  = EW_aghe_tns_split.reset_index().rename(columns={0: "f_tns/aghe"})
-
-    # Total population (a,g,h,e) combinations
-    pop_seg = pop[aghe].drop_duplicates()
-    if len(pop_seg) == expected_tt_count:
+    # ---- All population (a, g, h, e) segmentations ----
+    # All valid population (a, g, h, e) segmentations, for districts where they exist
+    population_segments = hh_census[['d']+aghe].drop_duplicates()
+    if len(population_segments) == expected_tt_count:
         print('No globally missing NTEM_tt')
     else:
         print('INCORRECT GLOBAL NTEM_tt TOTAL!')
         print('Expected', expected_tt_count)
-        print('Got', len(pop_seg))
+        print('Got', len(population_segments))
 
-    model_districts = ntem_normits_lookup_dict["geography"].copy()
-    model_districts = model_districts['Grouped LA'].dropna().astype(int).sort_values()
-    pop_seg = itertools.product(pop_seg[aghe].drop_duplicates().itertuples(index=False),
-                                model_districts.unique())
-    pop_seg = pd.DataFrame(pop_seg, columns=["aghe", "z"])
+    # All valid population (a,g,h,e) segmentations, for all zones
+    model_districts = ntem_normits_lookup_dict["geography"].copy().dropna(subset=["Grouped LA"])
+    population_segments = itertools.product(
+        population_segments[aghe].drop_duplicates().itertuples(index=False),
+        model_districts['Grouped LA'].astype(int).sort_values().unique())
+    zaghe_segments = pd.DataFrame(population_segments, columns=["aghe", "z"])
 
-    # Worker/Non-worker (a,g,h,e: t,n,s) combinations
-    worker_seg = itertools.product(workers[aghe].drop_duplicates().itertuples(index=False),
-                                   workers["t"].unique(), workers["n"].unique(), workers["s"].unique())
-    worker_seg = pd.DataFrame(worker_seg, columns=["aghe", "t", "n", "s"])
-    non_worker_seg = itertools.product(non_workers[aghe].drop_duplicates().itertuples(index=False),
-                                       non_workers["t"].unique(), non_workers["n"].unique(), non_workers["s"].unique())
-    non_worker_seg = pd.DataFrame(non_worker_seg, columns=["aghe", "t", "n", "s"])
-    all_seg = pd.concat([worker_seg, non_worker_seg], axis=0, ignore_index=True)
+    # ---- All population (a, g, h, e, t, n, s) segmentations ----
+    # All valid worker (a,g,h,e,t,n,s) segmentations
+    worker = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
+    worker_segments = itertools.product(
+        worker[aghe].drop_duplicates().itertuples(index=False),
+        worker["t"].unique(), worker["n"].unique(), worker["s"].unique())
+    worker_segments = pd.DataFrame(worker_segments, columns=["aghe", "t", "n", "s"])
+
+    # All valid non-worker (a,g,h,e,t,n,s) segmentations
+    non_worker = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
+    non_worker_segments = itertools.product(
+        non_worker[aghe].drop_duplicates().itertuples(index=False),
+        non_worker["t"].unique(), non_worker["n"].unique(), non_worker["s"].unique())
+    non_worker_segments = pd.DataFrame(non_worker_segments, columns=["aghe", "t", "n", "s"])
+    aghetns_segments = pd.concat([worker_segments, non_worker_segments], axis=0, ignore_index=True)
+
+    return zaghe_segments, aghetns_segments
+
+
+
+
+
+def calculate_composition(household_census, ntem_normits_lookup_dict):
+    hh_census = household_census.copy()
+    aghe = ['a', 'g', 'h', 'e']
+    tns = ['t', 'n', 's']
+
+    workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
+    non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
+    pop = hh_census.groupby(['d', *aghe])[["count"]].sum().reset_index()
+
+    # P(t,n,s|a,g,h,e)
+    # TODO: Swap from workers+non_workers to just using pop? Unless there's a neither group (which currently = 0)
+    p_tns_aghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
+    p_tns_aghe = p_tns_aghe.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "C_daghe"})
+    p_tns_aghe['f_tns/aghe'] = p_tns_aghe['C_daghetns'] / p_tns_aghe['C_daghe']
+
+    EW_p_tns_aghe = (p_tns_aghe.groupby(aghe+tns)["C_daghetns"].sum() / pop.groupby(aghe)["count"].sum()).reset_index()
+    EW_p_tns_aghe = EW_p_tns_aghe.rename(columns={0: "f_tns/aghe"})
+
+
+
+
+
+
+
+
+def _create_ipfn_inputs_2011(census_micro, lookup_dict):
+
+    hh_census = segment_and_tally_census_microdata_2011(census_microdata_df=census_micro,
+                                                        ntem_normits_lookup_dict=lookup_dict)
+    zaghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
+                                                               ntem_normits_lookup_dict=lookup_dict)
+
+
+    return None
+
 
 
 
@@ -505,17 +546,18 @@ def create_ipfn_inputs_2011(census_and_by_lu_obj):
     # Group into unique a, g, h, e, t, n, s to get workers "pivot table"
     cen_m_hh_pop_pivot = cen_m_hh_pop_by_caseno.copy()
     cen_m_hh_pop_pivot = cen_m_hh_pop_pivot.groupby(full_vars)['caseno'].nunique().reset_index()
+    id_vars = ["d", "a", "g", "h", "e"]
+    cen_m_hh_pop_pivot['aghe_Key'] = cen_m_hh_pop_pivot[id_vars].astype(str).apply('_'.join, axis=1)
 
     ###########
     # WORKERS
     ###########
     cen_m_hh_pop_pivot_workers = cen_m_hh_pop_pivot[(cen_m_hh_pop_pivot['e'] <= 2) & (cen_m_hh_pop_pivot['s'] < 4)]
 
-    id_vars = ["d", "a", "g", "h", "e"]
-    cen_m_hh_pop_pivot_workers['aghe_Key'] = cen_m_hh_pop_pivot_workers[id_vars].astype(str).apply('_'.join, axis=1)
-
     # Create df of all possible worker ntem_tt, t, n, s combos as not all are used,
     #    furness process may require them.
+
+
     ntem_tt_workers = cen_m_hh_pop_pivot_workers['aghe_Key'].str[-7:].unique()
     workers_t = cen_m_hh_pop_pivot_workers['t'].unique()
     workers_n = cen_m_hh_pop_pivot_workers['n'].unique()
