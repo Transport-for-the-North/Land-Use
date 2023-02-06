@@ -385,12 +385,12 @@ def calculate_tns_aghe_splitting(household_census):
 
     workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
     non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
-    pop = hh_census.groupby(['d', *aghe])[["count"]].sum().reset_index()
+    pop = hh_census.groupby(['d']+aghe)[["count"]].sum().reset_index()
 
     # P(t,n,s|d,a,g,h,e)
     # TODO: Swap from workers+non_workers to just using hh_census? Unless there's a neither group (which currently = 0)
     p_tns_daghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
-    p_tns_daghe = p_tns_daghe.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "C_daghe"})
+    p_tns_daghe = p_tns_daghe.merge(pop, how="left", on=['d']+aghe, validate="m:1").rename(columns={"count": "C_daghe"})
     p_tns_daghe['f_tns/aghe'] = p_tns_daghe['C_daghetns'] / p_tns_daghe['C_daghe']
 
     # P(t,n,s|d=E&W,a,g,h,e)
