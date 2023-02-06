@@ -334,11 +334,11 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
 
-    hh_census = household_census.copy()[['d']+aghe+tns]
+    hh_census = household_census.copy()[aghe+tns]
 
     # ---- All population (a, g, h, e) segmentations ----
-    # All valid population (a, g, h, e) segmentations, for districts where they exist
-    population_segments = hh_census[['d']+aghe].drop_duplicates()
+    # All valid population (a, g, h, e) segmentations
+    population_segments = hh_census[aghe].drop_duplicates()
     if len(population_segments) == expected_tt_count:
         print('No globally missing NTEM_tt')
     else:
@@ -372,10 +372,7 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     return zaghe_segments, aghetns_segments
 
 
-
-
-
-def calculate_composition(household_census, ntem_normits_lookup_dict):
+def calculate_tns_aghe_splitting(household_census):
     hh_census = household_census.copy()
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
@@ -384,20 +381,18 @@ def calculate_composition(household_census, ntem_normits_lookup_dict):
     non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
     pop = hh_census.groupby(['d', *aghe])[["count"]].sum().reset_index()
 
-    # P(t,n,s|a,g,h,e)
-    # TODO: Swap from workers+non_workers to just using pop? Unless there's a neither group (which currently = 0)
-    p_tns_aghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
-    p_tns_aghe = p_tns_aghe.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "C_daghe"})
-    p_tns_aghe['f_tns/aghe'] = p_tns_aghe['C_daghetns'] / p_tns_aghe['C_daghe']
+    # P(t,n,s|d,a,g,h,e)
+    # TODO: Swap from workers+non_workers to just using hh_census? Unless there's a neither group (which currently = 0)
+    p_tns_daghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
+    p_tns_daghe = p_tns_daghe.merge(pop, how="left", on=['d', *aghe]).rename(columns={"count": "C_daghe"})
+    p_tns_daghe['f_tns/aghe'] = p_tns_daghe['C_daghetns'] / p_tns_daghe['C_daghe']
 
-    EW_p_tns_aghe = (p_tns_aghe.groupby(aghe+tns)["C_daghetns"].sum() / pop.groupby(aghe)["count"].sum()).reset_index()
+    # P(t,n,s|d=E&W,a,g,h,e)
+    EW_p_tns_aghe = (p_tns_daghe.groupby(aghe+tns)["C_daghetns"].sum() / pop.groupby(aghe)["count"].sum()).reset_index()
     EW_p_tns_aghe = EW_p_tns_aghe.rename(columns={0: "f_tns/aghe"})
 
-
-
-
-
-
+    p_tns_daghe = p_tns_daghe.drop(columns=['C_daghetns', 'C_daghe'])
+    return p_tns_daghe, EW_p_tns_aghe
 
 
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
@@ -406,6 +401,8 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                         ntem_normits_lookup_dict=lookup_dict)
     zaghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
                                                                ntem_normits_lookup_dict=lookup_dict)
+    p_tns_daghe, EW_p_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census)
+
 
 
     return None
