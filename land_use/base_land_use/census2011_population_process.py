@@ -378,7 +378,8 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     return daghe_segments, aghetns_segments
 
 
-def calculate_tns_aghe_splitting(household_census):
+def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
+    expected_tt_count = 88  # TODO: Deal with this
     hh_census = household_census.copy()
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
@@ -398,7 +399,23 @@ def calculate_tns_aghe_splitting(household_census):
     EW_p_tns_aghe = EW_p_tns_aghe.rename(columns={0: "f_tns/aghe"})
 
     p_tns_daghe = p_tns_daghe.drop(columns=['C_daghetns', 'C_daghe'])
-    return p_tns_daghe, EW_p_tns_aghe
+
+    # Find and replace missing zonal Census micro NTEM traveller types with EW averages
+    full_p_tns_daghe = daghe_segmentation.merge(p_tns_daghe, how="left", validate="1:m", on=["d"]+aghe)
+    missing_daghe = full_p_tns_daghe[full_p_tns_daghe.isnull().any(axis=1)][["d"]+aghe]
+    missing_daghe = missing_daghe.merge(EW_p_tns_aghe, how="left", validate="m:m", on=aghe)
+
+    full_p_tns_daghe = pd.concat([full_p_tns_daghe.dropna(), missing_daghe], axis=0)
+    full_p_tns_daghe[["d"]+aghe+tns] = full_p_tns_daghe[["d"]+aghe+tns].astype(int)
+    full_p_tns_daghe = full_p_tns_daghe.sort_values(by=['d']+aghe+tns).reset_index(drop=True)
+
+    EW_f_by_d = round(full_p_tns_daghe['f_tns/aghe'].sum()) / full_p_tns_daghe['d'].nunique()
+    if EW_f_by_d == expected_tt_count:
+        print('f combinations appear valid')
+    else:
+        print('ISSUE WITH f PROCESSING!')
+
+    return full_p_tns_daghe, p_tns_daghe, EW_p_tns_aghe
 
 
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
@@ -407,7 +424,10 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                         ntem_normits_lookup_dict=lookup_dict)
     daghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
                                                                ntem_normits_lookup_dict=lookup_dict)
-    p_tns_daghe, EW_p_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census)
+    infilled_p_tns_daghe, p_tns_daghe, EW_p_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
+                                                                                    daghe_segmentation=daghe_segments)
+
+
 
 
 
