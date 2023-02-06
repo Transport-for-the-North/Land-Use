@@ -353,6 +353,10 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
         model_districts['Grouped LA'].astype(int).sort_values().unique())
     zaghe_segments = pd.DataFrame(population_segments, columns=["aghe", "z"])
 
+    zaghe_segments[aghe] = pd.DataFrame(zaghe_segments["aghe"].to_list())
+    zaghe_segments = zaghe_segments.drop(columns=["aghe"])
+
+
     # ---- All population (a, g, h, e, t, n, s) segmentations ----
     # All valid worker (a,g,h,e,t,n,s) segmentations
     worker = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
@@ -367,8 +371,10 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
         non_worker[aghe].drop_duplicates().itertuples(index=False),
         non_worker["t"].unique(), non_worker["n"].unique(), non_worker["s"].unique())
     non_worker_segments = pd.DataFrame(non_worker_segments, columns=["aghe", "t", "n", "s"])
-    aghetns_segments = pd.concat([worker_segments, non_worker_segments], axis=0, ignore_index=True)
 
+    aghetns_segments = pd.concat([worker_segments, non_worker_segments], axis=0, ignore_index=True)
+    aghetns_segments[aghe] = pd.DataFrame(aghetns_segments["aghe"].to_list())
+    aghetns_segments = aghetns_segments.drop(columns=["aghe"])
     return zaghe_segments, aghetns_segments
 
 
