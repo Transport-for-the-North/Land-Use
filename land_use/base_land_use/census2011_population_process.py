@@ -351,10 +351,10 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     population_segments = itertools.product(
         population_segments[aghe].drop_duplicates().itertuples(index=False),
         model_districts['Grouped LA'].astype(int).sort_values().unique())
-    zaghe_segments = pd.DataFrame(population_segments, columns=["aghe", "z"])
+    daghe_segments = pd.DataFrame(population_segments, columns=["aghe", "d"])
 
-    zaghe_segments[aghe] = pd.DataFrame(zaghe_segments["aghe"].to_list())
-    zaghe_segments = zaghe_segments.drop(columns=["aghe"])
+    daghe_segments[aghe] = pd.DataFrame(daghe_segments["aghe"].to_list())
+    daghe_segments = daghe_segments.drop(columns=["aghe"])
 
 
     # ---- All population (a, g, h, e, t, n, s) segmentations ----
@@ -375,7 +375,7 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
     aghetns_segments = pd.concat([worker_segments, non_worker_segments], axis=0, ignore_index=True)
     aghetns_segments[aghe] = pd.DataFrame(aghetns_segments["aghe"].to_list())
     aghetns_segments = aghetns_segments.drop(columns=["aghe"])
-    return zaghe_segments, aghetns_segments
+    return daghe_segments, aghetns_segments
 
 
 def calculate_tns_aghe_splitting(household_census):
@@ -405,7 +405,7 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
     hh_census = segment_and_tally_census_microdata_2011(census_microdata_df=census_micro,
                                                         ntem_normits_lookup_dict=lookup_dict)
-    zaghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
+    daghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
                                                                ntem_normits_lookup_dict=lookup_dict)
     p_tns_daghe, EW_p_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census)
 
