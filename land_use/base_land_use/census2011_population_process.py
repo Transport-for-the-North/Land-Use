@@ -388,34 +388,34 @@ def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
     non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
     pop = hh_census.groupby(['d']+aghe)[["count"]].sum().reset_index()
 
-    # P(t,n,s|d,a,g,h,e)
+    # F(t,n,s|d,a,g,h,e)
     # TODO: Swap from workers+non_workers to just using hh_census? Unless there's a neither group (which currently = 0)
-    p_tns_daghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
-    p_tns_daghe = p_tns_daghe.merge(pop, how="left", on=['d']+aghe, validate="m:1").rename(columns={"count": "C_daghe"})
-    p_tns_daghe['f_tns/aghe'] = p_tns_daghe['C_daghetns'] / p_tns_daghe['C_daghe']
+    f_tns_daghe = pd.concat([workers, non_workers], axis=0, ignore_index=True).rename(columns={"count": "C_daghetns"})
+    f_tns_daghe = f_tns_daghe.merge(pop, how="left", on=['d']+aghe, validate="m:1").rename(columns={"count": "C_daghe"})
+    f_tns_daghe['F(t,n,s|d,a,g,h,e)'] = f_tns_daghe['C_daghetns'] / f_tns_daghe['C_daghe']
 
-    # P(t,n,s|d=E&W,a,g,h,e)
-    EW_p_tns_aghe = (p_tns_daghe.groupby(aghe+tns)["C_daghetns"].sum() / pop.groupby(aghe)["count"].sum()).reset_index()
-    EW_p_tns_aghe = EW_p_tns_aghe.rename(columns={0: "f_tns/aghe"})
+    # F(t,n,s|d=E&W,a,g,h,e)
+    EW_f_tns_aghe = (f_tns_daghe.groupby(aghe+tns)["C_daghetns"].sum() / pop.groupby(aghe)["count"].sum()).reset_index()
+    EW_f_tns_aghe = EW_f_tns_aghe.rename(columns={0: "F(t,n,s|a,g,h,e)"})
 
-    p_tns_daghe = p_tns_daghe.drop(columns=['C_daghetns', 'C_daghe'])
+    f_tns_daghe = f_tns_daghe.drop(columns=['C_daghetns', 'C_daghe'])
 
     # Find and replace missing zonal Census micro NTEM traveller types with EW averages
-    full_p_tns_daghe = daghe_segmentation.merge(p_tns_daghe, how="left", validate="1:m", on=["d"]+aghe)
-    missing_daghe = full_p_tns_daghe[full_p_tns_daghe.isnull().any(axis=1)][["d"]+aghe]
-    missing_daghe = missing_daghe.merge(EW_p_tns_aghe, how="left", validate="m:m", on=aghe)
+    full_f_tns_daghe = daghe_segmentation.merge(f_tns_daghe, how="left", validate="1:m", on=["d"]+aghe)
+    missing_daghe = full_f_tns_daghe[full_f_tns_daghe.isnull().any(axis=1)][["d"]+aghe]
+    missing_daghe = missing_daghe.merge(EW_f_tns_aghe, how="left", validate="m:m", on=aghe)
 
-    full_p_tns_daghe = pd.concat([full_p_tns_daghe.dropna(), missing_daghe], axis=0)
-    full_p_tns_daghe[["d"]+aghe+tns] = full_p_tns_daghe[["d"]+aghe+tns].astype(int)
-    full_p_tns_daghe = full_p_tns_daghe.sort_values(by=['d']+aghe+tns).reset_index(drop=True)
+    full_f_tns_daghe = pd.concat([full_f_tns_daghe.dropna(), missing_daghe], axis=0)
+    full_f_tns_daghe[["d"]+aghe+tns] = full_f_tns_daghe[["d"]+aghe+tns].astype(int)
+    full_f_tns_daghe = full_f_tns_daghe.sort_values(by=['d']+aghe+tns).reset_index(drop=True)
 
-    EW_f_by_d = round(full_p_tns_daghe['f_tns/aghe'].sum()) / full_p_tns_daghe['d'].nunique()
+    EW_f_by_d = round(full_f_tns_daghe['F(t,n,s|a,g,h,e)'].sum()) / full_f_tns_daghe['d'].nunique()
     if EW_f_by_d == expected_tt_count:
         print('f combinations appear valid')
     else:
         print('ISSUE WITH f PROCESSING!')
 
-    return full_p_tns_daghe, p_tns_daghe, EW_p_tns_aghe
+    return full_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe
 
 
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
@@ -424,7 +424,7 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                         ntem_normits_lookup_dict=lookup_dict)
     daghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
                                                                ntem_normits_lookup_dict=lookup_dict)
-    infilled_p_tns_daghe, p_tns_daghe, EW_p_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
+    infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
                                                                                     daghe_segmentation=daghe_segments)
 
 
