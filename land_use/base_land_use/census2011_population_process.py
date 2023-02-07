@@ -485,7 +485,59 @@ def resegment_NTEM_population(f_tns_daghe):
     print('Scaled GB tot:' + str((NTEM_pop_GB['C_zaghetns']).sum()))
     return NTEM_pop_GB
 
+def format_qs606(QS606_raw_census, NTEM_pop_actual):
 
+    headers_QS606 = list(QS606_raw_census)
+    grouped_headers_QS606 = []
+    for h in headers_QS606:
+        if h[0] in ['1', '2', '3']:
+            QS606_head_name_iterator = ['h_', h[0]]
+        elif h[0] in ['4', '5', '6', '7']:
+            QS606_head_name_iterator = ['m_', h[0]]
+        elif h[0] in ['8', '9']:
+            QS606_head_name_iterator = ['s_', h[0]]
+        else:
+            QS606_head_name_iterator = ['', h]
+        grouped_headers_QS606.append(''.join(QS606_head_name_iterator))
+
+    QS606_working = QS606_raw_census.copy()
+    QS606_working.columns = grouped_headers_QS606
+    QS606_working['higher'] = QS606_working[['h_1', 'h_2', 'h_3']].sum(axis=1)
+    QS606_working['medium'] = QS606_working[['m_4', 'm_5', 'm_6', 'm_7']].sum(axis=1)
+    QS606_working['skilled'] = QS606_working[['s_8', 's_9']].sum(axis=1)
+    QS606_working = QS606_working.rename(columns={'All categories: Occupation': 'Workers_Census'})
+    QS606_working = QS606_working[['mnemonic', 'higher', 'medium', 'skilled', 'Workers_Census']]
+
+    # Get zonal geography
+    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
+    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
+    QS606_working = QS606_working.merge(msoa_zone_map, how="left", on='mnemonic')
+
+    NTEM_workers_actual = NTEM_pop_actual.loc[NTEM_pop_actual['e'] < 3].reset_index()
+    NTEM_workers_actual = NTEM_workers_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
+    NTEM_workers_actual = NTEM_workers_actual.rename(columns={'C_NTEM': 'Workers_NTEM'})
+    QS606_working = pd.merge(QS606_working, NTEM_workers_actual, on='z')
+
+    # Get nonworkers (NTEM values, not scaled)
+    NTEM_non_workers_actual = NTEM_pop_actual.loc[NTEM_pop_actual['e'] >= 3].reset_index() # SOC categories >= 3 == nonworkers
+    NTEM_non_workers_actual = NTEM_non_workers_actual.rename(columns={'C_NTEM': 'non-workers'})
+    NTEM_non_workers_actual = NTEM_non_workers_actual.groupby(['z'])['non-workers'].sum().reset_index()
+    QS606_working = pd.merge(QS606_working, NTEM_non_workers_actual, on='z')
+
+    # Scale workers and reformat to output style
+    QS606_working['Scaler'] = QS606_working['Workers_NTEM'] / QS606_working['Workers_Census']
+    QS606_working = QS606_working.melt(id_vars=['z', 'Scaler'],
+                                       value_vars=['higher', 'medium', 'skilled', 'non-workers'],
+                                       var_name="SOC", value_name="Persons")
+    QS606_working["Persons"] = QS606_working["Persons"] * QS606_working['Scaler']
+    QS606_working['s'] = np.where(QS606_working['SOC'] == 'higher', 1,
+                                  np.where(QS606_working['SOC'] == 'medium', 2,
+                                           np.where(QS606_working['SOC'] == 'skilled', 3, 4)))
+    QS606_working = QS606_working.sort_values(by=['z', 's']).reset_index()
+    QS606 = QS606_working[['z', 's', 'Persons']]
+    return QS606
+
+#
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
     z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
