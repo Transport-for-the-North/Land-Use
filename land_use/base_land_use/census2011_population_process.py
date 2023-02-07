@@ -87,6 +87,9 @@ ntem_pop_segs = pd.read_csv(os.path.join(_NTEM_input_path, 'Pop_Segmentations.cs
 ModelName = 'NorMITs'
 Output_Folder = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
 
+# TODO: 'validate' for all merges
+# TODO: fix .loc / [[]] slice issue
+# TODO: Document new functions
 
 # Define function that can be used to get 2011 NTEM data
 def ntem_pop_interpolation(census_and_by_lu_obj):
@@ -260,7 +263,6 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
                                   'ahchuk11', 'carsnoc', 'ecopuk11', 'hours', 'occg']]
     census = census.rename(columns={'ageh': 'Age', 'sex': 'Sex', 'nsshuk11': 'HRP NSSEC',
                                     'ahchuk11': 'Household size', 'carsnoc': 'Household car',
-                                    'ecopuk11': 'Employment type code', 'hours': 'Hours worked ', 'occg': 'SOC'})
     hh_census = census[census["residence_type"] == 2]
 
     # Convert segmentations
@@ -447,8 +449,6 @@ def resegment_NTEM_population(f_tns_daghe):
     # Join the districts and regions to the zones
     # Drop the Scottish districts and apply f to England and Wales
     z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
-    z_d_r_map = z_d_r_map[["z", "d", "r", "MSOA"]]
-    NTEM_pop_trim = pd.merge(NTEM_pop_trim, z_d_r_map, on='z')
 
     NTEM_pop_EW = NTEM_pop_trim[NTEM_pop_trim["MSOA"].str[0].isin(["E", "W"])]
     test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
@@ -478,7 +478,7 @@ def resegment_NTEM_population(f_tns_daghe):
 
     # Print some totals out to check...
     print('Actual EW tot:' + str(test_tot_EW))
-    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))
+    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))  # FIXME: Mismatch
     print('Actual S tot: ' + str(test_tot_S))
     print('Scaled S tot: ' + str((NTEM_pop_S['C_NTEM']*NTEM_pop_S['F(t,n,s|z,a,g,h,e)']).sum()))
     print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
@@ -486,8 +486,10 @@ def resegment_NTEM_population(f_tns_daghe):
     return NTEM_pop_GB
 
 
-
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
+
+    z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
+    z_d_r_map = z_d_r_map[["z", "d", "r", "MSOA"]]
 
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
@@ -497,10 +499,39 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                                ntem_normits_lookup_dict=lookup_dict)
     infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
                                                                                     daghe_segmentation=daghe_segments)
-    NTEM_pop_GB = resegment_NTEM_population(f_tns_daghe=f_tns_daghe)
+    NTEM_pop = resegment_NTEM_population(f_tns_daghe=f_tns_daghe, zone_district_region_map=z_d_r_map)
 
+    # The following block takes ~ 3 minutes.
+    all_z_aghetns = itertools.product(
+        NTEM_pop['z'].unique(),
+        aghetns_segments[aghe+tns].drop_duplicates().itertuples(index=False))
+    all_z_aghetns = pd.DataFrame(all_z_aghetns, columns=["z", "aghetns"])
+    all_z_aghetns[aghe+tns] = pd.DataFrame(all_z_aghetns["aghetns"].to_list())
+    all_z_aghetns = all_z_aghetns.drop(columns=["aghetns"])
 
+    # Why is this a different length?
+    NTEM_pop_for_seeds = NTEM_pop.groupby(["z"]+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
+    NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=["z"]+aghe+tns)
 
+    NTEM_pop_for_seeds[["z"]+aghe+tns] = NTEM_pop_for_seeds[["z"]+aghe+tns].astype(int)
+    NTEM_pop_for_seeds['C_zaghetns'] = NTEM_pop_for_seeds['C_zaghetns'].fillna(0)
+
+    NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds['ntem_tt'].str[-3:].astype(float)
+    NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds.groupby(aghe)['ntem_tt'].transform("mean")
+    NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds['ntem_tt'].astype(int)
+
+    NTEM_pop_for_dr_seeds = NTEM_pop_for_seeds.merge(z_d_r_map, on='z')
+    NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds["MSOA"].str[0] == "S", ['d', 'r']] = (0, "Scotland")
+
+    seed_r_NW = NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds['r'] == 'North West']
+    seed_r_NW = seed_r_NW.reset_index()[['z']+aghe+tns+['C_zaghetns']]
+    seed_d_184 = NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds['d'] == 184]
+    seed_d_184 = seed_d_184.reset_index()[['z']+aghe+tns+['C_zaghetns']]
+
+    seed = NTEM_pop_for_seeds[['z']+aghe+tns+['C_zaghetns']]
+    # seed = seed.rename(columns={'C_zaghetns': 'population'})
+    seed_dr = NTEM_pop_for_dr_seeds[['d', 'r', 'z']+aghe+tns+['C_zaghetns']]
+    # seed_dr = seed_dr.rename(columns={'C_zaghetns': 'population'})
 
 
     return None
