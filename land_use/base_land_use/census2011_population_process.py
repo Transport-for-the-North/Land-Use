@@ -421,7 +421,7 @@ def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
     return full_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe
 
 
-def resegment_NTEM_population(f_tns_daghe):
+def resegment_NTEM_population(f_tns_daghe, zone_district_region_map):
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
 
@@ -445,12 +445,12 @@ def resegment_NTEM_population(f_tns_daghe):
     # NTEM_pop = NTEM_pop[cols_chosen]
     print('Total 2011 ntem household population is : ', NTEM_pop["C_NTEM"].sum())
 
-    NTEM_pop_trim = NTEM_pop.copy()
+    NTEM_pop_actual = NTEM_pop.copy()
     # Join the districts and regions to the zones
     # Drop the Scottish districts and apply f to England and Wales
-    z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
+    NTEM_pop_actual = pd.merge(NTEM_pop_actual, zone_district_region_map, on='z')
 
-    NTEM_pop_EW = NTEM_pop_trim[NTEM_pop_trim["MSOA"].str[0].isin(["E", "W"])]
+    NTEM_pop_EW = NTEM_pop_actual[NTEM_pop_actual["MSOA"].str[0].isin(["E", "W"])]
     test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
     NTEM_pop_EW['d'] = NTEM_pop_EW['d'].astype(int)
     NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
@@ -463,7 +463,7 @@ def resegment_NTEM_population(f_tns_daghe):
     NTEM_pop_N['F(t,n,s|A,a,g,h,e)'] = NTEM_pop_N["C_NTEM"] / NTEM_pop_N.groupby(['A']+aghe)['C_NTEM'].transform("sum")
     NTEM_pop_N = NTEM_pop_N[["A"]+aghe+tns+["F(t,n,s|A,a,g,h,e)"]]
 
-    NTEM_pop_S = NTEM_pop_trim.copy()
+    NTEM_pop_S = NTEM_pop_actual.copy()
     NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["MSOA"].str[0] == "S"]
     test_tot_S = NTEM_pop_S['C_NTEM'].sum()
     NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe)
@@ -472,9 +472,9 @@ def resegment_NTEM_population(f_tns_daghe):
     NTEM_pop_S = NTEM_pop_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
     NTEM_pop_EW = NTEM_pop_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
 
-    NTEM_pop_GB = pd.concat([NTEM_pop_EW, NTEM_pop_S], axis=0, ignore_index=True)
-    NTEM_pop_GB = NTEM_pop_GB.drop(columns=["MSOA"])
-    NTEM_pop_GB['C_zaghetns'] = NTEM_pop_GB['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_GB['C_NTEM']
+    NTEM_pop_scaled = pd.concat([NTEM_pop_EW, NTEM_pop_S], axis=0, ignore_index=True)
+    NTEM_pop_scaled = NTEM_pop_scaled.drop(columns=["MSOA"])
+    NTEM_pop_scaled['C_zaghetns'] = NTEM_pop_scaled['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_scaled['C_NTEM']
 
     # Print some totals out to check...
     print('Actual EW tot:' + str(test_tot_EW))
@@ -482,8 +482,9 @@ def resegment_NTEM_population(f_tns_daghe):
     print('Actual S tot: ' + str(test_tot_S))
     print('Scaled S tot: ' + str((NTEM_pop_S['C_NTEM']*NTEM_pop_S['F(t,n,s|z,a,g,h,e)']).sum()))
     print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
-    print('Scaled GB tot:' + str((NTEM_pop_GB['C_zaghetns']).sum()))
-    return NTEM_pop_GB
+    print('Scaled GB tot:' + str((NTEM_pop_scaled['C_zaghetns']).sum()))
+    return NTEM_pop_actual, NTEM_pop_scaled
+
 
 def format_qs606(QS606_raw_census, NTEM_pop_actual):
 
@@ -551,11 +552,12 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                                ntem_normits_lookup_dict=lookup_dict)
     infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
                                                                                     daghe_segmentation=daghe_segments)
-    NTEM_pop = resegment_NTEM_population(f_tns_daghe=f_tns_daghe, zone_district_region_map=z_d_r_map)
+    NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(f_tns_daghe=f_tns_daghe,
+                                                                 zone_district_region_map=z_d_r_map)
 
     # The following block takes ~ 3 minutes.
     all_z_aghetns = itertools.product(
-        NTEM_pop['z'].unique(),
+        NTEM_pop_scaled['z'].unique(),
         aghetns_segments[aghe+tns].drop_duplicates().itertuples(index=False))
     all_z_aghetns = pd.DataFrame(all_z_aghetns, columns=["z", "aghetns"])
     all_z_aghetns[aghe+tns] = pd.DataFrame(all_z_aghetns["aghetns"].to_list())
