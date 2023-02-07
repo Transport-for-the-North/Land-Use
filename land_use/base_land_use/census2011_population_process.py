@@ -419,6 +419,74 @@ def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
     return full_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe
 
 
+def resegment_NTEM_population(f_tns_daghe):
+    aghe = ['a', 'g', 'h', 'e']
+    tns = ['t', 'n', 's']
+
+    # Obtain 2011 NTEM data
+    NTEM_pop_path = r'I:\NorMITs Land Use\import\CTripEnd'
+    NTEM_pop_2011 = pd.read_csv(os.path.join(NTEM_pop_path, 'All_year', 'ntem_gb_z_areatype_ntem_tt_2011_pop.csv'))
+    ntem_pop_segs = pd.read_csv(os.path.join(NTEM_pop_path, 'Pop_Segmentations.csv'))
+    print(NTEM_pop_2011)
+    print('\n')
+    print(ntem_pop_segs)
+    NTEM_pop = NTEM_pop_2011.merge(ntem_pop_segs, left_on=['tt'], right_on=['NTEM_Traveller_Type'], how='right')
+    NTEM_pop = NTEM_pop.rename(columns={'Age_code': 'a',
+                                        'Gender_code': 'g',
+                                        'Household_composition_code': 'h',
+                                        'Employment_type_code': 'e',
+                                        '2011': 'C_NTEM',
+                                        'tt': 'ntem_tt'})
+    cols_chosen = ['z', 'A', 'ntem_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
+    NTEM_pop = NTEM_pop[cols_chosen]
+    # NTEM_pop = ntem_pop_interpolation(census_and_by_lu_obj)
+    # NTEM_pop = NTEM_pop[cols_chosen]
+    print('Total 2011 ntem household population is : ', NTEM_pop["C_NTEM"].sum())
+
+    NTEM_pop_trim = NTEM_pop.copy()
+    # Join the districts and regions to the zones
+    # Drop the Scottish districts and apply f to England and Wales
+    z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
+    z_d_r_map = z_d_r_map[["z", "d", "r", "MSOA"]]
+    NTEM_pop_trim = pd.merge(NTEM_pop_trim, z_d_r_map, on='z')
+
+    NTEM_pop_EW = NTEM_pop_trim[NTEM_pop_trim["MSOA"].str[0].isin(["E", "W"])]
+    test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
+    NTEM_pop_EW['d'] = NTEM_pop_EW['d'].astype(int)
+    NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
+
+    # Filter to obtain just North East/North West.
+    # Recalculate f by Area type (A) for these regions.
+    NTEM_pop_N = NTEM_pop_EW.copy()
+    NTEM_pop_N = NTEM_pop_N.loc[NTEM_pop_N['r'].isin(['North East', 'North West'])]
+    NTEM_pop_N = NTEM_pop_N.groupby(['A']+aghe+tns, as_index=False)['C_NTEM'].sum()
+    NTEM_pop_N['F(t,n,s|A,a,g,h,e)'] = NTEM_pop_N["C_NTEM"] / NTEM_pop_N.groupby(['A']+aghe)['C_NTEM'].transform("sum")
+    NTEM_pop_N = NTEM_pop_N[["A"]+aghe+tns+["F(t,n,s|A,a,g,h,e)"]]
+
+    NTEM_pop_S = NTEM_pop_trim.copy()
+    NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["MSOA"].str[0] == "S"]
+    test_tot_S = NTEM_pop_S['C_NTEM'].sum()
+    NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe)
+    NTEM_pop_S[['d', 'r']] = (0, 'Scotland')
+
+    NTEM_pop_S = NTEM_pop_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
+    NTEM_pop_EW = NTEM_pop_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
+
+    NTEM_pop_GB = pd.concat([NTEM_pop_EW, NTEM_pop_S], axis=0, ignore_index=True)
+    NTEM_pop_GB = NTEM_pop_GB.drop(columns=["MSOA"])
+    NTEM_pop_GB['C_zaghetns'] = NTEM_pop_GB['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_GB['C_NTEM']
+
+    # Print some totals out to check...
+    print('Actual EW tot:' + str(test_tot_EW))
+    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))
+    print('Actual S tot: ' + str(test_tot_S))
+    print('Scaled S tot: ' + str((NTEM_pop_S['C_NTEM']*NTEM_pop_S['F(t,n,s|z,a,g,h,e)']).sum()))
+    print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
+    print('Scaled GB tot:' + str((NTEM_pop_GB['C_zaghetns']).sum()))
+    return NTEM_pop_GB
+
+
+
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
     aghe = ['a', 'g', 'h', 'e']
@@ -429,72 +497,8 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
                                                                ntem_normits_lookup_dict=lookup_dict)
     infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
                                                                                     daghe_segmentation=daghe_segments)
+    NTEM_pop_GB = resegment_NTEM_population(f_tns_daghe=f_tns_daghe)
 
-
-    # Obtain 2011 NTEM data
-    NTEM_pop_path = r'I:\NorMITs Land Use\import\CTripEnd'
-    NTEM_pop_2011 = pd.read_csv(os.path.join(NTEM_pop_path, 'All_year', 'ntem_gb_z_areatype_ntem_tt_2011_pop.csv'))
-    ntem_pop_segs = pd.read_csv(os.path.join(NTEM_pop_path, 'Pop_Segmentations.csv'))
-    print(NTEM_pop_2011)
-    print('\n')
-    print(ntem_pop_segs)
-    NTEM_pop_2011 = NTEM_pop_2011.merge(ntem_pop_segs, left_on=['tt'], right_on=['NTEM_Traveller_Type'],
-                                        how='right').drop(columns={'NTEM_Traveller_Type'})
-    NTEM_pop_2011 = NTEM_pop_2011.rename(columns={'Age_code': 'a',
-                                                  'Gender_code': 'g',
-                                                  'Household_composition_code': 'h',
-                                                  'Employment_type_code': 'e',
-                                                  '2011': 'C_NTEM',
-                                                  'tt': 'ntem_tt'})
-    cols_chosen = ['z', 'A', 'ntem_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
-    NTEM_pop_2011 = NTEM_pop_2011[cols_chosen]
-    # NTEM_pop_2011 = ntem_pop_interpolation(census_and_by_lu_obj)
-    # NTEM_pop_2011 = NTEM_pop_2011[cols_chosen]
-    print('Total 2011 ntem household population is : ', NTEM_pop_2011["C_NTEM"].sum())
-
-
-    # Trim NTEM to just the useful cols
-    NTEM_pop_2011_trim = NTEM_pop_2011.copy()
-
-    # Join the districts and regions to the zones
-    # Drop the Scottish districts and apply f to England and Wales
-    z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
-    z_d_r_map = z_d_r_map[["z", "d", "r", "MSOA"]]
-    NTEM_pop_2011_trim = pd.merge(NTEM_pop_2011_trim, z_d_r_map, on='z')
-
-    NTEM_pop_2011_EW = NTEM_pop_2011_trim[NTEM_pop_2011_trim["MSOA"].str[0].isin(["E", "W"])]
-    test_tot_EW = NTEM_pop_2011_EW['C_NTEM'].sum()
-    NTEM_pop_2011_EW['d'] = NTEM_pop_2011_EW['d'].astype(int)
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.merge(infilled_f_tns_daghe, how="left", on=["d"]+aghe)
-
-    # Filter to obtain just North East/North West.
-    # Recalculate f by Area type (A) for these regions.
-    NTEM_pop_2011_N = NTEM_pop_2011_EW.copy()
-    NTEM_pop_2011_N = NTEM_pop_2011_N.loc[NTEM_pop_2011_N['r'].isin(['North East', 'North West'])]
-    NTEM_pop_2011_N = NTEM_pop_2011_N.groupby(['A']+aghe+tns, as_index=False)['C_NTEM'].sum()
-    NTEM_pop_2011_N['F(t,n,s|A,a,g,h,e)'] = NTEM_pop_2011_N["C_NTEM"] / NTEM_pop_2011_N.groupby(['A']+aghe)['C_NTEM'].transform("sum")
-    NTEM_pop_2011_N = NTEM_pop_2011_N[["A"]+aghe+tns+["F(t,n,s|A,a,g,h,e)"]]
-
-    NTEM_pop_2011_S = NTEM_pop_2011_trim.copy()
-    NTEM_pop_2011_S = NTEM_pop_2011_S[NTEM_pop_2011_S["MSOA"].str[0] == "S"]
-    test_tot_S = NTEM_pop_2011_S['C_NTEM'].sum()
-    NTEM_pop_2011_S = NTEM_pop_2011_S.merge(NTEM_pop_2011_N, how="left", on=["A"]+aghe)
-    NTEM_pop_2011_S[['d', 'r']] = (0, 'Scotland')
-
-    NTEM_pop_2011_S = NTEM_pop_2011_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
-    NTEM_pop_2011_EW = NTEM_pop_2011_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
-
-    NTEM_pop_2011_GB = pd.concat([NTEM_pop_2011_EW, NTEM_pop_2011_S], axis=0, ignore_index=True)
-    NTEM_pop_2011_GB = NTEM_pop_2011_GB.drop(columns=["MSOA"])
-    NTEM_pop_2011_GB['C_zaghetns'] = NTEM_pop_2011_GB['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_2011_GB['C_NTEM']
-
-    # Print some totals out to check...
-    print('Actual EW tot:' + str(test_tot_EW))
-    print('Scaled EW tot:' + str((NTEM_pop_2011_EW['C_NTEM']*NTEM_pop_2011_EW['F(t,n,s|z,a,g,h,e)']).sum()))
-    print('Actual S tot: ' + str(test_tot_S))
-    print('Scaled S tot: ' + str((NTEM_pop_2011_S['C_NTEM']*NTEM_pop_2011_S['F(t,n,s|z,a,g,h,e)']).sum()))
-    print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
-    print('Scaled GB tot:' + str((NTEM_pop_2011_GB['C_zaghetns']).sum()))
 
 
 
