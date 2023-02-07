@@ -404,12 +404,13 @@ def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
     full_f_tns_daghe = daghe_segmentation.merge(f_tns_daghe, how="left", validate="1:m", on=["d"]+aghe)
     missing_daghe = full_f_tns_daghe[full_f_tns_daghe.isnull().any(axis=1)][["d"]+aghe]
     missing_daghe = missing_daghe.merge(EW_f_tns_aghe, how="left", validate="m:m", on=aghe)
+    missing_daghe = missing_daghe.rename(columns={"F(t,n,s|a,g,h,e)": "F(t,n,s|d,a,g,h,e)"})
 
     full_f_tns_daghe = pd.concat([full_f_tns_daghe.dropna(), missing_daghe], axis=0)
     full_f_tns_daghe[["d"]+aghe+tns] = full_f_tns_daghe[["d"]+aghe+tns].astype(int)
     full_f_tns_daghe = full_f_tns_daghe.sort_values(by=['d']+aghe+tns).reset_index(drop=True)
 
-    EW_f_by_d = round(full_f_tns_daghe['F(t,n,s|a,g,h,e)'].sum()) / full_f_tns_daghe['d'].nunique()
+    EW_f_by_d = round(full_f_tns_daghe['F(t,n,s|d,a,g,h,e)'].sum()) / full_f_tns_daghe['d'].nunique()
     if EW_f_by_d == expected_tt_count:
         print('f combinations appear valid')
     else:
