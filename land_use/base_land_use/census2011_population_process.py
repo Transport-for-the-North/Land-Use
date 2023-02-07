@@ -538,6 +538,50 @@ def format_qs606(QS606_raw_census, NTEM_pop_actual):
     QS606 = QS606_working[['z', 's', 'Persons']]
     return QS606
 
+
+def format_qs609(QS609_raw_census, NTEM_pop_actual):
+    headers_QS609 = list(QS609_raw_census)
+    NSSeC_headers_QS609 = []
+    for h in headers_QS609:
+        if h[0].isdigit():
+            QS609_head_name_iterator = ['NS-SeC ', h[0]]
+        elif h[0:3] == "L15":
+            QS609_head_name_iterator = ['NS-SeC ', h[0:3]]
+        else:
+            QS609_head_name_iterator = ['', h]
+        NSSeC_headers_QS609.append(''.join(QS609_head_name_iterator))
+    QS609_working = QS609_raw_census.copy()
+    QS609_working.columns = NSSeC_headers_QS609
+    QS609_working['NS-SeC 1-2'] = QS609_working[['NS-SeC 1', 'NS-SeC 2']].sum(axis=1)
+    QS609_working['NS-SeC 3-5'] = QS609_working[['NS-SeC 3', 'NS-SeC 4', 'NS-SeC 5']].sum(axis=1)
+    QS609_working['NS-SeC 6-7'] = QS609_working[['NS-SeC 6', 'NS-SeC 7']].sum(axis=1)
+    QS609_working = QS609_working.rename(columns={'All categories: NS-SeC': 'Total'})
+
+    QS609_working = QS609_working[['mnemonic', 'NS-SeC 1-2', 'NS-SeC 3-5', 'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15', 'Total']]
+
+    # Get zonal geography
+    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
+    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
+    QS609_working = QS609_working.merge(msoa_zone_map, how="left", on='mnemonic')
+
+    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
+    QS609_working = pd.merge(QS609_working, NTEM_zonal_pop_actual, on='z')
+    QS609_working['Scaler'] = QS609_working['C_NTEM'] / QS609_working['Total']
+    QS609_working = QS609_working.melt(id_vars=['z', 'Scaler'],
+                                       value_vars=['NS-SeC 1-2', 'NS-SeC 3-5', 'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15'],
+                                       var_name="NSSEC", value_name="Persons")
+    QS609_working["Persons"] = QS609_working["Persons"] * QS609_working['Scaler']
+    QS609_working['n'] = np.where(QS609_working['NSSEC'] == 'NS-SeC 1-2', 1,
+                                  np.where(QS609_working['NSSEC'] == 'NS-SeC 3-5', 2,
+                                           np.where(QS609_working['NSSEC'] == 'NS-SeC 6-7', 3,
+                                                    np.where(QS609_working['NSSEC'] == 'NS-SeC 8', 4,
+                                                             5))))
+    QS609_working = QS609_working.sort_values(by=['z', 'variable']).reset_index()
+    QS609_working = QS609_working[['z', 'n', 'Persons']]
+    return QS609_working
+
+
+
 #
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
