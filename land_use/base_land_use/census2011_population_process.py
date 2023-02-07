@@ -576,7 +576,7 @@ def format_qs609(QS609_raw_census, NTEM_pop_actual):
                                            np.where(QS609_working['NSSEC'] == 'NS-SeC 6-7', 3,
                                                     np.where(QS609_working['NSSEC'] == 'NS-SeC 8', 4,
                                                              5))))
-    QS609_working = QS609_working.sort_values(by=['z', 'variable']).reset_index()
+    QS609_working = QS609_working.sort_values(by=['z', 'n']).reset_index()
     QS609 = QS609_working[['z', 'n', 'Persons']]
     return QS609
 
@@ -625,7 +625,7 @@ def format_qs401(QS401_raw_census, NTEM_pop_actual):
     QS401_working['t'] = np.where(QS401_working['DT'] == 'Detached', 1,
                                   np.where(QS401_working['DT'] == 'Semi-detached', 2,
                                            np.where(QS401_working['DT'] == 'Terraced', 3, 4)))
-    QS401_working = QS401_working.sort_values(by=['z', 'DT']).reset_index()
+    QS401_working = QS401_working.sort_values(by=['z', 't']).reset_index()
     QS401 = QS401_working[['z', 't', 'Persons']]
     return QS401
 
@@ -638,14 +638,18 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
-    hh_census = segment_and_tally_census_microdata_2011(census_microdata_df=census_micro,
-                                                        ntem_normits_lookup_dict=lookup_dict)
-    daghe_segments, aghetns_segments = generate_valid_segments(household_census=hh_census,
-                                                               ntem_normits_lookup_dict=lookup_dict)
-    infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(household_census=hh_census,
-                                                                                    daghe_segmentation=daghe_segments)
-    NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(f_tns_daghe=f_tns_daghe,
-                                                                 zone_district_region_map=z_d_r_map)
+    hh_census = segment_and_tally_census_microdata_2011(
+        census_microdata_df=census_micro, ntem_normits_lookup_dict=lookup_dict)
+    daghe_segments, aghetns_segments = generate_valid_segments(
+        household_census=hh_census, ntem_normits_lookup_dict=lookup_dict)
+    infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(
+        household_census=hh_census, daghe_segmentation=daghe_segments)
+    NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(
+        f_tns_daghe=f_tns_daghe, zone_district_region_map=z_d_r_map)
+
+    QS401 = format_qs401(QS401_raw_census=QS401_raw_census, NTEM_pop_actual=NTEM_pop_actual)
+    QS606 = format_qs606(QS606_raw_census=QS606_raw_census, NTEM_pop_actual=NTEM_pop_actual)
+    QS609 = format_qs609(QS609_raw_census=QS609_raw_census, NTEM_pop_actual=NTEM_pop_actual)
 
     # The following block takes ~ 3 minutes.
     all_z_aghetns = itertools.product(
