@@ -577,9 +577,57 @@ def format_qs609(QS609_raw_census, NTEM_pop_actual):
                                                     np.where(QS609_working['NSSEC'] == 'NS-SeC 8', 4,
                                                              5))))
     QS609_working = QS609_working.sort_values(by=['z', 'variable']).reset_index()
-    QS609_working = QS609_working[['z', 'n', 'Persons']]
-    return QS609_working
+    QS609 = QS609_working[['z', 'n', 'Persons']]
+    return QS609
 
+
+def format_qs401(QS401_raw_census, NTEM_pop_actual):
+
+    headers_QS401 = list(QS401_raw_census)
+    DT_headers_QS401 = []
+    for h in headers_QS401:
+        if 'Detached' in h:
+            DT_headers_QS401.append('Detached')
+        elif 'Semi-detached' in h:
+            DT_headers_QS401.append('Semi-detached')
+        elif 'Terraced' in h:
+            DT_headers_QS401.append('Terraced')
+        elif 'Flat' in h:
+            h_list = h.split()
+            flat_name_iterator = ['Flat', h_list[-1]]
+            DT_headers_QS401.append('_'.join(flat_name_iterator))
+        else:
+            h_list = h.split()
+            if len(h_list) > 8:
+                DT_headers_QS401.append('Caravan')
+            else:
+                DT_headers_QS401.append(h)
+    QS401_working = QS401_raw_census.copy()
+    QS401_working.columns = DT_headers_QS401
+    QS401_working['Flat'] = QS401_working[['Flat_Total', 'Caravan', 'Shared dwelling']].sum(axis=1)
+    QS401_working = QS401_working.rename(columns={'All categories: Accommodation type': 'Census_Pop'})
+
+    QS401_working = QS401_working[['mnemonic', 'Detached', 'Semi-detached', 'Terraced', 'Flat', 'Census_Pop']]
+
+    # Get zonal geography
+    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
+    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
+    QS401_working = QS401_working.merge(msoa_zone_map, how="left", on='mnemonic')
+
+    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
+    QS401_working = pd.merge(QS401_working, NTEM_zonal_pop_actual, on='z')
+
+    QS401_working['Scaler'] = QS401_working['C_NTEM'] / QS401_working['Census_Pop']
+    QS401_working = QS401_working.melt(id_vars=['z', 'Scaler'], value_vars=['Detached', 'Semi-detached', 'Terraced', 'Flat'],
+                                       var_name="DT", value_name="Persons")
+
+    QS401_working["Persons"] = QS401_working["Persons"] * QS401_working['Scaler']
+    QS401_working['t'] = np.where(QS401_working['DT'] == 'Detached', 1,
+                                  np.where(QS401_working['DT'] == 'Semi-detached', 2,
+                                           np.where(QS401_working['DT'] == 'Terraced', 3, 4)))
+    QS401_working = QS401_working.sort_values(by=['z', 'DT']).reset_index()
+    QS401 = QS401_working[['z', 't', 'Persons']]
+    return QS401
 
 
 #
