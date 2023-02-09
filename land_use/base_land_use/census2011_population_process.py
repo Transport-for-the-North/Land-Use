@@ -504,18 +504,13 @@ def format_qs606(QS606_raw_census, NTEM_pop_actual):
     QS606_working['higher'] = QS606_working[['h_1', 'h_2', 'h_3']].sum(axis=1)
     QS606_working['medium'] = QS606_working[['m_4', 'm_5', 'm_6', 'm_7']].sum(axis=1)
     QS606_working['skilled'] = QS606_working[['s_8', 's_9']].sum(axis=1)
-    QS606_working = QS606_working.rename(columns={'All categories: Occupation': 'Workers_Census'})
-    QS606_working = QS606_working[['mnemonic', 'higher', 'medium', 'skilled', 'Workers_Census']]
-
-    # Get zonal geography
-    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
-    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
-    QS606_working = QS606_working.merge(msoa_zone_map, how="left", on='mnemonic')
+    QS606_working = QS606_working.rename(columns={'All categories: Occupation': 'Workers_Census', 'mnemonic': 'MSOA'})
+    QS606_working = QS606_working[['MSOA', 'higher', 'medium', 'skilled', 'Workers_Census']]
 
     NTEM_workers_actual = NTEM_pop_actual.loc[NTEM_pop_actual['e'] < 3].reset_index()
-    NTEM_workers_actual = NTEM_workers_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
+    NTEM_workers_actual = NTEM_workers_actual.groupby(['z', 'MSOA'])['C_NTEM'].sum().reset_index()
     NTEM_workers_actual = NTEM_workers_actual.rename(columns={'C_NTEM': 'Workers_NTEM'})
-    QS606_working = pd.merge(QS606_working, NTEM_workers_actual, on='z')
+    QS606_working = pd.merge(QS606_working, NTEM_workers_actual, on='MSOA')
 
     # Get nonworkers (NTEM values, not scaled)
     NTEM_non_workers_actual = NTEM_pop_actual.loc[NTEM_pop_actual['e'] >= 3].reset_index() # SOC categories >= 3 == nonworkers
@@ -553,17 +548,11 @@ def format_qs609(QS609_raw_census, NTEM_pop_actual):
     QS609_working['NS-SeC 1-2'] = QS609_working[['NS-SeC 1', 'NS-SeC 2']].sum(axis=1)
     QS609_working['NS-SeC 3-5'] = QS609_working[['NS-SeC 3', 'NS-SeC 4', 'NS-SeC 5']].sum(axis=1)
     QS609_working['NS-SeC 6-7'] = QS609_working[['NS-SeC 6', 'NS-SeC 7']].sum(axis=1)
-    QS609_working = QS609_working.rename(columns={'All categories: NS-SeC': 'Total'})
+    QS609_working = QS609_working.rename(columns={'All categories: NS-SeC': 'Total', "mnemonic": "MSOA"})
+    QS609_working = QS609_working[['MSOA', 'NS-SeC 1-2', 'NS-SeC 3-5', 'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15', 'Total']]
 
-    QS609_working = QS609_working[['mnemonic', 'NS-SeC 1-2', 'NS-SeC 3-5', 'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15', 'Total']]
-
-    # Get zonal geography
-    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
-    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
-    QS609_working = QS609_working.merge(msoa_zone_map, how="left", on='mnemonic')
-
-    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
-    QS609_working = pd.merge(QS609_working, NTEM_zonal_pop_actual, on='z')
+    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z', 'MSOA'])['C_NTEM'].sum().reset_index()
+    QS609_working = pd.merge(QS609_working, NTEM_zonal_pop_actual, on='MSOA')
     QS609_working['Scaler'] = QS609_working['C_NTEM'] / QS609_working['Total']
     QS609_working = QS609_working.melt(id_vars=['z', 'Scaler'],
                                        value_vars=['NS-SeC 1-2', 'NS-SeC 3-5', 'NS-SeC 6-7', 'NS-SeC 8', 'NS-SeC L15'],
@@ -603,23 +592,18 @@ def format_qs401(QS401_raw_census, NTEM_pop_actual):
     QS401_working = QS401_raw_census.copy()
     QS401_working.columns = DT_headers_QS401
     QS401_working['Flat'] = QS401_working[['Flat_Total', 'Caravan', 'Shared dwelling']].sum(axis=1)
-    QS401_working = QS401_working.rename(columns={'All categories: Accommodation type': 'Census_Pop'})
+    QS401_working = QS401_working.rename(columns={'All categories: Accommodation type': 'Census_Pop', "mnemonic": "MSOA"})
+    QS401_working = QS401_working[['MSOA', 'Detached', 'Semi-detached', 'Terraced', 'Flat', 'Census_Pop']]
 
-    QS401_working = QS401_working[['mnemonic', 'Detached', 'Semi-detached', 'Terraced', 'Flat', 'Census_Pop']]
-
-    # Get zonal geography
-    msoa_zone_map = lookup_dict["geography"][['MSOA', 'NorMITs Zone']]
-    msoa_zone_map = msoa_zone_map.rename(columns={"MSOA": "mnemonic",  "NorMITs Zone": "z"})
-    QS401_working = QS401_working.merge(msoa_zone_map, how="left", on='mnemonic')
-
-    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z'])['C_NTEM'].sum().reset_index()
-    QS401_working = pd.merge(QS401_working, NTEM_zonal_pop_actual, on='z')
+    NTEM_zonal_pop_actual = NTEM_pop_actual.groupby(['z', 'MSOA'])['C_NTEM'].sum().reset_index()
+    QS401_working = pd.merge(QS401_working, NTEM_zonal_pop_actual, on='MSOA')
 
     QS401_working['Scaler'] = QS401_working['C_NTEM'] / QS401_working['Census_Pop']
-    QS401_working = QS401_working.melt(id_vars=['z', 'Scaler'], value_vars=['Detached', 'Semi-detached', 'Terraced', 'Flat'],
+    QS401_working = QS401_working.melt(id_vars=['z', 'Scaler'],
+                                       value_vars=['Detached', 'Semi-detached', 'Terraced', 'Flat'],
                                        var_name="DT", value_name="Persons")
-
     QS401_working["Persons"] = QS401_working["Persons"] * QS401_working['Scaler']
+
     QS401_working['t'] = np.where(QS401_working['DT'] == 'Detached', 1,
                                   np.where(QS401_working['DT'] == 'Semi-detached', 2,
                                            np.where(QS401_working['DT'] == 'Terraced', 3, 4)))
@@ -636,7 +620,7 @@ def fix_geography_lookup(lookup_geography):
     lookup_geography = lookup_geography.rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
 
     geography_EW = lookup_geography[lookup_geography["MSOA"].str[0].isin(["E", "W"])].copy()
-    geography_EW = geography_EW[['z', 'd', 'r']].reset_index(drop=True)
+    geography_EW = geography_EW.reset_index(drop=True)
     geography_EW['d'] = geography_EW['d'].astype(int)
 
     # TODO: Should this use E&W or Northern averages
@@ -650,40 +634,23 @@ def fix_geography_lookup(lookup_geography):
     max_EW_zone = EW_zones_per_district['d'].max()
 
     geography_S = lookup_geography[lookup_geography["MSOA"].str[0] == "S"].copy()
-    geography_S = geography_S[['z', 'd', 'r']].reset_index(drop=True)
+    geography_S = geography_S.reset_index(drop=True)
     geography_S['scottish_z'] = geography_S.index
     geography_S['d'] = (geography_S['scottish_z'] // avg_EW_zones_per_district) + 1
     geography_S['d'] = geography_S['d'] + max_EW_zone
     geography_S['r'] = "Scotland"
 
-    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[['z', 'd', 'r']]
+    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[['z', 'd', 'r', 'MSOA']]
 
     lookup_geography_filename = 'lookup_geography_z2d2r.csv'
     lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
-    # geography_GB.to_csv(os.path.join(lookup_folder, lookup_geography_filename))
+    # geography_GB[['z', 'd', 'r']].to_csv(os.path.join(lookup_folder, lookup_geography_filename))
     return geography_GB
 
 
-print("Hello")
-#
-def _create_ipfn_inputs_2011(census_micro, lookup_dict):
-
-    z_d_r_map = fix_geography_lookup(lookup_dict["geography"])
-
+def generate_population_seeds(NTEM_pop_scaled, aghetns_segments):
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
-    hh_census = segment_and_tally_census_microdata_2011(
-        census_microdata_df=census_micro, ntem_normits_lookup_dict=lookup_dict)
-    daghe_segments, aghetns_segments = generate_valid_segments(
-        household_census=hh_census, zone_district_region_map=z_d_r_map)
-    infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(
-        household_census=hh_census, daghe_segmentation=daghe_segments)
-    NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(
-        f_tns_daghe=f_tns_daghe, zone_district_region_map=z_d_r_map)
-
-    QS401 = format_qs401(QS401_raw_census=QS401_raw_census, NTEM_pop_actual=NTEM_pop_actual)
-    QS606 = format_qs606(QS606_raw_census=QS606_raw_census, NTEM_pop_actual=NTEM_pop_actual)
-    QS609 = format_qs609(QS609_raw_census=QS609_raw_census, NTEM_pop_actual=NTEM_pop_actual)
 
     # The following block takes ~ 3 minutes.
     all_z_aghetns = itertools.product(
@@ -705,7 +672,6 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
     NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds['ntem_tt'].astype(int)
 
     NTEM_pop_for_dr_seeds = NTEM_pop_for_seeds.merge(z_d_r_map, on='z')
-    NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds["MSOA"].str[0] == "S", ['d', 'r']] = (0, "Scotland")
 
     seed_r_NW = NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds['r'] == 'North West']
     seed_r_NW = seed_r_NW.reset_index()[['z']+aghe+tns+['C_zaghetns']]
@@ -716,7 +682,29 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
     # seed = seed.rename(columns={'C_zaghetns': 'population'})
     seed_dr = NTEM_pop_for_dr_seeds[['d', 'r', 'z']+aghe+tns+['C_zaghetns']]
     # seed_dr = seed_dr.rename(columns={'C_zaghetns': 'population'})
+    return
 
+
+def _create_ipfn_inputs_2011(census_micro, lookup_dict):
+
+    z_d_r_map = fix_geography_lookup(lookup_dict["geography"])
+
+    aghe = ['a', 'g', 'h', 'e']
+    tns = ['t', 'n', 's']
+    hh_census = segment_and_tally_census_microdata_2011(
+        census_microdata_df=census_micro, ntem_normits_lookup_dict=lookup_dict)
+    daghe_segments, aghetns_segments = generate_valid_segments(
+        household_census=hh_census, zone_district_region_map=z_d_r_map)
+    infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(
+        household_census=hh_census, daghe_segmentation=daghe_segments)
+    NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(
+        f_tns_daghe=f_tns_daghe, zone_district_region_map=z_d_r_map)
+
+    QS401 = format_qs401(QS401_raw_census=QS401_raw_census, NTEM_pop_actual=NTEM_pop_actual)
+    QS606 = format_qs606(QS606_raw_census=QS606_raw_census, NTEM_pop_actual=NTEM_pop_actual)
+    QS609 = format_qs609(QS609_raw_census=QS609_raw_census, NTEM_pop_actual=NTEM_pop_actual)
+
+    NTEM_pop_for_seeds = generate_population_seeds(NTEM_pop_scaled=NTEM_pop_scaled, aghetns_segments=aghetns_segments)
 
     return None
 
