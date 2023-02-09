@@ -331,7 +331,7 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
     return hh_census
 
 
-def generate_valid_segments(household_census, ntem_normits_lookup_dict):
+def generate_valid_segments(household_census, zone_district_region_map):
     expected_tt_count = 88  # TODO: Deal with this
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
@@ -349,10 +349,10 @@ def generate_valid_segments(household_census, ntem_normits_lookup_dict):
         print('Got', len(population_segments))
 
     # All valid population (a,g,h,e) segmentations, for all zones
-    model_districts = ntem_normits_lookup_dict["geography"].copy().dropna(subset=["Grouped LA"])
+    model_districts = zone_district_region_map[zone_district_region_map['r'] != "Scotland"].copy()
     population_segments = itertools.product(
         population_segments[aghe].drop_duplicates().itertuples(index=False),
-        model_districts['Grouped LA'].astype(int).sort_values().unique())
+        model_districts['d'].astype(int).sort_values().unique())
     daghe_segments = pd.DataFrame(population_segments, columns=["aghe", "d"])
 
     daghe_segments[aghe] = pd.DataFrame(daghe_segments["aghe"].to_list())
@@ -450,7 +450,7 @@ def resegment_NTEM_population(f_tns_daghe, zone_district_region_map):
     # Drop the Scottish districts and apply f to England and Wales
     NTEM_pop_actual = pd.merge(NTEM_pop_actual, zone_district_region_map, on='z')
 
-    NTEM_pop_EW = NTEM_pop_actual[NTEM_pop_actual["MSOA"].str[0].isin(["E", "W"])]
+    NTEM_pop_EW = NTEM_pop_actual[NTEM_pop_actual["r"] != "Scotland"]
     test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
     NTEM_pop_EW['d'] = NTEM_pop_EW['d'].astype(int)
     NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
@@ -464,16 +464,14 @@ def resegment_NTEM_population(f_tns_daghe, zone_district_region_map):
     NTEM_pop_N = NTEM_pop_N[["A"]+aghe+tns+["F(t,n,s|A,a,g,h,e)"]]
 
     NTEM_pop_S = NTEM_pop_actual.copy()
-    NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["MSOA"].str[0] == "S"]
+    NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["r"] == "Scotland"]
     test_tot_S = NTEM_pop_S['C_NTEM'].sum()
     NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe)
-    NTEM_pop_S[['d', 'r']] = (0, 'Scotland')
 
     NTEM_pop_S = NTEM_pop_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
     NTEM_pop_EW = NTEM_pop_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
 
     NTEM_pop_scaled = pd.concat([NTEM_pop_EW, NTEM_pop_S], axis=0, ignore_index=True)
-    NTEM_pop_scaled = NTEM_pop_scaled.drop(columns=["MSOA"])
     NTEM_pop_scaled['C_zaghetns'] = NTEM_pop_scaled['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_scaled['C_NTEM']
 
     # Print some totals out to check...
@@ -630,18 +628,48 @@ def format_qs401(QS401_raw_census, NTEM_pop_actual):
     return QS401
 
 
+def fix_geography_lookup(lookup_geography):
+    # Sort out district lookups and apply 'districts' to Scotland
+    # by grouping zones numerically to the EW average district size.
+
+    lookup_geography = lookup_geography.copy()
+    lookup_geography = lookup_geography.rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
+
+    geography_EW = lookup_geography[lookup_geography["MSOA"].str[0].isin(["E", "W"])].copy()
+    geography_EW = geography_EW[['z', 'd', 'r']].reset_index(drop=True)
+    geography_EW['d'] = geography_EW['d'].astype(int)
+
+    EW_zones_per_district = geography_EW.groupby(['d'], as_index=False)['z'].nunique()
+    avg_EW_zones_per_district = round(EW_zones_per_district['z'].mean())
+    max_EW_zone = EW_zones_per_district['d'].max()
+
+    geography_S = lookup_geography[lookup_geography["MSOA"].str[0] == "S"].copy()
+    geography_S = geography_S[['z', 'd', 'r']].reset_index(drop=True)
+    geography_S['scottish_z'] = geography_S.index
+    geography_S['d'] = (geography_S['scottish_z'] // avg_EW_zones_per_district) + 1
+    geography_S['d'] = geography_S['d'] + max_EW_zone
+    geography_S['r'] = "Scotland"
+
+    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[['z', 'd', 'r']]
+
+    lookup_geography_filename = 'lookup_geography_z2d2r.csv'
+    lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
+    # geography_GB.to_csv(os.path.join(lookup_folder, lookup_geography_filename))
+    return geography_GB
+
+
+print("Hello")
 #
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
 
-    z_d_r_map = lookup_dict["geography"].rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
-    z_d_r_map = z_d_r_map[["z", "d", "r", "MSOA"]]
+    z_d_r_map = fix_geography_lookup(lookup_dict["geography"])
 
     aghe = ['a', 'g', 'h', 'e']
     tns = ['t', 'n', 's']
     hh_census = segment_and_tally_census_microdata_2011(
         census_microdata_df=census_micro, ntem_normits_lookup_dict=lookup_dict)
     daghe_segments, aghetns_segments = generate_valid_segments(
-        household_census=hh_census, ntem_normits_lookup_dict=lookup_dict)
+        household_census=hh_census, zone_district_region_map=z_d_r_map)
     infilled_f_tns_daghe, f_tns_daghe, EW_f_tns_aghe = calculate_tns_aghe_splitting(
         household_census=hh_census, daghe_segmentation=daghe_segments)
     NTEM_pop_actual, NTEM_pop_scaled = resegment_NTEM_population(
@@ -660,7 +688,7 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
     all_z_aghetns = all_z_aghetns.drop(columns=["aghetns"])
 
     # Why is this a different length?
-    NTEM_pop_for_seeds = NTEM_pop.groupby(["z"]+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
+    NTEM_pop_for_seeds = NTEM_pop_scaled.groupby(["z"]+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
     NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=["z"]+aghe+tns)
 
     NTEM_pop_for_seeds[["z"]+aghe+tns] = NTEM_pop_for_seeds[["z"]+aghe+tns].astype(int)
