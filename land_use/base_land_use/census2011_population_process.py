@@ -639,6 +639,12 @@ def fix_geography_lookup(lookup_geography):
     geography_EW = geography_EW[['z', 'd', 'r']].reset_index(drop=True)
     geography_EW['d'] = geography_EW['d'].astype(int)
 
+    # TODO: Should this use E&W or Northern averages
+    # geography_N = lookup_geography[lookup_geography["r"].str[0].isin(["North East", "North West"])].copy()
+    # N_zones_per_district = geography_N.groupby(['d'], as_index=False)['z'].nunique()
+    # avg_N_zones_per_district = round(N_zones_per_district['z'].mean())
+    # max_EW_zone = geography_EW['d'].max()
+
     EW_zones_per_district = geography_EW.groupby(['d'], as_index=False)['z'].nunique()
     avg_EW_zones_per_district = round(EW_zones_per_district['z'].mean())
     max_EW_zone = EW_zones_per_district['d'].max()
