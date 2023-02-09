@@ -65,19 +65,18 @@ QS606_raw_census = QS606_raw_census.dropna(subset=['Area'])
 QS609_raw_census = QS609_raw_census.dropna(subset=['Area'])
 
 # Read in NTEM -> NorMITs lookup tables...
-lookup_ageh = pd.read_csv(os.path.join(_lookup_tables_path, 'ageh.csv'))
-lookup_sex = pd.read_csv(os.path.join(_lookup_tables_path, 'sex.csv'))
-lookup_ahchuk11 = pd.read_csv(os.path.join(_lookup_tables_path, 'ahchuk11.csv'))
-lookup_carsnoc = pd.read_csv(os.path.join(_lookup_tables_path, 'carsnoc.csv'))
-lookup_h = pd.read_csv(os.path.join(_lookup_tables_path, 'h.csv'))
-lookup_ecopuk11 = pd.read_csv(os.path.join(_lookup_tables_path, 'ecopuk11.csv'))
-lookup_hours = pd.read_csv(os.path.join(_lookup_tables_path, 'hours.csv'))
-lookup_nsshuk11 = pd.read_csv(os.path.join(_lookup_tables_path, 'nsshuk11.csv'))
-lookup_occg = pd.read_csv(os.path.join(_lookup_tables_path, 'occg.csv'))
-lookup_typaccom = pd.read_csv(os.path.join(_lookup_tables_path, 'Typaccom.csv'))
-lookup_geography = pd.read_csv(os.path.join(_lookup_tables_path, 'geography.csv'))
-# ...and get rid of spaces in geography lookup table headers immediately
-lookup_geography.columns = lookup_geography.columns.str.replace(' ', '_')
+lookup_dict = {
+    'ageh': pd.read_csv(os.path.join(_lookup_tables_path, 'ageh.csv')),
+    'sex': pd.read_csv(os.path.join(_lookup_tables_path, 'sex.csv')),
+    'ahchuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'ahchuk11.csv')),
+    'carsnoc': pd.read_csv(os.path.join(_lookup_tables_path, 'carsnoc.csv')),
+    'h': pd.read_csv(os.path.join(_lookup_tables_path, 'h.csv')),
+    'ecopuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'ecopuk11.csv')),
+    'hours': pd.read_csv(os.path.join(_lookup_tables_path, 'hours.csv')).rename(columns={"Hours worked ": "Hours worked"}),
+    'nsshuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'nsshuk11.csv')),
+    'occg': pd.read_csv(os.path.join(_lookup_tables_path, 'occg.csv')),
+    'typaccom': pd.read_csv(os.path.join(_lookup_tables_path, 'Typaccom.csv')),
+    'geography': pd.read_csv(os.path.join(_lookup_tables_path, 'geography.csv'))}
 
 # read in 2011 NTEM and relevant lookup tables
 NTEM_pop_2011 = pd.read_csv(os.path.join(_NTEM_input_path, 'All_year', 'ntem_gb_z_areatype_ntem_tt_2011_pop.csv'))
@@ -269,6 +268,7 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
                                   'ahchuk11', 'carsnoc', 'ecopuk11', 'hours', 'occg']]
     census = census.rename(columns={'ageh': 'Age', 'sex': 'Sex', 'nsshuk11': 'HRP NSSEC',
                                     'ahchuk11': 'Household size', 'carsnoc': 'Household car',
+                                    'ecopuk11': 'Employment type code', 'hours': 'Hours worked', 'occg': 'SOC'})
     hh_census = census[census["residence_type"] == 2]
 
     # Convert segmentations
