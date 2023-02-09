@@ -87,6 +87,12 @@ ntem_pop_segs = pd.read_csv(os.path.join(_NTEM_input_path, 'Pop_Segmentations.cs
 ModelName = 'NorMITs'
 Output_Folder = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
 
+# Segmentation keys
+aghe = ['a', 'g', 'h', 'e']
+tns = ['t', 'n', 's']
+zdr = ['z', 'd', 'r']
+
+
 # TODO: 'validate' for all merges
 # TODO: fix .loc / [[]] slice issue
 # TODO: Document new functions
@@ -333,8 +339,6 @@ def segment_and_tally_census_microdata_2011(census_microdata_df, ntem_normits_lo
 
 def generate_valid_segments(household_census, zone_district_region_map):
     expected_tt_count = 88  # TODO: Deal with this
-    aghe = ['a', 'g', 'h', 'e']
-    tns = ['t', 'n', 's']
 
     hh_census = household_census.copy()[aghe+tns]
 
@@ -365,14 +369,14 @@ def generate_valid_segments(household_census, zone_district_region_map):
     worker_segments = itertools.product(
         worker[aghe].drop_duplicates().itertuples(index=False),
         worker["t"].unique(), worker["n"].unique(), worker["s"].unique())
-    worker_segments = pd.DataFrame(worker_segments, columns=["aghe", "t", "n", "s"])
+    worker_segments = pd.DataFrame(worker_segments, columns=["aghe"]+tns)
 
     # All valid non-worker (a,g,h,e,t,n,s) segmentations
     non_worker = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
     non_worker_segments = itertools.product(
         non_worker[aghe].drop_duplicates().itertuples(index=False),
         non_worker["t"].unique(), non_worker["n"].unique(), non_worker["s"].unique())
-    non_worker_segments = pd.DataFrame(non_worker_segments, columns=["aghe", "t", "n", "s"])
+    non_worker_segments = pd.DataFrame(non_worker_segments, columns=["aghe"]+tns)
 
     aghetns_segments = pd.concat([worker_segments, non_worker_segments], axis=0, ignore_index=True)
     aghetns_segments[aghe] = pd.DataFrame(aghetns_segments["aghe"].to_list())
@@ -383,8 +387,6 @@ def generate_valid_segments(household_census, zone_district_region_map):
 def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
     expected_tt_count = 88  # TODO: Deal with this
     hh_census = household_census.copy()
-    aghe = ['a', 'g', 'h', 'e']
-    tns = ['t', 'n', 's']
 
     workers = hh_census[(hh_census['e'] <= 2) & (hh_census['s'] < 4)]
     non_workers = hh_census[(hh_census['e'] > 2)].assign(s=4)  # & (household_census['s'] == 4)
@@ -422,8 +424,6 @@ def calculate_tns_aghe_splitting(household_census, daghe_segmentation):
 
 
 def resegment_NTEM_population(f_tns_daghe, zone_district_region_map):
-    aghe = ['a', 'g', 'h', 'e']
-    tns = ['t', 'n', 's']
 
     # Obtain 2011 NTEM data
     NTEM_pop_path = r'I:\NorMITs Land Use\import\CTripEnd'
@@ -640,17 +640,16 @@ def fix_geography_lookup(lookup_geography):
     geography_S['d'] = geography_S['d'] + max_EW_zone
     geography_S['r'] = "Scotland"
 
-    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[['z', 'd', 'r', 'MSOA']]
+    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[zdr+['MSOA']]
 
     lookup_geography_filename = 'lookup_geography_z2d2r.csv'
     lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
-    # geography_GB[['z', 'd', 'r']].to_csv(os.path.join(lookup_folder, lookup_geography_filename))
+    # geography_GB[zdr].to_csv(os.path.join(lookup_folder, lookup_geography_filename))
+    # TODO: Uncomment the write
     return geography_GB
 
 
 def generate_population_seeds(NTEM_pop_scaled, aghetns_segments):
-    aghe = ['a', 'g', 'h', 'e']
-    tns = ['t', 'n', 's']
 
     # The following block takes ~ 3 minutes.
     all_z_aghetns = itertools.product(
@@ -661,7 +660,7 @@ def generate_population_seeds(NTEM_pop_scaled, aghetns_segments):
     all_z_aghetns = all_z_aghetns.drop(columns=["aghetns"])
 
     # Why is this a different length?
-    NTEM_pop_for_seeds = NTEM_pop_scaled.groupby(['z','d','r']+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
+    NTEM_pop_for_seeds = NTEM_pop_scaled.groupby(zdr+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
     NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=["z"]+aghe+tns)
 
     NTEM_pop_for_seeds[["z", "d"]+aghe+tns] = NTEM_pop_for_seeds[["z", "d"]+aghe+tns].astype(int)
@@ -678,18 +677,15 @@ def generate_population_seeds(NTEM_pop_scaled, aghetns_segments):
     seed_d_184 = seed_d_184.reset_index()[['z']+aghe+tns+['C_zaghetns']]
 
     seed = NTEM_pop_for_seeds[['z']+aghe+tns+['C_zaghetns']]
-    # seed = seed.rename(columns={'C_zaghetns': 'population'})
-    seed_dr = NTEM_pop_for_seeds[['d', 'r', 'z']+aghe+tns+['C_zaghetns']]
-    # seed_dr = seed_dr.rename(columns={'C_zaghetns': 'population'})
+    seed = seed.rename(columns={'C_zaghetns': 'population'})
+    seed_dr = NTEM_pop_for_seeds[zdr+aghe+tns+['C_zaghetns']]
+    seed_dr = seed_dr.rename(columns={'C_zaghetns': 'population'})
     return seed, seed_dr
 
 
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
-
     z_d_r_map = fix_geography_lookup(lookup_dict["geography"])
 
-    aghe = ['a', 'g', 'h', 'e']
-    tns = ['t', 'n', 's']
     hh_census = segment_and_tally_census_microdata_2011(
         census_microdata_df=census_micro, ntem_normits_lookup_dict=lookup_dict)
     daghe_segments, aghetns_segments = generate_valid_segments(
