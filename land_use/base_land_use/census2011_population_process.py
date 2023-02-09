@@ -661,28 +661,27 @@ def generate_population_seeds(NTEM_pop_scaled, aghetns_segments):
     all_z_aghetns = all_z_aghetns.drop(columns=["aghetns"])
 
     # Why is this a different length?
-    NTEM_pop_for_seeds = NTEM_pop_scaled.groupby(["z"]+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
+    NTEM_pop_for_seeds = NTEM_pop_scaled.groupby(['z','d','r']+aghe+tns+["ntem_tt"], as_index=False)["C_zaghetns"].sum()
     NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=["z"]+aghe+tns)
 
-    NTEM_pop_for_seeds[["z"]+aghe+tns] = NTEM_pop_for_seeds[["z"]+aghe+tns].astype(int)
+    NTEM_pop_for_seeds[["z", "d"]+aghe+tns] = NTEM_pop_for_seeds[["z", "d"]+aghe+tns].astype(int)
     NTEM_pop_for_seeds['C_zaghetns'] = NTEM_pop_for_seeds['C_zaghetns'].fillna(0)
 
     NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds['ntem_tt'].str[-3:].astype(float)
     NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds.groupby(aghe)['ntem_tt'].transform("mean")
     NTEM_pop_for_seeds['ntem_tt'] = NTEM_pop_for_seeds['ntem_tt'].astype(int)
 
-    NTEM_pop_for_dr_seeds = NTEM_pop_for_seeds.merge(z_d_r_map, on='z')
 
-    seed_r_NW = NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds['r'] == 'North West']
+    seed_r_NW = NTEM_pop_for_seeds.loc[NTEM_pop_for_seeds['r'] == 'North West']
     seed_r_NW = seed_r_NW.reset_index()[['z']+aghe+tns+['C_zaghetns']]
-    seed_d_184 = NTEM_pop_for_dr_seeds.loc[NTEM_pop_for_dr_seeds['d'] == 184]
+    seed_d_184 = NTEM_pop_for_seeds.loc[NTEM_pop_for_seeds['d'] == 184]
     seed_d_184 = seed_d_184.reset_index()[['z']+aghe+tns+['C_zaghetns']]
 
     seed = NTEM_pop_for_seeds[['z']+aghe+tns+['C_zaghetns']]
     # seed = seed.rename(columns={'C_zaghetns': 'population'})
-    seed_dr = NTEM_pop_for_dr_seeds[['d', 'r', 'z']+aghe+tns+['C_zaghetns']]
+    seed_dr = NTEM_pop_for_seeds[['d', 'r', 'z']+aghe+tns+['C_zaghetns']]
     # seed_dr = seed_dr.rename(columns={'C_zaghetns': 'population'})
-    return
+    return seed, seed_dr
 
 
 def _create_ipfn_inputs_2011(census_micro, lookup_dict):
@@ -703,8 +702,8 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
     QS401 = format_qs401(QS401_raw_census=QS401_raw_census, NTEM_pop_actual=NTEM_pop_actual)
     QS606 = format_qs606(QS606_raw_census=QS606_raw_census, NTEM_pop_actual=NTEM_pop_actual)
     QS609 = format_qs609(QS609_raw_census=QS609_raw_census, NTEM_pop_actual=NTEM_pop_actual)
-
-    NTEM_pop_for_seeds = generate_population_seeds(NTEM_pop_scaled=NTEM_pop_scaled, aghetns_segments=aghetns_segments)
+    NTEM_seed_pop, NTEM_seed_pop_dr = generate_population_seeds(NTEM_pop_scaled=NTEM_pop_scaled,
+                                                                aghetns_segments=aghetns_segments)
 
     return None
 
