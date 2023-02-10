@@ -48,22 +48,6 @@ _QS_census_queries_path = 'I:/NorMITs Land Use/import/Nomis Census 2011 Head & H
 _lookup_tables_path = 'I:/NorMITs Land Use/import/2011 Census Micro lookups'
 _NTEM_input_path = r'I:\NorMITs Land Use\import\CTripEnd'
 
-# Read in data for the 2011 furness set up
-# 2011 Census micro data
-census_micro = pd.read_csv(os.path.join(_census_micro_path, 'recodev12.csv'))
-
-# 2011 census queries
-QS401_raw_census = pd.read_csv(os.path.join(
-    _QS_census_queries_path, '210817_QS401UK -Dwelling type - Persons_MSOA.csv'), skiprows=7)
-QS606_raw_census = pd.read_csv(os.path.join(
-    _QS_census_queries_path, '210817_QS606UK - Occupation- ER_MSOA.csv'), skiprows=7)
-QS609_raw_census = pd.read_csv(os.path.join(
-    _QS_census_queries_path, '210817_QS609UK - NS-SeC of HRP- Persons_MSOA.csv'), skiprows=6)
-# Trim the footers off the tables (they are always in the 2nd column, so dropna on Area (1st column))
-QS401_raw_census = QS401_raw_census.dropna(subset=['Area'])
-QS606_raw_census = QS606_raw_census.dropna(subset=['Area'])
-QS609_raw_census = QS609_raw_census.dropna(subset=['Area'])
-
 # Read in NTEM -> NorMITs lookup tables...
 lookup_dict = {
     'ageh': pd.read_csv(os.path.join(_lookup_tables_path, 'ageh.csv')),
@@ -79,7 +63,6 @@ lookup_dict = {
     'geography': pd.read_csv(os.path.join(_lookup_tables_path, 'geography.csv'))}
 
 # read in 2011 NTEM and relevant lookup tables
-NTEM_pop_2011 = pd.read_csv(os.path.join(_NTEM_input_path, 'All_year', 'ntem_gb_z_areatype_ntem_tt_2011_pop.csv'))
 ntem_pop_segs = pd.read_csv(os.path.join(_NTEM_input_path, 'Pop_Segmentations.csv'))
 # Define model name and output folder
 # Note that output folder is IPFN input folder
@@ -116,6 +99,36 @@ def _generate_scottish_geography(geography_lookup):
     geography_GB[['z', 'd']] = geography_GB[['z', 'd']].astype(int)
     return geography_GB
 
+
+def _load_population_data(census_microdata_path, QS401_path, QS606_path, QS609_path, NTEM_population_path):
+    census_microdata = pd.read_csv(census_microdata_path)
+    census_microdata = census_microdata.rename(columns={
+        'la_group': 'd', 'typaccom': 't',
+        'ageh': 'Age', 'sex': 'Sex', 'nsshuk11': 'HRP NSSEC',
+        'ahchuk11': 'Household size', 'carsnoc': 'Household car',
+        'ecopuk11': 'Employment type code', 'hours': 'Hours worked', 'occg': 'SOC'})
+    census_microdata = census_microdata[['caseno', 'd', 'residence_type', 't',
+                                         'Age', 'Sex', 'HRP NSSEC',
+                                         'Household size', 'Household car',
+                                         'Employment type code', 'Hours worked', 'SOC']]
+
+    QS401 = pd.read_csv(QS401_path, skiprows=7)
+    QS401 = QS401.rename(columns={'All categories: Accommodation type': 'Census_Population', "mnemonic": "MSOA"})
+
+    QS606 = pd.read_csv(QS606_path, skiprows=7)
+    QS606 = QS606.rename(columns={'All categories: Occupation': 'Census_Workers', 'mnemonic': 'MSOA'})
+
+    QS609 = pd.read_csv(QS609_path, skiprows=6)
+    QS609 = QS609.rename(columns={'All categories: NS-SeC': 'Census_Population', "mnemonic": "MSOA"})
+
+    # Trim the footers off the tables (they are always in the 2nd column, so dropna on Area (1st column))
+    QS401 = QS401.dropna(subset=['Area'])
+    QS606 = QS606.dropna(subset=['Area'])
+    QS609 = QS609.dropna(subset=['Area'])
+
+    NTEM_population = pd.read_csv(NTEM_population_path)
+    NTEM_population = NTEM_population.rename(columns={'2011': 'C_NTEM', 'tt': 'NTEM_tt'})
+    return census_microdata, QS401, QS606, QS609, NTEM_population
 
 def _estimate_f_tns_daghe(microdata_count, aghe_segment_count, daghe_segments):
     """
