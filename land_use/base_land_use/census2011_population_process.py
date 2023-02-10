@@ -701,6 +701,83 @@ def _create_ipfn_inputs_2011(census_micro, lookup_dict):
     NTEM_seed_pop, NTEM_seed_pop_dr = generate_population_seeds(NTEM_pop_scaled=NTEM_pop_scaled,
                                                                 aghetns_segments=aghetns_segments)
 
+    Ctrl1_NTEM = NTEM_seed_pop_dr.groupby(zdr+aghe, as_index=False)["population"].sum()
+
+    # set up for loop for 1 -> Max d in data (313)
+    # str version of the number is to append to file names
+    district_upper_limit = z_d_r_map['d'].max() + 1
+    os.chdir(Output_Folder)
+    print('Creating seed and control files')
+    print('Printing every 10th district as they are written out:')
+
+    # TODO: Slow process, needs mp wrapper
+    for district in range(1, district_upper_limit):
+        dist_str = str(district)
+        # Lookups and processing
+        #     QS Control files
+        QS606_d = QS606.loc[QS606['d'] == district].reset_index()
+        QS609_d = QS609.loc[QS609['d'] == district].reset_index()
+        QS401_d = QS401.loc[QS401['d'] == district].reset_index()
+        #     Main seed file
+        seed_d = NTEM_seed_pop_dr.loc[NTEM_seed_pop_dr['d'] == district].reset_index()
+        seed_headers = ['z', 'a', 'g', 'h', 'e', 't', 'n', 's', 'P_aghetns']
+        seed_d = seed_d[seed_headers]
+        #     Ctrl1 control file
+        Ctrl1_NTEM_d = Ctrl1_NTEM.loc[Ctrl1_NTEM['d'] == district].reset_index()
+        Ctrl1_NTEM_headers = ['z', 'a', 'g', 'h', 'e', 'population']
+        Ctrl1_NTEM_d = Ctrl1_NTEM_d[Ctrl1_NTEM_headers]
+
+        # Name outputs
+        seed_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\01 Seed Files'
+        seed_filename = '_'.join(['2011', str(ModelName), 'seed_d', dist_str, 'v0.1.csv'])
+        NTEM_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\02 Ctrl1 NTEM Control Files'
+        Ctrl1_NTEM_filename = '_'.join(['2011', str(ModelName), 'Ctrl1_NTEM_d', dist_str, 'v0.1.csv'])
+        SOC_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\03 SOC Control Files'
+        SOC_filename = '_'.join(['2011', str(ModelName), 'Ctrl_SOC_d', dist_str, 'v0.1.csv'])
+        NSSEC_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\04 NSSEC Control Files'
+        NSSEC_filename = '_'.join(['2011', str(ModelName), 'Ctrl_NSSEC_d', dist_str, 'v0.1.csv'])
+        DT_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\05 DT Control Files'
+        DT_filename = '_'.join(['2011', str(ModelName), 'Ctrl_DT_d', dist_str, 'v0.1.csv'])
+
+        # save outputs
+        # TODO: Optimise writes, this is why it is so slow
+        QS606_d.to_csv(os.path.join(SOC_file_path, SOC_filename), index=False)
+        QS609_d.to_csv(os.path.join(NSSEC_file_path, NSSEC_filename), index=False)
+        QS401_d.to_csv(os.path.join(DT_file_path, DT_filename), index=False)
+        seed_d.to_csv(os.path.join(seed_file_path, seed_filename), index=False)
+        Ctrl1_NTEM_d.to_csv(os.path.join(NTEM_file_path, Ctrl1_NTEM_filename), index=False)
+
+        # Print out every tenth row to check on progress
+        if district / 10 == district // 10:
+            print(district)
+    print('All district level seed and control files have been printed out as csvs')
+    print('Now working on checks...')
+
+    # Check control file totals
+    QS606_check_tot = QS606.groupby(['z'])['Persons'].sum().reset_index()
+    QS609_check_tot = QS609.groupby(['z'])['Persons'].sum().reset_index()
+    QS401_check_tot = QS401.groupby(['z'])['Persons'].sum().reset_index()
+    seed_df_zonal = NTEM_seed_pop_dr.groupby(['z'])['population'].sum().reset_index()
+    Ctrl1_NTEM_zonal = Ctrl1_NTEM.groupby(['z'])['population'].sum().reset_index()
+    QS606_check_tot = QS606_check_tot.rename(columns={'Persons': 'QS606_pop'})
+    QS609_check_tot = QS609_check_tot.rename(columns={'Persons': 'QS609_pop'})
+    QS401_check_tot = QS401_check_tot.rename(columns={'Persons': 'QS401_pop'})
+    seed_df_zonal = seed_df_zonal.rename(columns={'population': 'Seed_pop'})
+    Ctrl1_NTEM_zonal = Ctrl1_NTEM_zonal.rename(columns={'population': 'Ctrl1_pop'})
+    QS_check_totals = pd.merge(QS606_check_tot, QS609_check_tot, left_on='z', right_on='z', how='left')
+    QS_check_totals = pd.merge(QS_check_totals, QS401_check_tot, left_on='z', right_on='z', how='left')
+    QS_check_totals = pd.merge(QS_check_totals, seed_df_zonal, left_on='z', right_on='z', how='left')
+    QS_check_totals = pd.merge(QS_check_totals, Ctrl1_NTEM_zonal, left_on='z', right_on='z', how='left')
+
+    check_output_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
+    check_output_name = r'check_seed+control_totals.csv'
+    QS_check_totals.to_csv(os.path.join(check_output_path, check_output_name), index=False)
+    print('Checks completed and dumped to csv')
+
+    census_and_by_lu_obj.state['3.1.2 expand population segmentation'] = 1
+    logging.info('3.1.2 expand population segmentation completed')
+
+
     return None
 
 
