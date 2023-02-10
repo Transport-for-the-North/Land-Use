@@ -247,7 +247,7 @@ def _segment_and_tally_census_microdata(census_microdata, segment_lookup):
     hh_microdata = hh_microdata.dropna(subset=['n'])
     # SOC
     hh_microdata = hh_microdata.join(segment_lookup["soc"], on="SOC")
-    hh_microdata.loc[hh_microdata['e'] > 2, 's'] = 4
+    hh_microdata.loc[hh_microdata['e'].astype(int) > 2, 's'] = 4
     hh_microdata = hh_microdata.drop(columns=["SOC"])
 
     # Type and column name formatting
