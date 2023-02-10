@@ -90,6 +90,31 @@ Output_Folder = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
 aghe = ['a', 'g', 'h', 'e']
 tns = ['t', 'n', 's']
 zdr = ['z', 'd', 'r']
+def _generate_scottish_geography(geography_lookup):
+
+    # Sort out district lookups and apply 'districts' to Scotland
+    # by grouping zones numerically to the EW average district size.
+
+    geography = geography_lookup.copy()
+
+    geography_EW = geography.loc[geography["MSOA"].str[0].isin(["E", "W"])].copy()
+    geography_EW = geography_EW.reset_index(drop=True)
+    geography_EW['d'] = geography_EW['d'].astype(int)
+
+    EW_zones_per_district = geography_EW.groupby(['d'], as_index=False)['z'].nunique()
+    avg_EW_zones_per_district = round(EW_zones_per_district['z'].mean())
+    max_EW_zone = EW_zones_per_district['d'].max()
+
+    geography_S = geography.loc[geography["MSOA"].str[0] == "S"].copy()
+    geography_S = geography_S.reset_index(drop=True)
+    geography_S['scottish_z'] = geography_S.index
+    geography_S['d'] = (geography_S['scottish_z'] // avg_EW_zones_per_district) + 1
+    geography_S['d'] = geography_S['d'] + max_EW_zone
+    geography_S['r'] = "Scotland"
+
+    geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[zdr+['MSOA']]
+    geography_GB[['z', 'd']] = geography_GB[['z', 'd']].astype(int)
+    return geography_GB
 
 
 # TODO: 'validate' for all merges
