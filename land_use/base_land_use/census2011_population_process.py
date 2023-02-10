@@ -34,6 +34,7 @@ import os
 import itertools
 import datetime
 import pyodbc
+from os.path import join as opj
 # from ipfn import ipfn
 from caf.toolkit import iterative_proportional_fitting as ipfn
 from caf.toolkit import concurrency
@@ -47,23 +48,28 @@ _census_micro_path = 'I:/NorMITs Land Use/import/2011 Census Microdata'
 _QS_census_queries_path = 'I:/NorMITs Land Use/import/Nomis Census 2011 Head & Household'
 _lookup_tables_path = 'I:/NorMITs Land Use/import/2011 Census Micro lookups'
 _NTEM_input_path = r'I:\NorMITs Land Use\import\CTripEnd'
+_lookup_paths = {
+    'age': opj(_lookup_tables_path, 'ageh.csv'),
+    'gender': opj(_lookup_tables_path, 'sex.csv'),
+    'alt_hh_comp': opj(_lookup_tables_path, 'ahchuk11.csv'),
+    'cars': opj(_lookup_tables_path, 'carsnoc.csv'),
+    'hh_comp': opj(_lookup_tables_path, 'h.csv'),
+    'econ_activity': opj(_lookup_tables_path, 'ecopuk11.csv'),
+    'hours': opj(_lookup_tables_path, 'hours.csv'),
+    'nssec': opj(_lookup_tables_path, 'nsshuk11.csv'),
+    'soc': opj(_lookup_tables_path, 'occg.csv'),
+    'type_accom': opj(_lookup_tables_path, 'Typaccom.csv'),
+    'geography': opj(_lookup_tables_path, 'geography.csv'),
+    'ntem_tt': opj(_NTEM_input_path, 'Pop_Segmentations.csv')}
 
-# Read in NTEM -> NorMITs lookup tables...
-lookup_dict = {
-    'ageh': pd.read_csv(os.path.join(_lookup_tables_path, 'ageh.csv')),
-    'sex': pd.read_csv(os.path.join(_lookup_tables_path, 'sex.csv')),
-    'ahchuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'ahchuk11.csv')),
-    'carsnoc': pd.read_csv(os.path.join(_lookup_tables_path, 'carsnoc.csv')),
-    'h': pd.read_csv(os.path.join(_lookup_tables_path, 'h.csv')),
-    'ecopuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'ecopuk11.csv')),
-    'hours': pd.read_csv(os.path.join(_lookup_tables_path, 'hours.csv')).rename(columns={"Hours worked ": "Hours worked"}),
-    'nsshuk11': pd.read_csv(os.path.join(_lookup_tables_path, 'nsshuk11.csv')),
-    'occg': pd.read_csv(os.path.join(_lookup_tables_path, 'occg.csv')),
-    'typaccom': pd.read_csv(os.path.join(_lookup_tables_path, 'Typaccom.csv')),
-    'geography': pd.read_csv(os.path.join(_lookup_tables_path, 'geography.csv'))}
 
-# read in 2011 NTEM and relevant lookup tables
-ntem_pop_segs = pd.read_csv(os.path.join(_NTEM_input_path, 'Pop_Segmentations.csv'))
+
+
+
+# lookup_geography_filename = 'lookup_geography_z2d2r.csv'
+# lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
+
+
 # Define model name and output folder
 # Note that output folder is IPFN input folder
 ModelName = 'NorMITs'
@@ -73,6 +79,68 @@ Output_Folder = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
 aghe = ['a', 'g', 'h', 'e']
 tns = ['t', 'n', 's']
 zdr = ['z', 'd', 'r']
+
+def _load_lookup_data(path_dict):
+    lookups = dict()
+
+    # --- Conversions/mappings ---
+    # Age -> (a)
+    age = pd.read_csv(path_dict["age"])[["Age", "NorMITs_Segment Band Value"]]
+    age = age.set_index("Age").rename(columns={"NorMITs_Segment Band Value": "a"})
+    lookups["age"] = age
+    # Sex -> (g)
+    gender = pd.read_csv(path_dict["gender"])[["Sex", "NorMITs_Segment Band Value"]]
+    gender = gender.set_index("Sex").rename(columns={"NorMITs_Segment Band Value": "g"})
+    lookups["gender"] = gender
+    # Household composition -> (h)
+    hh_comp = pd.read_csv(path_dict["hh_comp"])[["Household Composition Key", "Household_composition_code"]]
+    hh_comp = hh_comp.set_index("Household Composition Key").rename(columns={"Household_composition_code": "h"})
+    lookups["hh_comp"] = hh_comp
+    # Economic activity -> (e)
+    econ_activity = pd.read_csv(path_dict["econ_activity"])[["Employment type code", "NorMITs_Segment Band Value"]]
+    econ_activity = econ_activity.set_index("Employment type code").rename(columns={"NorMITs_Segment Band Value": "e"})
+    lookups["econ_activity"] = econ_activity
+    # NS-SEC -> (n)
+    nssec = pd.read_csv(path_dict["nssec"])[["HRP NSSEC", "NorMITs_Segment Band Value"]]
+    nssec = nssec.set_index("HRP NSSEC").rename(columns={"NorMITs_Segment Band Value": "n"})
+    lookups["nssec"] = nssec
+    # SOC -> (s)
+    soc = pd.read_csv(path_dict["soc"])[["SOC", "NorMITs_Segment Band Value"]]
+    soc = soc.set_index("SOC").rename(columns={"NorMITs_Segment Band Value": "s"})
+    lookups["soc"] = soc
+    # Hours worked -> (_FT-PT)
+    hours = pd.read_csv(path_dict["hours"])[["Hours worked ", "NorMITs_Segment Band Value"]]
+    hours = hours.set_index("Hours worked ").rename(columns={"NorMITs_Segment Band Value": "_FT-PT"})
+    lookups["ft_pt"] = hours
+    # Alternate household compsotion -> (_Adults)
+    adults = pd.read_csv(path_dict["alt_hh_comp"])[["Household size", "NorMITs_Segment Band Value"]]
+    adults = adults.set_index("Household size").rename(columns={"NorMITs_Segment Band Value": "_Adults"})
+    lookups["adults"] = adults
+    # Cars in the household -> (_Cars)
+    cars = pd.read_csv(path_dict["cars"])[["Household car", "NorMITs_Segment Band Value"]]
+    cars = cars.set_index("Household car").rename(columns={"NorMITs_Segment Band Value": "_Cars"})
+    lookups["cars"] = cars
+    # NTEM traveller type -> (a,g,h,e)
+    ntem_tt = pd.read_csv(path_dict["ntem_tt"])[["NTEM_Traveller_Type",
+                                                 "Age_code",
+                                                 "Gender_code",
+                                                 "Household_composition_code",
+                                                 "Employment_type_code"]]
+    ntem_tt = ntem_tt.set_index("NTEM_Traveller_Type").rename(columns={"Age_code": "a",
+                                                                       "Gender_code": "g",
+                                                                       "Household_composition_code": "h",
+                                                                       "Employment_type_code": "e"})
+    lookups["ntem_tt"] = ntem_tt
+
+    # --- Additional data ---
+    geography = pd.read_csv(path_dict["geography"])[['NorMITs Zone', "Grouped LA", 'NorMITs Region', "MSOA"]]
+    geography = geography.rename(columns={'NorMITs Zone': 'z', 'Grouped LA': 'd', 'NorMITs Region': 'r'})
+    geography = _generate_scottish_geography(geography_lookup=geography)
+    lookups["geography"] = geography
+
+    return lookups
+
+
 def _generate_scottish_geography(geography_lookup):
 
     # Sort out district lookups and apply 'districts' to Scotland
