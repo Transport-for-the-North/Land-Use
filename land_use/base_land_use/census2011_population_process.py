@@ -87,15 +87,15 @@ def _load_lookup_data(path_dict):
     # Age -> (a)
     age = pd.read_csv(path_dict["age"])[["Age", "NorMITs_Segment Band Value"]]
     age = age.set_index("Age").rename(columns={"NorMITs_Segment Band Value": "a"})
-    lookups["age"] = age
+    lookups["age"] = age.astype(int)
     # Sex -> (g)
     gender = pd.read_csv(path_dict["gender"])[["Sex", "NorMITs_Segment Band Value"]]
     gender = gender.set_index("Sex").rename(columns={"NorMITs_Segment Band Value": "g"})
-    lookups["gender"] = gender
+    lookups["gender"] = gender.astype(int)
     # Household composition -> (h)
     hh_comp = pd.read_csv(path_dict["hh_comp"])[["Household Composition Key", "Household_composition_code"]]
     hh_comp = hh_comp.set_index("Household Composition Key").rename(columns={"Household_composition_code": "h"})
-    lookups["hh_comp"] = hh_comp
+    lookups["hh_comp"] = hh_comp.astype(int)
     # Economic activity -> (e)
     econ_activity = pd.read_csv(path_dict["econ_activity"])[["Employment type code", "NorMITs_Segment Band Value"]]
     econ_activity = econ_activity.set_index("Employment type code").rename(columns={"NorMITs_Segment Band Value": "e"})
@@ -103,23 +103,23 @@ def _load_lookup_data(path_dict):
     # NS-SEC -> (n)
     nssec = pd.read_csv(path_dict["nssec"])[["HRP NSSEC", "NorMITs_Segment Band Value"]]
     nssec = nssec.set_index("HRP NSSEC").rename(columns={"NorMITs_Segment Band Value": "n"})
-    lookups["nssec"] = nssec
+    lookups["nssec"] = nssec.astype(int)
     # SOC -> (s)
     soc = pd.read_csv(path_dict["soc"])[["SOC", "NorMITs_Segment Band Value"]]
     soc = soc.set_index("SOC").rename(columns={"NorMITs_Segment Band Value": "s"})
-    lookups["soc"] = soc
+    lookups["soc"] = soc.astype(int)
     # Hours worked -> (_FT-PT)
     hours = pd.read_csv(path_dict["hours"])[["Hours worked ", "NorMITs_Segment Band Value"]]
     hours = hours.set_index("Hours worked ").rename(columns={"NorMITs_Segment Band Value": "_FT-PT"})
-    lookups["ft_pt"] = hours
+    lookups["ft_pt"] = hours.astype(int)
     # Alternate household compsotion -> (_Adults)
     adults = pd.read_csv(path_dict["alt_hh_comp"])[["Household size", "NorMITs_Segment Band Value"]]
     adults = adults.set_index("Household size").rename(columns={"NorMITs_Segment Band Value": "_Adults"})
-    lookups["adults"] = adults
+    lookups["adults"] = adults.astype(int)
     # Cars in the household -> (_Cars)
     cars = pd.read_csv(path_dict["cars"])[["Household car", "NorMITs_Segment Band Value"]]
     cars = cars.set_index("Household car").rename(columns={"NorMITs_Segment Band Value": "_Cars"})
-    lookups["cars"] = cars
+    lookups["cars"] = cars.astype(int)
     # NTEM traveller type -> (a,g,h,e)
     ntem_tt = pd.read_csv(path_dict["ntem_tt"])[["NTEM_Traveller_Type",
                                                  "Age_code",
@@ -130,7 +130,7 @@ def _load_lookup_data(path_dict):
                                                                        "Gender_code": "g",
                                                                        "Household_composition_code": "h",
                                                                        "Employment_type_code": "e"})
-    lookups["ntem_tt"] = ntem_tt
+    lookups["ntem_tt"] = ntem_tt.astype(int)
 
     # --- Additional data ---
     geography = pd.read_csv(path_dict["geography"])[['NorMITs Zone', "Grouped LA", 'NorMITs Region', "MSOA"]]
@@ -216,6 +216,7 @@ def _segment_and_tally_census_microdata(census_microdata, segment_lookup):
     """
 
     hh_microdata = census_microdata.loc[census_microdata["residence_type"] == 2].copy()
+    hh_microdata = hh_microdata.dropna(subset=["Household size", "HRP NSSEC"], how="any")
 
     # Age
     hh_microdata = hh_microdata.join(segment_lookup["age"], on="Age", validate="m:1")
@@ -244,7 +245,6 @@ def _segment_and_tally_census_microdata(census_microdata, segment_lookup):
     # NSSEC
     hh_microdata = hh_microdata.join(segment_lookup["nssec"], on="HRP NSSEC")
     hh_microdata = hh_microdata.drop(columns=["HRP NSSEC"])
-    hh_microdata = hh_microdata.dropna(subset=['n'])
     # SOC
     hh_microdata = hh_microdata.join(segment_lookup["soc"], on="SOC")
     hh_microdata.loc[hh_microdata['e'].astype(int) > 2, 's'] = 4
