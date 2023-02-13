@@ -363,6 +363,76 @@ def _estimate_f_tns_daghe(microdata_count, aghe_segment_count, daghe_segments):
         print('ISSUE WITH f PROCESSING!')
 
     return infilled_f_tns_daghe, f_tns_daghe, f_tns_aghe
+
+
+def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_lookup, geography_lookup):
+    """
+    Use F(t,n,s|d,a,g,h,e) to split NTEM population into full segmentation.
+
+    :param NTEM_population:
+        NTEM population data
+    :param f_tns_daghe:
+        F(t,n,s|d,a,g,h,e), the proportion of (d,a,g,h,e) count which are (t,n,s)
+    :param ntem_tt_lookup:
+        Mapping from NTEM traveller type to (a,g,h,e)
+    :return:
+
+    """
+
+    print(NTEM_population)
+    print('\n')
+    print(ntem_tt_lookup)
+
+    traveller_types = ntem_tt_lookup.rename(columns={'NTEM_Traveller_Type':  'NTEM_tt',
+                                                                'Age_code': 'a', 'Gender_code': 'g',
+                                                                'Household_composition_code': 'h',
+                                                                'Employment_type_code': 'e'})
+    NTEM_population = NTEM_population.copy()
+    NTEM_population = NTEM_population.merge(traveller_types, how='right', on=['NTEM_tt'])
+
+    cols_chosen = ['z', 'A', 'ntem_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
+    NTEM_population = NTEM_population[cols_chosen]
+    # NTEM_population = ntem_pop_interpolation(census_and_by_lu_obj)
+    # NTEM_population = NTEM_population[cols_chosen]
+    print('Total 2011 ntem household population is : ', NTEM_population["C_NTEM"].sum())
+
+    NTEM_pop_actual = NTEM_population.copy()
+
+    # Drop the Scottish districts and apply f to England and Wales
+    NTEM_pop_actual = pd.merge(NTEM_pop_actual, geography_lookup, on='z')
+    NTEM_pop_EW = NTEM_pop_actual[NTEM_pop_actual["r"] != "Scotland"]
+    test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
+    NTEM_pop_EW['d'] = NTEM_pop_EW['d'].astype(int)
+    NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
+
+    # Filter to obtain just North East/North West.
+    # Recalculate f by Area type (A) for these regions.
+    NTEM_pop_N = NTEM_pop_EW.copy()
+    NTEM_pop_N = NTEM_pop_N.loc[NTEM_pop_N['r'].isin(['North East', 'North West'])]
+    NTEM_pop_N = NTEM_pop_N.groupby(['A']+aghe+tns, as_index=False)['C_NTEM'].sum()
+    NTEM_pop_N['F(t,n,s|A,a,g,h,e)'] = NTEM_pop_N["C_NTEM"] / NTEM_pop_N.groupby(['A']+aghe)['C_NTEM'].transform("sum")
+    NTEM_pop_N = NTEM_pop_N[["A"]+aghe+tns+["F(t,n,s|A,a,g,h,e)"]]
+
+    NTEM_pop_S = NTEM_pop_actual.copy()
+    NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["r"] == "Scotland"]
+    test_tot_S = NTEM_pop_S['C_NTEM'].sum()
+    NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe)
+
+    NTEM_pop_S = NTEM_pop_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
+    NTEM_pop_EW = NTEM_pop_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
+
+    NTEM_pop_scaled = pd.concat([NTEM_pop_EW, NTEM_pop_S], axis=0, ignore_index=True)
+    NTEM_pop_scaled['C_zaghetns'] = NTEM_pop_scaled['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_scaled['C_NTEM']
+
+    # Print some totals out to check...
+    print('Actual EW tot:' + str(test_tot_EW))
+    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))  # FIXME: Mismatch
+    print('Actual S tot: ' + str(test_tot_S))
+    print('Scaled S tot: ' + str((NTEM_pop_S['C_NTEM']*NTEM_pop_S['F(t,n,s|z,a,g,h,e)']).sum()))
+    print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
+    print('Scaled GB tot:' + str((NTEM_pop_scaled['C_zaghetns']).sum()))
+    return NTEM_pop_actual, NTEM_pop_scaled
+
 # TODO: 'validate' for all merges
 # TODO: fix .loc / [[]] slice issue
 # TODO: Document new functions
