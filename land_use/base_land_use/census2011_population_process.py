@@ -388,9 +388,9 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
                                                                 'Household_composition_code': 'h',
                                                                 'Employment_type_code': 'e'})
     NTEM_population = NTEM_population.copy()
-    NTEM_population = NTEM_population.merge(traveller_types, how='right', on=['NTEM_tt'])
+    NTEM_population = NTEM_population.join(traveller_types, on="NTEM_tt", validate="m:1")
 
-    cols_chosen = ['z', 'A', 'ntem_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
+    cols_chosen = ['z', 'A', 'NTEM_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
     NTEM_population = NTEM_population[cols_chosen]
     # NTEM_population = ntem_pop_interpolation(census_and_by_lu_obj)
     # NTEM_population = NTEM_population[cols_chosen]
@@ -400,9 +400,8 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
 
     # Drop the Scottish districts and apply f to England and Wales
     NTEM_pop_actual = pd.merge(NTEM_pop_actual, geography_lookup, on='z')
-    NTEM_pop_EW = NTEM_pop_actual[NTEM_pop_actual["r"] != "Scotland"]
+    NTEM_pop_EW = NTEM_pop_actual.loc[NTEM_pop_actual["r"] != "Scotland"]
     test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
-    NTEM_pop_EW['d'] = NTEM_pop_EW['d'].astype(int)
     NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
 
     # Filter to obtain just North East/North West.
