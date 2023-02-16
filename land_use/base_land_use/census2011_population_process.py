@@ -384,12 +384,8 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     print('\n')
     print(ntem_tt_lookup)
 
-    traveller_types = ntem_tt_lookup.rename(columns={'NTEM_Traveller_Type':  'NTEM_tt',
-                                                                'Age_code': 'a', 'Gender_code': 'g',
-                                                                'Household_composition_code': 'h',
-                                                                'Employment_type_code': 'e'})
     NTEM_population = NTEM_population.copy()
-    NTEM_population = NTEM_population.join(traveller_types, on="NTEM_tt", validate="m:1")
+    NTEM_population = NTEM_population.join(ntem_tt_lookup, on="NTEM_tt", validate="m:1")
 
     cols_chosen = ['z', 'A', 'NTEM_tt', 'a', 'g', 'h', 'e', 'C_NTEM']
     NTEM_population = NTEM_population[cols_chosen]
