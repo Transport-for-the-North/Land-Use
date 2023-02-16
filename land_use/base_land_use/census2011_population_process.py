@@ -34,6 +34,7 @@ import os
 import itertools
 import datetime
 import pyodbc
+from functools import reduce
 from os.path import join as opj
 # from ipfn import ipfn
 from caf.toolkit import iterative_proportional_fitting as ipfn
@@ -488,6 +489,62 @@ def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_ma
     census_QS = census_QS[['z', 'd', 'r', segment_letter, 'Persons']]
     return census_QS
 
+
+def _write_ipfn_inputs(seed_population, QS401, QS606, QS609, district_count):
+    # os.chdir(Output_Folder)
+
+    seed_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\01 Seed Files'
+    NTEM_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\02 Ctrl1 NTEM Control Files'
+    SOC_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\03 SOC Control Files'
+    NSSEC_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\04 NSSEC Control Files'
+    DT_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\05 DT Control Files'
+    check_output_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs'
+
+    Ctrl1_NTEM = seed_population.groupby(zdr+aghe, as_index=False)["population"].sum()
+
+    print('Creating seed and control files')
+    print('Printing every 10th district as they are written out:')
+
+    # TODO: Slow process, needs mp wrapper
+    for district in range(1, district_count+1):
+        # Lookups and processing
+        #     QS Control files
+        QS401_d = QS401.loc[QS401['d'] == district]
+        QS606_d = QS606.loc[QS606['d'] == district]
+        QS609_d = QS609.loc[QS609['d'] == district]
+        #     Main seed file
+        seed_d = seed_population.loc[seed_population['d'] == district]
+        seed_d = seed_d[["z"]+aghe+tns+["population"]]
+        #     Ctrl1 control file
+        Ctrl1_NTEM_d = Ctrl1_NTEM.loc[Ctrl1_NTEM['d'] == district]
+        Ctrl1_NTEM_d = Ctrl1_NTEM_d[["z"]+aghe+["population"]]
+
+        # TODO: Optimise writes, this is why it is so slow
+        QS606_d.to_csv(opj(SOC_file_path, f"2011_{ModelName}_Ctrl_SOC_d_{district}_v0.1.csv"), index=False)
+        QS609_d.to_csv(opj(NSSEC_file_path, f"2011_{ModelName}_Ctrl_NSSEC_d_{district}_v0.1.csv"), index=False)
+        QS401_d.to_csv(opj(DT_file_path, f"2011_{ModelName}_Ctrl_DT_d_{district}_v0.1.csv"), index=False)
+        seed_d.to_csv(opj(seed_file_path, f"2011_{ModelName}_seed_d_{district}_v0.1.csv"), index=False)
+        Ctrl1_NTEM_d.to_csv(opj(NTEM_file_path, f"2011_{ModelName}_Ctrl1_NTEM_d_{district}_v0.1.csv"), index=False)
+
+        # Print out every tenth row to check on progress
+        if district / 10 == district // 10:
+            print(district)
+    print('All district level seed and control files have been printed out as csvs')
+    print('Now working on checks...')
+
+    # Check control file totals
+    QS401_check_tot = QS401.groupby(['z'])['Persons'].sum().reset_index(name="QS401_pop")
+    QS606_check_tot = QS606.groupby(['z'])['Persons'].sum().reset_index(name="QS606_pop")
+    QS609_check_tot = QS609.groupby(['z'])['Persons'].sum().reset_index(name="QS609_pop")
+    seed_check_tot = seed_population.groupby(['z'])['population'].sum().reset_index(name="Seed_pop")
+    Ctrl1_check_tot = Ctrl1_NTEM.groupby(['z'])['population'].sum().reset_index(name="Ctrl1_pop")
+
+    check_totals = reduce(lambda left, right: pd.merge(left, right, how="left", on="z", validate="1:1"),
+                          [QS401_check_tot, QS606_check_tot, QS609_check_tot, seed_check_tot, Ctrl1_check_tot])
+
+    check_totals.to_csv(opj(check_output_file_path, 'check_seed+control_totals.csv'), index=False)
+    print('Checks completed and dumped to csv')
+    return None
 
 # TODO: 'validate' for all merges
 # TODO: fix .loc / [[]] slice issue
