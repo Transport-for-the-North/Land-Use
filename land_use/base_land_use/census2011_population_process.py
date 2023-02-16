@@ -546,6 +546,114 @@ def _write_ipfn_inputs(seed_population, QS401, QS606, QS609, district_count):
     print('Checks completed and dumped to csv')
     return None
 
+
+def create_ipfn_inputs(census_and_by_lu_obj):
+
+    lookup_dict = _load_lookup_data(path_dict=_lookup_paths)
+    # lookup_dict["geography"][zdr].to_csv(os.path.join(lookup_folder, lookup_geography_filename))
+    census_microdata, QS401, QS606, QS609, NTEM_population = _load_population_data(
+        census_microdata_path=opj(_census_micro_path, "recodev12.csv"),
+        QS401_path=opj(_QS_census_queries_path, "210817_QS401UK -Dwelling type - Persons_MSOA.csv"),
+        QS606_path=opj(_QS_census_queries_path, "210817_QS606UK - Occupation- ER_MSOA.csv"),
+        QS609_path=opj(_QS_census_queries_path, "210817_QS609UK - NS-SeC of HRP- Persons_MSOA.csv"),
+        NTEM_population_path=opj(_NTEM_input_path, 'All_year', 'ntem_gb_z_areatype_ntem_tt_2011_pop.csv'))
+
+    hh_micro_count = _segment_and_tally_census_microdata(
+        census_microdata=census_microdata,
+        segment_lookup=lookup_dict)
+
+    daghe_segments, aghetns_segments = _generate_all_valid_population_segments(
+        microdata_count=hh_micro_count,
+        aghe_segment_count=len(lookup_dict["ntem_tt"]),
+        geography_lookup=lookup_dict["geography"])
+
+    infilled_f_tns_daghe, f_tns_daghe, f_tns_aghe = _estimate_f_tns_daghe(
+        microdata_count=hh_micro_count,
+        aghe_segment_count=len(lookup_dict["ntem_tt"]),
+        daghe_segments=daghe_segments)
+
+    actual_NTEM_population, scaled_NTEM_population = _segment_and_scale_ntem_population(
+        NTEM_population=NTEM_population,
+        f_tns_daghe=infilled_f_tns_daghe,
+        ntem_tt_lookup=lookup_dict["ntem_tt"],
+        geography_lookup=lookup_dict["geography"])
+
+    seed_population = _generate_population_seeds(
+        NTEM_population=scaled_NTEM_population,
+        aghetns_segments=aghetns_segments)
+
+    _QS401 = _segment_qs(
+        census_QS=QS401,
+        NTEM_population=actual_NTEM_population,
+        segment_letter='t',
+        column_to_segment_mapping={
+            "Unshared dwelling: Whole house or bungalow: Detached": "Detached",
+            "Unshared dwelling: Whole house or bungalow: Semi-detached": "Semi-detached",
+            "Unshared dwelling: Whole house or bungalow: Terraced (including end-terrace)": "Terraced",
+            "Unshared dwelling: Flat, maisonette or apartment: Total": "Flat",
+            "Unshared dwelling: Caravan or other mobile or temporary structure": "Flat",
+            "Shared dwelling": "Flat"},
+        segment_to_id_mapping={
+            "Detached": 1,
+            "Semi-detached": 2,
+            "Terraced": 3,
+            "Flat": 4})
+
+    _QS606_work = _segment_qs(
+        census_QS=QS606,
+        NTEM_population=actual_NTEM_population.loc[actual_NTEM_population["e"] < 3],
+        segment_letter='s',
+        column_to_segment_mapping={
+            '1. Managers, directors and senior officials': 'higher',
+            '2. Professional occupations': 'higher',
+            '3. Associate professional and technical occupations': 'higher',
+            '4. Administrative and secretarial occupations': 'medium',
+            '5. Skilled trades occupations': 'medium',
+            '6. Caring, leisure and other service occupations': 'medium',
+            '7. Sales and customer service occupations': 'medium',
+            '8. Process, plant and machine operatives': 'skilled',
+            '9. Elementary occupations': 'skilled'},
+        segment_to_id_mapping={
+            'higher': 1,
+            'medium': 2,
+            'skilled': 3})
+    _QS606_non_work = actual_NTEM_population.loc[actual_NTEM_population["e"] >= 3].rename(columns={"C_NTEM": "Persons"})
+    _QS606_non_work = _QS606_non_work.groupby(['z', 'd', 'r'], as_index=False)["Persons"].sum().assign(s=4)
+    _QS606 = pd.concat([_QS606_work, _QS606_non_work]).sort_values(by=["z", "s"]).reset_index(drop=True)
+
+    _QS609 = _segment_qs(
+        census_QS=QS609,
+        NTEM_population=actual_NTEM_population,
+        segment_letter='n',
+        column_to_segment_mapping={
+           '1. Higher managerial, administrative and professional occupations': 'NS-SeC 1-2',
+           '2. Lower managerial, administrative and professional occupations': 'NS-SeC 1-2',
+           '3. Intermediate occupations': 'NS-SeC 3-5',
+           '4. Small employers and own account workers': 'NS-SeC 3-5',
+           '5. Lower supervisory and technical occupations': 'NS-SeC 3-5',
+           '6. Semi-routine occupations': 'NS-SeC 6-7',
+           '7. Routine occupations': 'NS-SeC 6-7',
+           '8. Never worked and long-term unemployed': 'NS-SeC 8',
+           'L15 Full-time students': 'L15'},
+        segment_to_id_mapping={
+            'NS-SeC 1-2': 1,
+            'NS-SeC 3-5': 2,
+            'NS-SeC 6-7': 3,
+            'NS-SeC 8': 4,
+            'L15': 5})
+
+    _write_ipfn_inputs(seed_population=seed_population,
+                       QS401=_QS401,
+                       QS606=_QS606,
+                       QS609=_QS609,
+                       district_count=lookup_dict["geography"]["d"].max())
+
+
+    census_and_by_lu_obj.state['3.1.2 expand population segmentation'] = 1
+    logging.info('3.1.2 expand population segmentation completed')
+    return None
+
+
 # TODO: 'validate' for all merges
 # TODO: fix .loc / [[]] slice issue
 # TODO: Document new functions
