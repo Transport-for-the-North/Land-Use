@@ -418,8 +418,8 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     NTEM_pop_scaled['C_zaghetns'] = NTEM_pop_scaled['F(t,n,s|z,a,g,h,e)'] * NTEM_pop_scaled['C_NTEM']
 
     # Print some totals out to check...
-    print('Actual EW tot:' + str(test_tot_EW))
-    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))  # FIXME: Mismatch
+    print('Actual EW tot:' + str(test_tot_EW))  # Matches scaled population to 1/1000 of a fingernail
+    print('Scaled EW tot:' + str((NTEM_pop_EW['C_NTEM']*NTEM_pop_EW['F(t,n,s|z,a,g,h,e)']).sum()))
     print('Actual S tot: ' + str(test_tot_S))
     print('Scaled S tot: ' + str((NTEM_pop_S['C_NTEM']*NTEM_pop_S['F(t,n,s|z,a,g,h,e)']).sum()))
     print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
