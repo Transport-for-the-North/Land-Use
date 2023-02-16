@@ -78,7 +78,23 @@ aghe = ['a', 'g', 'h', 'e']
 tns = ['t', 'n', 's']
 zdr = ['z', 'd', 'r']
 
+# TODO: Document new functions
+
+
 def _load_lookup_data(path_dict):
+    """
+    Load and format lookup data, used to map between Census/NTEM and NorMITs segmentation, and group geographies.
+
+    :param path_dict:
+        Dictionary of paths to .csv files of lookup tables.
+        Keys: ['age', 'gender', 'alt_hh_comp', 'cars', 'hh_comp', 'econ_activity',
+               'hours', 'nssec', 'soc', 'type_accom', 'geography', 'ntem_tt']
+    :return:
+        Dictionary with lookup dataframes.
+        Dataframes have index as the Census/NTEM segment and columns as the NorMITs segment.
+        Keys: ['age', 'gender', 'alt_hh_comp', 'cars', 'hh_comp', 'econ_activity',
+               'hours', 'nssec', 'soc', 'type_accom', 'geography', 'ntem_tt']]
+    """
     lookups = dict()
 
     # --- Conversions/mappings ---
@@ -140,7 +156,16 @@ def _load_lookup_data(path_dict):
 
 
 def _generate_scottish_geography(geography_lookup):
+    """
+    Assign Scottish zones to generated districts using E&W average zones/district, assign the region 'Scotland'.
 
+    :param geography_lookup:
+        Dataframe of correspondence between zoning systems.
+        Columns ['z','d','r','MSOA']
+    :return:
+        Dataframe of correspondence between zoning systems, with complete records for Scotland
+        Columns ['z','d','r','MSOA']
+    """
     # Sort out district lookups and apply 'districts' to Scotland
     # by grouping zones numerically to the EW average district size.
 
@@ -163,10 +188,17 @@ def _generate_scottish_geography(geography_lookup):
 
     geography_GB = pd.concat([geography_EW, geography_S], axis=0, ignore_index=True)[zdr+['MSOA']]
     geography_GB[['z', 'd']] = geography_GB[['z', 'd']].astype(int)
+
+    #TODO: Write to file
+
+    # lookup_geography_filename = 'lookup_geography_z2d2r.csv'
+    # lookup_folder = r'I:\NorMITs Land Use\import\2011 Census Furness\04 Post processing\Lookups'
+    # geography_GB[zdr].to_csv(opj(lookup_folder, lookup_geography_filename))
     return geography_GB
 
 
 def _load_population_data(census_microdata_path, QS401_path, QS606_path, QS609_path, NTEM_population_path):
+
     census_microdata = pd.read_csv(census_microdata_path)
     census_microdata = census_microdata.rename(columns={
         'la_group': 'd', 'typaccom': 't',
@@ -388,7 +420,7 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     NTEM_population = NTEM_population[cols_chosen]
     # NTEM_population = ntem_pop_interpolation(census_and_by_lu_obj)
     # NTEM_population = NTEM_population[cols_chosen]
-    print('Total 2011 ntem household population is : ', NTEM_population["C_NTEM"].sum())
+    print('Total 2011 NTEM household population is : ', NTEM_population["C_NTEM"].sum())
 
     NTEM_pop_actual = NTEM_population.copy()
 
@@ -438,6 +470,7 @@ def _generate_population_seeds(NTEM_population, aghetns_segments):
     all_z_aghetns[aghe+tns] = pd.DataFrame(all_z_aghetns["aghetns"].to_list())
     all_z_aghetns = all_z_aghetns.drop(columns=["zdr", "aghetns"])
 
+    # Why is this a different length?
     NTEM_pop_for_seeds = NTEM_population.groupby(zdr+aghe+tns+["NTEM_tt"], as_index=False)["C_zaghetns"].sum()
     NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=zdr+aghe+tns, validate="1:1")
 
@@ -486,6 +519,7 @@ def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_ma
 def _write_ipfn_inputs(seed_population, QS401, QS606, QS609, district_count):
     # os.chdir(Output_Folder)
 
+    # FIXME: Hardcoding
     seed_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\01 Seed Files'
     NTEM_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\02 Ctrl1 NTEM Control Files'
     SOC_file_path = r'I:\NorMITs Land Use\import\2011 Census Furness\01 Inputs\03 SOC Control Files'
