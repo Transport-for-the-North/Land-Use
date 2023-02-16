@@ -241,10 +241,10 @@ def _segment_and_tally_census_microdata(census_microdata, segment_lookup):
     hh_microdata = hh_microdata.drop(columns=["Hours worked", "_FT-PT", "Employment type code"])
     hh_microdata = hh_microdata.dropna(subset=['e'])
     # NSSEC
-    hh_microdata = hh_microdata.join(segment_lookup["nssec"], on="HRP NSSEC")
+    hh_microdata = hh_microdata.join(segment_lookup["nssec"], on="HRP NSSEC", validate="m:1")
     hh_microdata = hh_microdata.drop(columns=["HRP NSSEC"])
     # SOC
-    hh_microdata = hh_microdata.join(segment_lookup["soc"], on="SOC")
+    hh_microdata = hh_microdata.join(segment_lookup["soc"], on="SOC", validate="m:1")
     hh_microdata.loc[hh_microdata['e'].astype(int) > 2, 's'] = 4
     hh_microdata = hh_microdata.drop(columns=["SOC"])
 
@@ -348,9 +348,9 @@ def _estimate_f_tns_daghe(microdata_count, aghe_segment_count, daghe_segments):
     f_tns_aghe = f_tns_aghe.drop(columns=['C_aghetns', 'C_aghe'])
 
     # Find and replace missing zonal Census micro NTEM traveller types with EW averages
-    missing_f_tns_daghe = daghe_segments.merge(f_tns_daghe, how="left", validate="1:m", on=["d"]+aghe)
+    missing_f_tns_daghe = daghe_segments.merge(f_tns_daghe, how="left", on=["d"]+aghe, validate="1:m")
     missing_f_tns_daghe = missing_f_tns_daghe.loc[missing_f_tns_daghe.isnull().any(axis=1), ["d"]+aghe]
-    missing_f_tns_daghe = missing_f_tns_daghe.merge(f_tns_aghe, how="left", validate="m:m", on=aghe)
+    missing_f_tns_daghe = missing_f_tns_daghe.merge(f_tns_aghe, how="left", on=aghe, validate="m:m")
     missing_f_tns_daghe = missing_f_tns_daghe.rename(columns={"F(t,n,s|a,g,h,e)": "F(t,n,s|d,a,g,h,e)"})
     infilled_f_tns_daghe = pd.concat([f_tns_daghe, missing_f_tns_daghe], axis=0, ignore_index=True)
 
@@ -393,10 +393,10 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     NTEM_pop_actual = NTEM_population.copy()
 
     # Drop the Scottish districts and apply f to England and Wales
-    NTEM_pop_actual = pd.merge(NTEM_pop_actual, geography_lookup, on='z')
+    NTEM_pop_actual = NTEM_pop_actual.merge(geography_lookup, how='left', on='z', validate='m:1')
     NTEM_pop_EW = NTEM_pop_actual.loc[NTEM_pop_actual["r"] != "Scotland"]
     test_tot_EW = NTEM_pop_EW['C_NTEM'].sum()
-    NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe)
+    NTEM_pop_EW = NTEM_pop_EW.merge(f_tns_daghe, how="left", on=["d"]+aghe, validate='m:m')
 
     # Filter to obtain just North East/North West.
     # Recalculate f by Area type (A) for these regions.
@@ -409,7 +409,7 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     NTEM_pop_S = NTEM_pop_actual.copy()
     NTEM_pop_S = NTEM_pop_S.loc[NTEM_pop_S["r"] == "Scotland"]
     test_tot_S = NTEM_pop_S['C_NTEM'].sum()
-    NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe)
+    NTEM_pop_S = NTEM_pop_S.merge(NTEM_pop_N, how="left", on=["A"]+aghe, validate='m:m')
 
     NTEM_pop_S = NTEM_pop_S.rename(columns={"F(t,n,s|A,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As A=A(z)
     NTEM_pop_EW = NTEM_pop_EW.rename(columns={"F(t,n,s|d,a,g,h,e)": "F(t,n,s|z,a,g,h,e)"})  # As d=d(z)
@@ -439,7 +439,7 @@ def _generate_population_seeds(NTEM_population, aghetns_segments):
     all_z_aghetns = all_z_aghetns.drop(columns=["zdr", "aghetns"])
 
     NTEM_pop_for_seeds = NTEM_population.groupby(zdr+aghe+tns+["NTEM_tt"], as_index=False)["C_zaghetns"].sum()
-    NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=zdr+aghe+tns)
+    NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=zdr+aghe+tns, validate="1:1")
 
     NTEM_pop_for_seeds[["z", "d"]+aghe+tns] = NTEM_pop_for_seeds[["z", "d"]+aghe+tns].astype(int)
     NTEM_pop_for_seeds['C_zaghetns'] = NTEM_pop_for_seeds['C_zaghetns'].fillna(0)
