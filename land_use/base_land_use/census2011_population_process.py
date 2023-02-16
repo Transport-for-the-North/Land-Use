@@ -184,7 +184,7 @@ def _load_population_data(census_microdata_path, QS401_path, QS606_path, QS609_p
     QS401 = QS401.rename(columns={'All categories: Accommodation type': 'Census_Population', "mnemonic": "MSOA"})
 
     QS606 = pd.read_csv(QS606_path, skiprows=7)
-    QS606 = QS606.rename(columns={'All categories: Occupation': 'Census_Workers', 'mnemonic': 'MSOA'})
+    QS606 = QS606.rename(columns={'All categories: Occupation': 'Census_Population', 'mnemonic': 'MSOA'})
 
     QS609 = pd.read_csv(QS609_path, skiprows=6)
     QS609 = QS609.rename(columns={'All categories: NS-SeC': 'Census_Population', "mnemonic": "MSOA"})
@@ -431,6 +431,30 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     print('Actual GB tot:' + str(test_tot_S + test_tot_EW))
     print('Scaled GB tot:' + str((NTEM_pop_scaled['C_zaghetns']).sum()))
     return NTEM_pop_actual, NTEM_pop_scaled
+
+def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_mapping, segment_to_id_mapping):
+
+    column_to_segment_mapping = {k: f"__{v}__" for k, v in column_to_segment_mapping.items()}
+    segment_to_id_mapping = {f"__{k}__": v for k, v in segment_to_id_mapping.items()}
+
+    NTEM_population = NTEM_population.copy()
+    NTEM_population = NTEM_population.groupby(['z', 'MSOA'])['C_NTEM'].sum().reset_index()
+
+    census_QS = census_QS.copy()
+    census_QS = census_QS.rename(columns=column_to_segment_mapping)
+    census_QS = census_QS.groupby(level=0, axis=1).sum()  # Sum columns with same name
+
+    census_QS = census_QS.merge(NTEM_population, how="left", on='MSOA', validate="1:1")
+    census_QS['Scaler'] = census_QS['C_NTEM'] / census_QS['Census_Population']
+    census_QS = census_QS.melt(id_vars=['z', 'Scaler'],
+                               value_vars=segment_to_id_mapping.keys(),
+                               var_name="Segment", value_name="Persons")
+    census_QS["Persons"] = census_QS["Persons"] * census_QS['Scaler']
+    census_QS[segment_letter] = census_QS["Segment"].replace(segment_to_id_mapping)
+    census_QS = census_QS.sort_values(by=['z', segment_letter]).reset_index()
+    census_QS = census_QS[['z', segment_letter, 'Persons']]
+    return census_QS
+
 
 # TODO: 'validate' for all merges
 # TODO: fix .loc / [[]] slice issue
