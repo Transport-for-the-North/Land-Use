@@ -471,7 +471,7 @@ def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_ma
     segment_to_id_mapping = {f"__{k}__": v for k, v in segment_to_id_mapping.items()}
 
     NTEM_population = NTEM_population.copy()
-    NTEM_population = NTEM_population.groupby(['z', 'MSOA'])['C_NTEM'].sum().reset_index()
+    NTEM_population = NTEM_population.groupby(['z', 'd', 'r', 'MSOA'])['C_NTEM'].sum().reset_index()
 
     census_QS = census_QS.copy()
     census_QS = census_QS.rename(columns=column_to_segment_mapping)
@@ -479,13 +479,13 @@ def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_ma
 
     census_QS = census_QS.merge(NTEM_population, how="left", on='MSOA', validate="1:1")
     census_QS['Scaler'] = census_QS['C_NTEM'] / census_QS['Census_Population']
-    census_QS = census_QS.melt(id_vars=['z', 'Scaler'],
+    census_QS = census_QS.melt(id_vars=['z', 'd', 'r', 'Scaler'],
                                value_vars=segment_to_id_mapping.keys(),
                                var_name="Segment", value_name="Persons")
     census_QS["Persons"] = census_QS["Persons"] * census_QS['Scaler']
     census_QS[segment_letter] = census_QS["Segment"].replace(segment_to_id_mapping)
     census_QS = census_QS.sort_values(by=['z', segment_letter]).reset_index()
-    census_QS = census_QS[['z', segment_letter, 'Persons']]
+    census_QS = census_QS[['z', 'd', 'r', segment_letter, 'Persons']]
     return census_QS
 
 
