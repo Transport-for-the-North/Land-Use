@@ -432,6 +432,39 @@ def _segment_and_scale_ntem_population(NTEM_population, f_tns_daghe, ntem_tt_loo
     print('Scaled GB tot:' + str((NTEM_pop_scaled['C_zaghetns']).sum()))
     return NTEM_pop_actual, NTEM_pop_scaled
 
+
+def _generate_population_seeds(NTEM_population, aghetns_segments):
+
+    # The following block takes ~ 3 minutes.
+    all_z_aghetns = itertools.product(
+        NTEM_population[zdr].drop_duplicates().itertuples(index=False),
+        aghetns_segments[aghe+tns].drop_duplicates().itertuples(index=False))
+    all_z_aghetns = pd.DataFrame(all_z_aghetns, columns=["zdr", "aghetns"])
+    all_z_aghetns[zdr] = pd.DataFrame(all_z_aghetns["zdr"].to_list())
+    all_z_aghetns[aghe+tns] = pd.DataFrame(all_z_aghetns["aghetns"].to_list())
+    all_z_aghetns = all_z_aghetns.drop(columns=["zdr", "aghetns"])
+
+    NTEM_pop_for_seeds = NTEM_population.groupby(zdr+aghe+tns+["NTEM_tt"], as_index=False)["C_zaghetns"].sum()
+    NTEM_pop_for_seeds = NTEM_pop_for_seeds.merge(all_z_aghetns, how="right", on=zdr+aghe+tns)
+
+    NTEM_pop_for_seeds[["z", "d"]+aghe+tns] = NTEM_pop_for_seeds[["z", "d"]+aghe+tns].astype(int)
+    NTEM_pop_for_seeds['C_zaghetns'] = NTEM_pop_for_seeds['C_zaghetns'].fillna(0)
+
+    NTEM_pop_for_seeds['NTEM_tt'] = NTEM_pop_for_seeds['NTEM_tt'].str[-3:].astype(float)
+    NTEM_pop_for_seeds['NTEM_tt'] = NTEM_pop_for_seeds.groupby(aghe)['NTEM_tt'].transform("mean")
+    NTEM_pop_for_seeds['NTEM_tt'] = NTEM_pop_for_seeds['NTEM_tt'].astype(int)
+
+
+    seed_r_NW = NTEM_pop_for_seeds.loc[NTEM_pop_for_seeds['r'] == 'North West']
+    seed_r_NW = seed_r_NW.reset_index()[['z']+aghe+tns+['C_zaghetns']]
+    seed_d_184 = NTEM_pop_for_seeds.loc[NTEM_pop_for_seeds['d'] == 184]
+    seed_d_184 = seed_d_184.reset_index()[['z']+aghe+tns+['C_zaghetns']]
+
+    seed_population = NTEM_pop_for_seeds[zdr+aghe+tns+['C_zaghetns']]
+    seed_population = seed_population.rename(columns={"C_zaghetns": "population"})
+    return seed_population
+
+
 def _segment_qs(census_QS, NTEM_population, segment_letter, column_to_segment_mapping, segment_to_id_mapping):
 
     column_to_segment_mapping = {k: f"__{v}__" for k, v in column_to_segment_mapping.items()}
