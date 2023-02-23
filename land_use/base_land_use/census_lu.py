@@ -122,7 +122,7 @@ class CensusYearLandUse:
             logging.info('')
             print('\n' + '=' * 75)
             logging.info('Running step 3.1.2 expand population segmentation')
-            census2011_population_process.create_ipfn_inputs_2011(self)
+            census2011_population_process.create_ipfn_inputs(self)
 
         if self.state['3.1.3 data synthesis'] == 0:
             logging.info('')
