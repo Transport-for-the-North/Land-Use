@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import logging
 import pathlib
 from typing import Sequence
@@ -25,8 +26,14 @@ CRS_BRITISH_GRID = "EPSG:27700"
 CLASSIFICATION_CODES = {"ABP": ("CI04PL",), "VOA SCAT": ("217", "267")}
 WAREHOUSE_ABP_CODE = "CI04"
 WEB_MERCATOR = "EPSG:4326"
+COMMUTE_CLASSIFICATION_CODES = {
+    "high": (129, 151),
+    "medium": (139, 152, 235, 267, 268, 301, 412, 413),
+    "low": (217,),
+}
 
 ##### CLASSES #####
+
 
 ##### FUNCTIONS #####
 def to_kepler_geojson(geodata: gpd.GeoDataFrame, out_file: pathlib.Path) -> None:
@@ -260,20 +267,32 @@ def classification_codes_query(
     if abp is None:
         abp = CLASSIFICATION_CODES["ABP"]
 
-    query = """
+    select_query = """
     SELECT uprn, class_scheme, classification_code,
         start_date, end_date, last_update_date, entry_date
     FROM data_common.abp_classification
     WHERE (
-        (
-            class_scheme = 'VOA Special Category'
-            AND classification_code IN ({scat})
-        ) OR classification_code IN ({abp})
+        {filter}
     )
     """
-    sql_query = sql.SQL(query.strip()).format(
-        scat=sql.SQL(",").join(sql.Literal(i) for i in voa_scat),
-        abp=sql.SQL(",").join(sql.Literal(i) for i in abp),
+    voa_filter = """
+    (class_scheme = 'VOA Special Category' AND classification_code IN ({values}))
+    """
+    abp_filter = """classification_code IN ({values})""" 
+
+    filter_queries = []
+    for query, values in ((voa_filter, voa_scat), (abp_filter, abp)):
+        if len(values) > 0:
+            query = sql.SQL(query.strip()).format(
+                values=sql.SQL(",").join(sql.Literal(str(i)) for i in values)
+            )
+            filter_queries.append(query)
+
+    if len(filter_queries) == 0:
+        raise ValueError("no classification filters given")
+
+    sql_query = sql.SQL(select_query.strip()).format(
+        filter=sql.SQL(" OR ").join(filter_queries)
     )
 
     if year is None:
@@ -486,6 +505,7 @@ def combine_lsoa_areas(
     output_file : pathlib.Path
         Path to CSV to save output to.
     """
+    LOG.info("Combining %s warehouse datasets", len(lsoa_data))
     lsoa_warehouse = pd.concat(lsoa_data)
 
     before = len(lsoa_warehouse)
@@ -531,14 +551,25 @@ def extract_warehouses(
     lsoa = load_shapefile(shapefile)
 
     with database.Database(database_connection_parameters) as connected_db:
-
         get_classification_codes(connected_db, output_folder)
         voa_code_count(connected_db, output_folder)
 
         queries = {
             "warehouses": classification_codes_query(year=year),
             "warehouses_amazon": warehouse_organisations_query("amazon", year=year),
+            "commute_warehouses": classification_codes_query(
+                voa_scat=tuple(
+                    itertools.chain.from_iterable(COMMUTE_CLASSIFICATION_CODES.values())
+                ),
+                abp=[],
+                year=year,
+            ),
         }
+
+        for name, values in COMMUTE_CLASSIFICATION_CODES.items():
+            queries[f"commute_warehouses_{name}"] = classification_codes_query(
+                voa_scat=values, abp=[], year=year
+            )
 
         lsoa_warehouse_floorspace: list[pd.DataFrame] = []
 
@@ -555,7 +586,9 @@ def extract_warehouses(
             lsoa_warehouse = warehouse_by_lsoa(
                 connected_db, query, lsoa, shapefile.id_column, folder / name
             )
-            lsoa_warehouse_floorspace.append(lsoa_warehouse)
+
+            if name.startswith("warehouses"):
+                lsoa_warehouse_floorspace.append(lsoa_warehouse)
 
         if year is None:
             out_file = output_folder / "warehouse_floorspace_by_lsoa_inc_amazon.csv"
