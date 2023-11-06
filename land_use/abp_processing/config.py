@@ -19,8 +19,9 @@ from land_use.abp_processing import database
 ##### CONSTANTS #####
 LOG = logging.getLogger(__name__)
 
+
 ##### CLASSES #####
-class ABPConfig(config_base.BaseConfig):
+class _ABPConfig(config_base.BaseConfig):
     """Parameters for running the Address Base Premium data processing."""
 
     output_folder: pydantic.DirectoryPath  # pylint: disable=no-member
@@ -31,18 +32,43 @@ class ABPConfig(config_base.BaseConfig):
 class ShapefileParameters:
     """Parameters for an input shapefile."""
 
+    name: str
     path: pydantic.FilePath  # pylint: disable=no-member
     id_column: str
     crs: str = "EPSG:27700"
 
 
-class WarehouseConfig(config_base.BaseConfig):
+class WarehouseConfig(_ABPConfig):
     """Parameters for extracting the LFT warehouse data from ABP."""
 
-    database_connection_parameters: database.ConnectionParameters
-    output_folder: pydantic.DirectoryPath  # pylint: disable=no-member
     lsoa_shapefile: ShapefileParameters
     year_filter: Optional[int] = None
+
+
+@dataclasses.dataclass
+class FilterCodes:
+    """ABP classification codes for filtering."""
+
+    name: str
+    voa_scat: list[int] = pydantic.Field(default_factory=list)
+    abp_classification: list[str] = pydantic.Field(default_factory=list)
+
+    @pydantic.validator("voa_scat", "abp_classification", pre=True)
+    def _csv_to_list(cls, value: list | str) -> list:
+        # Pydantic validtor is a class method pylint: disable=no-self-argument
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [i.strip() for i in value.split(",") if i.strip() != ""]
+        raise TypeError(f"unexpected type: {type(value)}")
+
+
+class ABPExtractConfig(_ABPConfig):
+    """Parameters for extracting and aggregating data from ABP."""
+
+    filter_codes: FilterCodes
+    year: Optional[int] = None
+    aggregate_shapefile: Optional[ShapefileParameters] = None
 
 
 ##### FUNCTIONS #####
