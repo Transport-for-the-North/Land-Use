@@ -33,7 +33,7 @@ COMMUTE_CLASSIFICATION_CODES = {
 }
 
 ##### CLASSES #####
-
+# TODO(MB) Move generic (not warehouse related) functionality into abp_processing
 
 ##### FUNCTIONS #####
 def to_kepler_geojson(geodata: gpd.GeoDataFrame, out_file: pathlib.Path) -> None:
@@ -207,7 +207,7 @@ def get_warehouse_floorspace(
     
     INNER JOIN data_common.mm_topographicarea mm ON cr.cross_reference = mm.fid;
     """
-    LOG.info("Extracting warehouse floorspace to %s", output_file.name)
+    LOG.info("Extracting floorspace to %s", output_file.name)
     data = connected_db.query_to_dataframe(
         sql.SQL(query).format(query=warehouse_select_query)
     )
@@ -278,7 +278,7 @@ def classification_codes_query(
     voa_filter = """
     (class_scheme = 'VOA Special Category' AND classification_code IN ({values}))
     """
-    abp_filter = """classification_code IN ({values})""" 
+    abp_filter = """classification_code IN ({values})"""
 
     filter_queries = []
     for query, values in ((voa_filter, voa_scat), (abp_filter, abp)):
@@ -469,10 +469,16 @@ def warehouse_by_lsoa(
 
     duplicated = lsoa_positions["uprn"].duplicated().sum()
     if duplicated > 0:
-        LOG.warning("%s duplicate UPRNs found", duplicated)
+        LOG.warning(
+            "%s duplicate UPRNs found, only keeping "
+            "first value for each when aggregating to LSOA",
+            duplicated,
+        )
 
     lsoa_warehouse: gpd.GeoDataFrame = (
-        lsoa_positions[[lsoa_id_column, "area"]]
+        lsoa_positions.drop_duplicates(subset="uprn", keep="first")[
+            [lsoa_id_column, "area"]
+        ]
         .groupby(lsoa_id_column, as_index=False)
         .sum()
     )
