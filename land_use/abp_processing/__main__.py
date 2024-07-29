@@ -54,11 +54,10 @@ def main():
         for codes in parameters.filter_codes:
             for year in years:
                 LOG.info(
-                    "%s\nABP Extract %s / %s (%s): %s %s %s\n%s",
-                    "-" * os.get_terminal_size().columns,
+                    "%s\nABP Extracting %s / %s: %s - %s - %s\n%s",
+                    "-" * (os.get_terminal_size().columns - 15),
                     count,
                     total,
-                    f"{count / total:.0%}",
                     shapefile.name,
                     codes.name,
                     year,
