@@ -66,9 +66,9 @@ class FilterCodes:
 class ABPExtractConfig(_ABPConfig):
     """Parameters for extracting and aggregating data from ABP."""
 
-    filter_codes: FilterCodes
-    year: Optional[int] = None
-    aggregate_shapefile: Optional[ShapefileParameters] = None
+    filter_codes: list[FilterCodes]
+    year: Optional[list[int]] = None
+    aggregate_shapefile: Optional[list[ShapefileParameters]] = None
 
 
 ##### FUNCTIONS #####

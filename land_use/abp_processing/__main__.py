@@ -8,6 +8,7 @@
 # Standard imports
 import datetime as dt
 import logging
+import os
 import pathlib
 
 # Third party imports
@@ -37,13 +38,46 @@ def main():
     LOG.info("Loaded parameters from config: %s", CONFIG_FILE)
     LOG.info("Outputs saved to: %s", output_folder)
 
-    abp_processing.extract_data(
-        parameters.database_connection_parameters,
-        output_folder,
-        parameters.filter_codes,
-        parameters.year,
-        parameters.aggregate_shapefile,
+    years = [None] if parameters.year is None else parameters.year
+    if parameters.aggregate_shapefile is None:
+        shapefiles = [None]
+    else:
+        shapefiles = parameters.aggregate_shapefile
+
+    total = (
+        len(parameters.aggregate_shapefile)
+        + len(parameters.year)
+        + len(parameters.filter_codes)
     )
+    count = 1
+    for shapefile in shapefiles:
+        for codes in parameters.filter_codes:
+            for year in years:
+                LOG.info(
+                    "%s\nABP Extract %s / %s (%s): %s %s %s\n%s",
+                    "-" * os.get_terminal_size().columns,
+                    count,
+                    total,
+                    f"{count / total:.0%}",
+                    shapefile.name,
+                    codes.name,
+                    year,
+                    "-" * os.get_terminal_size().columns,
+                )
+                abp_processing.extract_data(
+                    parameters.database_connection_parameters,
+                    output_folder,
+                    codes,
+                    year,
+                    shapefile,
+                )
+                LOG.info(
+                    "Done ABP Extract %s / %s (%s)\n%s",
+                    count,
+                    total,
+                    f"{count / total:.0%}",
+                    "-" * os.get_terminal_size().columns,
+                )
 
 
 if __name__ == "__main__":
