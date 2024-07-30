@@ -77,6 +77,7 @@ def main():
                     f"{count / total:.0%}",
                     "-" * os.get_terminal_size().columns,
                 )
+                count += 1
 
 
 if __name__ == "__main__":
