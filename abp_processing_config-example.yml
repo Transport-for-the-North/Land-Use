@@ -5,3 +5,19 @@ database_connection_parameters:
   password: User password
   host: Host IP
   port: Host port
+filter_codes:
+  - name: Name of filtering
+    voa_scat: List of VOA codes
+    abp_classification: List of ABP classification codes
+  - name: Name of filtering 2
+    voa_scat: List of VOA codes
+    abp_classification: List of ABP classification codes
+year:
+  - Optional years
+aggregate_shapefile:
+  - name: Name of zone system 1
+    path: Path to shapefile
+    id_column: Name of ID column
+  - name: Name of zone system 2
+    path: Path to shapefile
+    id_column: Name of ID column
