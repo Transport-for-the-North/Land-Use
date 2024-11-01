@@ -5,7 +5,7 @@ from typing import Generator, Iterable, Optional, Union
 from textwrap import fill
 
 import pandas as pd
-from caf.core.data_structures import DVector
+from caf.base.data_structures import DVector
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.axes import Axes
