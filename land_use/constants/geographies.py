@@ -2,7 +2,7 @@ import logging
 from os import PathLike
 from pathlib import Path
 
-from caf.core.zoning import ZoningSystem, ZoningSystemMetaData
+from caf.base.zoning import ZoningSystem, ZoningSystemMetaData
 import geopandas as gpd
 import pandas as pd
 
@@ -50,7 +50,7 @@ def generate_zoning_system(
             f'({CACHE_FOLDER.absolute()}), attempting to generate'
         )
 
-    # TODO: should use this line, but something in caf.core seems to break geopandas. Using pandas *temporarily*, once this is fixed we should use the following and csv_path will no longer be needed
+    # TODO: should use this line, but something in caf.base seems to break geopandas. Using pandas *temporarily*, once this is fixed we should use the following and csv_path will no longer be needed
     # layer_info = gpd.read_file(str(shapefile_path))
     csv_path = Path(shapefile_path).with_suffix('.csv')
     layer_info = pd.read_csv(csv_path)
