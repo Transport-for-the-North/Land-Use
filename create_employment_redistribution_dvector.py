@@ -32,7 +32,7 @@ ONS_LU.columns = map(str.lower, ONS_LU.columns)
 
 
 def main():
-    #furnessing_voa_floorspace_values.main()
+    furnessing_voa_floorspace_values.main()
     lsoa_type_distributions = create_lsoa_distributions_by_measure()
     create_lsoa_sic_factors(lsoa_type_distributions=lsoa_type_distributions)
 
