@@ -1,3 +1,4 @@
+# %%
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -12,15 +13,21 @@ from caf.core.zoning import TranslationWeighting
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
 
+config_file = Path(r"scenario_configurations\iteration_5\base_employment_config.yml")
+
+with open(config_file, 'r') as text_file:
+    config = yaml.load(text_file, yaml.SafeLoader)
+
 
 # TODO: expand on the documentation here
-parser = ArgumentParser('Land-Use base employment command line runner')
-parser.add_argument('config_file', type=Path)
-args = parser.parse_args()
+# parser = ArgumentParser('Land-Use base employment command line runner')
+# parser.add_argument('config_file', type=Path)
+# args = parser.parse_args()
+
 
 # load configuration file
-with open(args.config_file, 'r') as text_file:
-    config = yaml.load(text_file, yaml.SafeLoader)
+# with open(args.config_file, 'r') as text_file:
+#     config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
 OUTPUT_DIR = Path(config["output_directory"])
@@ -76,6 +83,12 @@ soc_4_factors = data_processing.read_dvector_from_config(
     config=config,
     data_block=block,
     key='soc_4_factors'
+)
+
+employment_redistri_lsoa = data_processing.read_dvector_from_config(
+    config=config, 
+    data_block=block, 
+    key='employment_lsoa_distribution_factors'
 )
 
 # --- Step 0 --- #
@@ -339,6 +352,69 @@ data_processing.save_output(
         dvector=output_e4_2,
         dvector_dimension='jobs'
 )
+# %%
+LOGGER.info("Adjusting Output E4 to adjust distributions within LADs (Output E4.3)")
+LOGGER.info("This is using a combination of voa floorspace and pupil distribution")
+LOGGER.info("Which varies by sic and lsoa, and is only applied to previously defined regions")
+
+# Need to use the E4 output before the soc4 row is added. As jobs will be moved between lsoa this row must be recalculated.
+
+lad_totals = jobs_by_sic_soc_lsoa_no_soc_4.translate_zoning(
+    new_zoning=constants.LAD_EWS_ZONING_SYSTEM,
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.SPATIAL,
+    check_totals=False,
+)
+
+lad_at_lsoa = lad_totals.translate_zoning(
+    new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False,
+)
+# multiply lad totals by splits for that sic/lsoa combination. Note resulting DVector will have lots of nas
+# the nas will correspoded to where we do not wish to update the distribution for that sic/lsoa.
+adj_jobs_lsoa_no_soc_4 = lad_at_lsoa * employment_redistri_lsoa
+
+# infill the nas back with the original values
+adj_jobs_lsoa_no_soc_4.data = adj_jobs_lsoa_no_soc_4.data.fillna(
+    jobs_by_sic_soc_lsoa_no_soc_4.data
+)
+# fix back to floats introduced as a result of nas being introduced
+adj_jobs_lsoa_no_soc_4.data = adj_jobs_lsoa_no_soc_4.data.astype(float)
+
+# now need to expand the data to include soc 4 (unemployed) based on factors
+totals = adj_jobs_lsoa_no_soc_4.add_segments(
+    [constants.CUSTOM_SEGMENTS["total"]]
+).aggregate(["total"])
+
+totals_with_segs = totals.add_segments(
+    [
+        SegmentsSuper("sic_1_digit").get_segment(),
+        SegmentsSuper("sic_2_digit").get_segment(),
+        SegmentsSuper("soc").get_segment(),
+    ]
+).aggregate(["sic_1_digit", "sic_2_digit", "soc"])
+
+soc_1_3_totals = totals_with_segs.filter_segment_value("sic_1_digit", -1)
+
+soc_1_3_totals = soc_1_3_totals.add_segments(
+    [SegmentsSuper("sic_1_digit").get_segment()]
+)
+
+# soc 4 factors remain the same as before
+soc_4_row = soc_1_3_totals * soc_4_factors_lsoa
+
+adj_jobs_sic_soc_lsoa = adj_jobs_lsoa_no_soc_4.concat(soc_4_row)
+# %%
+
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference="Output E4_3",
+    dvector=adj_jobs_sic_soc_lsoa,
+    dvector_dimension="jobs",
+)
+# %%
 
 LOGGER.info('--- Step 5 ---')
 LOGGER.info(f'Combining Output E1 (+soc 4) and E4 to give Jobs by LSOA SIC 4 digit and SOC group (1-4) (Output E5)')
@@ -392,3 +468,23 @@ data_processing.save_output(
         dvector=jobs_by_sic_2_4_soc_lsoa,
         dvector_dimension='jobs'
 )
+
+LOGGER.info(
+    f"Combining Output E1 (+soc 4) and E4.3 to give Jobs by LSOA SIC 4 digit and SOC group (1-4) (Output E6)"
+)
+LOGGER.info(
+    f"This will take account of the redistribution of jobs using voa floorspace and pupils"
+)
+
+output_e6 = data_processing.apply_proportions(
+    source_dvector=e1_with_sic_2_lsoa, apply_to=adj_jobs_lsoa_no_soc_4
+)
+
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference="Output E6",
+    dvector=jobs_by_sic_2_4_soc_lsoa,
+    dvector_dimension="jobs",
+)
+
+# %%

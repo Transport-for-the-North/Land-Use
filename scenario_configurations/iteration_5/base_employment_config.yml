@@ -1,7 +1,7 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_inc_scotland_v2
+output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_inc_scotland_v2_voa_adjust
 output_intermediate_outputs: False
 
 base_data:
@@ -39,3 +39,8 @@ base_data:
         file_path: SOC\preprocessing\Table 8 WFJ-adjusted Land Use SOC4.hdf
         geographical_level: RGN2021+SCOTLANDRGN
         input_segments: [total]
+
+    employment_lsoa_distribution_factors:
+        file_path: Employment Attraction Distributions\sic mapped distributions\preprocessing\factors.hdf
+        geographical_level: DZ2011+LSOA2021
+        input_segments: [sic_1_digit]

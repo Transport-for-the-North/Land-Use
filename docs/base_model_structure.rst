@@ -194,11 +194,14 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
         
         node [shape=record, color=blue width=3.4]
             table_4 [label="WFJ 2023|Total workforce jobs by region|GOR"];
+            lsoa_job_splits [label="Jobs Splits|Proportions by LSOA\nwithin LAD, allocted by SIC|LSOA"];
             
         node [style=rounded, color=black]
             output_e4 [label="Output E4|Jobs by LSOA, \nSIC (Section and Division), SOC|LSOA"];
             output_e4_2 [label="Output E4.2|Jobs by LSOA, SIC Division,\nSOC weighted to WFJ|LSOA"];
+            output_e4_3 [label="Output E4.3|Jobs by LSOA, \nSIC (Section and Division), SOC\ndistribution corrected|LSOA"];
             output_e5 [label="Output E5|Jobs by LSOA, SIC Division,\nSIC Class, SOC|LSOA"];
+            output_e6 [label="Output E6|Jobs by LSOA, SIC Division,\nSIC Class, SOC\ndistribution corrected|LSOA"];
         
 
         table_1 -> output_e1;
@@ -218,5 +221,9 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
         table_10 -> table_11
         table_4 -> output_e4_2
         output_e4 -> output_e4_2
+        lsoa_job_splits -> output_e4_3
+        output_e4 -> output_e4_3
         output_e4 -> output_e5
+        lsoa_job_splits -> output_e6
+        output_e5 -> output_e6
     }
