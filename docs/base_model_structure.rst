@@ -200,8 +200,8 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
             output_e4 [label="Output E4|Jobs by LSOA, \nSIC (Section and Division), SOC|LSOA"];
             output_e4_2 [label="Output E4.2|Jobs by LSOA, SIC Division,\nSOC weighted to WFJ|LSOA"];
             output_e4_3 [label="Output E4.3|Jobs by LSOA, \nSIC (Section and Division), SOC\ndistribution corrected|LSOA"];
-            output_e5 [label="Output E5|Jobs by LSOA, SIC Division,\nSIC Class, SOC|LSOA"];
-            output_e6 [label="Output E6|Jobs by LSOA, SIC Division,\nSIC Class, SOC\ndistribution corrected|LSOA"];
+            output_e5 [label="Output E5|Jobs by LSOA, SOC\nSIC (Class, Section, Division)|LSOA"];
+            output_e6 [label="Output E6|Jobs by LSOA, SOC\nSIC (Class, Section, Division)\ndistribution corrected|LSOA"];
         
 
         table_1 -> output_e1;
