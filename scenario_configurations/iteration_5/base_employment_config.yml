@@ -1,7 +1,7 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_inc_scotland_v2_voa_adjust
+output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_inc_scotland_v2_voa_and_farmers_adjust
 output_intermediate_outputs: False
 
 base_data:
@@ -14,11 +14,6 @@ base_data:
         file_path: BRES2022\Employment\preprocessing\bres_employment22_msoa2011_2digit_sic_jobs.hdf
         geographical_level: MSOA2011+SCOTLAND-INT-ZONE
         input_segments: [sic_2_digit]
-
-    msoa_2011_2_digit_sic_1_digit_sic_splits:
-        file_path: BRES2022\Employment\preprocessing\bres_employment22_msoa2011_2digit_sic_1digit_sic_splits.hdf
-        geographical_level: MSOA2011+SCOTLAND-INT-ZONE
-        input_segments: [sic_1_digit, sic_2_digit]
 
     lsoa_2011_1_digit_sic:
         file_path: BRES2022\Employment\preprocessing\bres_employment22_lsoa2011_1digit_sic.hdf
