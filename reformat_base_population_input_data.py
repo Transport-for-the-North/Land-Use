@@ -483,13 +483,13 @@ for df in [_16_to_64, _65_plus]:
 pivoted_16_to_64 = pp.pivot_to_dvector(
     data=_16_to_64,
     zoning_column=zoning,
-    index_cols=['g', 'economic_status', 'age_9'],
+    index_cols=['g', 'status_aps', 'age_9'],
     value_column='population'
 )
 pivoted_65_plus = pp.pivot_to_dvector(
     data=_65_plus,
     zoning_column=zoning,
-    index_cols=['economic_status', 'age_9'],
+    index_cols=['status_aps', 'age_9'],
     value_column='population'
 )
 # save outputs
