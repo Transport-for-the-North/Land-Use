@@ -5,9 +5,9 @@ import psutil
 from typing import Any, Dict, List, Union, Optional
 from functools import reduce
 
-from caf.core.data_structures import DVector, IpfTarget
-from caf.core.zoning import ZoningSystem, TranslationWeighting, TranslationWarning
-from caf.core.segmentation import Segmentation, SegmentationInput, Segment, SegmentsSuper
+from caf.base.data_structures import DVector, IpfTarget
+from caf.base.zoning import ZoningSystem, TranslationWeighting, TranslationWarning
+from caf.base.segmentation import Segmentation, SegmentationInput, Segment, SegmentsSuper
 import pandas as pd
 import numpy as np
 

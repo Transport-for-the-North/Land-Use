@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
-from caf.core import DVector
-from caf.core.segments import SegmentsSuper
-from caf.core.zoning import TranslationWeighting
+from caf.base import DVector
+from caf.base.segments import SegmentsSuper
+from caf.base.zoning import TranslationWeighting
 import numpy as np
 
 from land_use import constants, data_processing
