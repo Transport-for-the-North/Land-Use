@@ -761,7 +761,7 @@ for GOR in constants.GORS:
         seed_data=segmented_pop_rebase,
         target_dvectors=list(population_adjustment['rebase_data']),
         cache_folder=constants.CACHE_FOLDER,
-        target_dvector=list(population_adjustment['rebase_data'])[2]
+        target_dvector=list(population_adjustment['rebase_data'])[0]
     )
 
     # save output to hdf and csvs for checking
