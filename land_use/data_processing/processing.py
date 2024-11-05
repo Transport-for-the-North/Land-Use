@@ -746,15 +746,11 @@ def apply_ipf(
     """
     LOGGER.info('Preparing data for the IPF')
     # make sure target totals match before calling IPF
-    if target_dvector is None:
-        list_of_dvectors = match_target_total(
-            list_of_dvectors=list(target_dvectors)
-        )
-    else:
-        all_dvectors = match_target_total(
-            list_of_dvectors=[target_dvector] + list(target_dvectors)
-        )
-        list_of_dvectors = all_dvectors[1:]
+    list_of_dvectors = IpfTarget.check_compatibility(
+        target_dvectors,
+        adjust=True,
+        reference=target_dvector
+    )[1]
 
     # making sure all the segmentations in the targets are in the seed (not the
     # case if one of the targets is at an aggregated segmentation)
@@ -771,7 +767,7 @@ def apply_ipf(
         set(required_segmentations) - set(existing_segmentations)
     )
     # if there are missing segmentations, add segments to the seed
-    # (lookups must exist in caf.core)
+    # (lookups must exist in caf.base)
     if len(missing_segmentations) > 0:
         LOGGER.info(f'Adding {missing_segmentations} to the seed data for the IPF')
         seed_data = seed_data.copy().add_segments(
