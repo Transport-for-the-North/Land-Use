@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
@@ -8,15 +9,8 @@ from land_use.reporting import templating
 
 # TODO: expand on the documentation here
 parser = ArgumentParser('Land-Use base population command line runner')
-parser.add_argument('config_file', type=Path)
+parser.add_argument('config_file', type=Path, nargs='+')
 args = parser.parse_args()
-
-# load configuration file
-with open(args.config_file, 'r') as text_file:
-    config = yaml.load(text_file, yaml.SafeLoader)
-
-# Get output directory of main model outputs from config file
-OUTPUT_DIR = Path(config['output_directory'])
 
 # TODO: move this into the YAML
 scenario_name = '2024-10-10 Example Reporting'
@@ -28,12 +22,20 @@ if not docs_dir.is_dir():
     with open(docs_dir / 'index.rst', 'w') as docs_index:
         docs_index.write(templating.render_scenario_page(scenario_name))
 
-# get files from existing output
-file_dict = {
-    'Households': list(OUTPUT_DIR.glob('Output P4.3_*.hdf')),
-    'Population': list(OUTPUT_DIR.glob('Output P13_*.hdf')),
-    'Employment': list(OUTPUT_DIR.glob('Output E4.hdf')),
-}
+file_dict = defaultdict(list)
+
+for cf in args.config_file:
+    # load configuration file
+    with open(cf, 'r') as text_file:
+        config = yaml.load(text_file, yaml.SafeLoader)
+
+    # Get output directory of main model outputs from config file
+    OUTPUT_DIR = Path(config['output_directory'])
+
+    # get files from existing output
+    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P4.3_*.hdf'))
+    file_dict['Population'].extend(OUTPUT_DIR.glob('Output P13_*.hdf'))
+    file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
 
 # define zone system to translate to
 REPORTING_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
