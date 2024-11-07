@@ -141,7 +141,7 @@ def combine_zoning_systems(
 CACHE_FOLDER = Path(r'F:\Working\Land-Use\CACHE')
 CACHE_FOLDER.mkdir(exist_ok=True)
 SHAPEFILE_DIRECTORY = Path(r'F:\Working\Land-Use\SHAPEFILES')
-GORS = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']
+GORS = ['NE', 'NW', 'YH', 'Wales', 'WM', 'EM', 'SW', 'EoE', 'Lon', 'SE']
 
 # --- LSOA ZONE SYSTEMS (ENGLAND AND WALES ONLY) --- #
 LSOA_NAME = 'LSOA2021'
