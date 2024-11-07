@@ -29,7 +29,7 @@ if not docs_dir.is_dir():
         docs_index.write(templating.render_scenario_page(scenario_name))
 
 # get files from existing output
-data_dict = {
+file_dict = {
     'Households': list(OUTPUT_DIR.glob('Output P4.3_*.hdf')),
     'Population': list(OUTPUT_DIR.glob('Output P13_*.hdf')),
     'Employment': list(OUTPUT_DIR.glob('Output E4.hdf')),
@@ -38,9 +38,24 @@ data_dict = {
 # define zone system to translate to
 REPORTING_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
 
-for unit, input_files in data_dict.items():
+# Calculate all of our "total" dictionaries in one go
+data_dict = {}
+for key, input_files in file_dict.items():
+    print(key)
     if not input_files:
         continue
+    
+    data_dict[key] = data_processing.translate_and_combine_dvectors(
+        input_files=input_files,
+        aggregate_zone_system=REPORTING_ZONE_SYSTEM
+    )
+
+if 'Population' in data_dict.keys():
+    data_dict['Working Age Population'] = data_dict['Population'].filter_segment_value(
+        'age_9', [4, 5, 6, 7, 8]
+    )
+
+for unit, total_dvector in data_dict.items():
     # Set up the output directory for that unit category
     unit_docs_dir = docs_dir / unit
     unit_docs_dir.mkdir(exist_ok=True)
@@ -50,12 +65,6 @@ for unit, input_files in data_dict.items():
     # And set up the folder for all the results to go into
     results_dir = unit_docs_dir / 'Segment Results'
     results_dir.mkdir(exist_ok=True)
-
-    # generate combined dvector
-    total_dvector = data_processing.translate_and_combine_dvectors(
-        input_files=input_files,
-        aggregate_zone_system=REPORTING_ZONE_SYSTEM
-    )
 
     for segment_plot in data_processing.generate_segment_bar_plots(total_dvector, unit=unit):
         # First - save the figure
