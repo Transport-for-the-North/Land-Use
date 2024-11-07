@@ -171,10 +171,7 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
             subgraph cluster_inputs{
                 peripheries=0
                 rank="same"
-
-                table_6 [label="ONS Jobs by SIC and SOC|SIC Section and SOC (1-3)|GOR"];
-                table_8 [label="BRES SIC Section by SIC Division|Jobs by SIC Division and Section|MSOA 2011"];
-            
+                table_6 [label="ONS Jobs by SIC and SOC|SIC Section and SOC (1-3)|GOR"];            
             }
         
         node [style=rounded, color=black]
@@ -189,16 +186,20 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
         node [shape=record, color=blue width=3.4]
             table_7 [label="Jobs by LSOA|SIC Section and SOC (1-3)|LSOA"];
             table_7a [label="Jobs by LSOA|SIC (Section and Division) and SOC (1-3)|LSOA"];
+            table_8 [label="Jobs SIC splits|SIC (Section and Division)|MSOA"];
             table_11 [label="Jobs by LSOA|SIC (Section and Division) and SOC|LSOA"];
             table_10 [label="SOC 4 Factors|SOC 4 proportions by region|GOR"];
         
         node [shape=record, color=blue width=3.4]
             table_4 [label="WFJ 2023|Total workforce jobs by region|GOR"];
+            lsoa_job_splits [label="Jobs Splits|Proportions by LSOA\nwithin LAD, allocted by SIC|LSOA"];
             
         node [style=rounded, color=black]
             output_e4 [label="Output E4|Jobs by LSOA, \nSIC (Section and Division), SOC|LSOA"];
             output_e4_2 [label="Output E4.2|Jobs by LSOA, SIC Division,\nSOC weighted to WFJ|LSOA"];
-            output_e5 [label="Output E5|Jobs by LSOA, SIC Division,\nSIC Class, SOC|LSOA"];
+            output_e4_3 [label="Output E4.3|Jobs by LSOA, \nSIC (Section and Division), SOC\ndistribution corrected|LSOA"];
+            output_e5 [label="Output E5|Jobs by LSOA, SOC\nSIC (Class, Section, Division)|LSOA"];
+            output_e6 [label="Output E6|Jobs by LSOA, SOC\nSIC (Class, Section, Division)\ndistribution corrected|LSOA"];
         
 
         table_1 -> output_e1;
@@ -211,6 +212,7 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
         table_3a -> output_e3;
         output_e3 -> table_7;
         table_6 -> table_7;
+        output_e2 -> table_8
         table_8 -> table_7a
         table_11 -> output_e4
         table_7 -> table_7a
@@ -218,5 +220,9 @@ For datasets with a SOC Segmentation but where the range is not stated then it w
         table_10 -> table_11
         table_4 -> output_e4_2
         output_e4 -> output_e4_2
+        lsoa_job_splits -> output_e4_3
+        output_e4 -> output_e4_3
         output_e4 -> output_e5
+        lsoa_job_splits -> output_e6
+        output_e5 -> output_e6
     }
