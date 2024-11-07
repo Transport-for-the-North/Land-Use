@@ -430,7 +430,7 @@ pp.save_preprocessed_hdf(source_file_path=file_path, df=df)
 # *** ft/pt splits and GOR
 file_path = Path(
     r'I:\NorMITs Land Use\2023\import\APS 2023 for IPF\Regional-based-targets'
-    r'\APS-24-regional-based-targets_revamp_v2.xlsx'
+    r'\APS-24-regional-based-targets_revamp_v3.xlsx'
 )
 
 # read in specific tabs
@@ -457,7 +457,7 @@ pivoted_t08 = pp.pivot_to_dvector(
 pp.save_preprocessed_hdf(
     source_file_path=file_path,
     df=pivoted_t08,
-    multiple_output_ref='t08-modifiedtomype'
+    multiple_output_ref='t08-modifiedtomypev3'
 )
 
 # *** economic status by working age and gender and GOR
