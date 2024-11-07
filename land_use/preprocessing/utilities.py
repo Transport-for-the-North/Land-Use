@@ -273,7 +273,7 @@ def extract_geo_code(
 
     return col.str.extract(rf"([{include}]\d{{8}})", expand=False)
 
-def reformat_bres_xsoa_sic_digits_to_dvector(
+def reformat_xsoa_sic_digits_to_dvector(
     df: pd.DataFrame,
     heading_col: str,
     segmentation: dict[int, str],
@@ -475,3 +475,56 @@ def reformat_ons_sic_soc_correspondence(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return df_wide
+
+def reformat_hse_lad_4_digit(
+        file_path: Path, 
+        segmentation: dict[int,str],
+        seg_name: str,
+    ) -> pd.DataFrame:
+    """Convert an input dataframe with required segmentation and LAD zoning into DVector format.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data as read in from file
+    segmentation : dict[int, str]
+        Used for mapping the segmentation labels to index numbers (starting at 1)
+    seg_name : str
+        Name for the segmentation
+
+    Returns
+    -------
+    pd.DataFrame:
+        Data in DVector format (sic segmentation as index and geographical LAD areas as columns).
+    """
+    # TODO: add docstring
+
+    df = pd.read_csv(file_path)
+
+    df = df.drop(columns="Unnamed: 0")
+
+    df = df.set_index("LAD23CD")
+
+    df = df.transpose()
+
+    df = df.reset_index()
+
+    df["sic_code"] = df["index"].str[3:]
+    # left pad with 0's to make a fixed width of 4
+    df["sic_code"] = df["sic_code"].str.zfill(4)
+
+    df = df.sort_values("sic_code")
+
+    # define dictionary of segmentation mapping
+    # slighty complicated by the fact the segementation has the description e.g.
+    # 0100 : DEFRA/Scottish Executive Agricultural Data
+    # and we just want `0100`
+    inv_seg = {v.split(":")[0].strip(): k for k, v in segmentation.items()}
+
+    # map the definitions used to define the segmentation
+    df[seg_name] = df["sic_code"].map(inv_seg)
+    df[seg_name] = df[seg_name].astype(int)
+    df = df.drop(columns=["index", "sic_code"])
+
+    df = df.set_index("sic_4_digit")
+    return df

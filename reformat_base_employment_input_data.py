@@ -8,6 +8,7 @@ import pandas as pd
 
 # TODO consider sending this to a global config/settings file as shared with reformat population script
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
+HSE_INPUT_DIR = Path(r"I:\Data\HSL\2023")
 
 
 # General structure is to repeat the following steps for a series of different data tables
@@ -31,7 +32,67 @@ def process_bres():
 
 
 def process_hse():
-    pass
+    hse_lad_4_digit()
+    hse_msoa_2_digit()
+    hse_lsoa_1_digit()
+
+def hse_lad_4_digit():
+    filename = "SIC4digit_byLA.csv"
+    seg_name = "sic_4_digit"
+
+    file_path = HSE_INPUT_DIR / filename
+    segmentation = SegmentsSuper(seg_name).get_segment().values
+
+    df_wide = pp.reformat_hse_lad_4_digit(
+        file_path=file_path, 
+        segmentation=segmentation, 
+        seg_name=seg_name
+    )
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
+
+def hse_msoa_2_digit():
+    filename = "SICdiv_byMSOA.csv"
+    seg_name = "sic_2_digit"
+
+    file_path = HSE_INPUT_DIR / filename
+    df = pd.read_csv(file_path)
+    df = df.drop(columns="Unnamed: 0")
+    df = df.set_index("MSOA_code")
+
+    df = df.transpose()
+    df = df.reset_index()
+
+    df[seg_name] = df["index"].str[3:].astype(int)
+    df = df.sort_values(seg_name)
+    df_wide = df.set_index(seg_name)
+    df_wide = df_wide.drop(columns="index")
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
+
+def hse_lsoa_1_digit():
+    filename = "SICsec_byLSOA.csv"
+    seg_name = "sic_1_digit"
+    zoning = geographies.LSOA_EWS_NAME
+
+    file_path = HSE_INPUT_DIR / filename
+    segmentation = SegmentsSuper(seg_name).get_segment().values
+
+    revised_segmentation = {k: v[0] for k, v in segmentation.items()}
+
+    df = pd.read_csv(file_path)
+
+    df = df.drop(columns="Unnamed: 0")
+
+    df_wide = pp.reformat_xsoa_sic_digits_to_dvector(
+        df=df,
+        heading_col="LSOA_code",
+        segmentation=revised_segmentation,
+        seg_name=seg_name,
+        zoning=zoning
+    )
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
 
 
 def bres_lad_4_digit():
@@ -99,7 +160,7 @@ def bres_msoa_2_digit():
 
     segmentation = SegmentsSuper(seg_name).get_segment().values
 
-    df_wide = pp.reformat_bres_xsoa_sic_digits_to_dvector(
+    df_wide = pp.reformat_xsoa_sic_digits_to_dvector(
         df=df,
         heading_col=heading_col,
         segmentation=segmentation,
@@ -156,7 +217,7 @@ def bres_lsoa_1_digit():
 
     segmentation = SegmentsSuper(seg_name).get_segment().values
 
-    df_wide = pp.reformat_bres_xsoa_sic_digits_to_dvector(
+    df_wide = pp.reformat_xsoa_sic_digits_to_dvector(
         df=df,
         heading_col=heading_col,
         segmentation=segmentation,
