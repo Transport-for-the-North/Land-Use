@@ -8,12 +8,12 @@ from land_use import data_processing
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
-parser = ArgumentParser('Land-Use base population command line runner')
+parser = ArgumentParser(description='Land-Use base population command line runner')
+parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
 parser.add_argument('config_file', type=Path, nargs='+')
 args = parser.parse_args()
 
-# TODO: move this into the YAML
-scenario_name = '2024-10-10 Example Reporting'
+scenario_name = args.scenario_name
 
 # Set up the root results page
 docs_dir = Path(__file__).parent / 'docs' / 'Scenario Results' / scenario_name
