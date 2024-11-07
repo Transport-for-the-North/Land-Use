@@ -273,7 +273,7 @@ def extract_geo_code(
 
     return col.str.extract(rf"([{include}]\d{{8}})", expand=False)
 
-def reformat_xsoa_sic_digits_to_dvector(
+def reformat_bres_xsoa_sic_digits_to_dvector(
     df: pd.DataFrame,
     heading_col: str,
     segmentation: dict[int, str],
