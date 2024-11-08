@@ -3,13 +3,11 @@ from pathlib import Path
 from caf.core.segments import SegmentsSuper
 
 import land_use.preprocessing as pp
-from land_use.constants import geographies, segments
+from land_use.constants import geographies
 import pandas as pd
 
 # TODO consider sending this to a global config/settings file as shared with reformat population script
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
-HSE_INPUT_DIR = Path(r"I:\Data\HSL\2023")
-
 
 # General structure is to repeat the following steps for a series of different data tables
 # 1. set file_path, which will be stored in a subdirectory of input_dir
@@ -40,7 +38,7 @@ def hse_lad_4_digit():
     filename = "SIC4digit_byLA.csv"
     seg_name = "sic_4_digit"
 
-    file_path = HSE_INPUT_DIR / filename
+    file_path = INPUT_DIR / "HSL" / "2023" / filename
     segmentation = SegmentsSuper(seg_name).get_segment().values
 
     df_wide = pp.reformat_hse_lad_4_digit(
@@ -55,7 +53,7 @@ def hse_msoa_2_digit():
     filename = "SICdiv_byMSOA.csv"
     seg_name = "sic_2_digit"
 
-    file_path = HSE_INPUT_DIR / filename
+    file_path = INPUT_DIR / "HSL" / "2023" / filename
     df = pd.read_csv(file_path)
     df = df.drop(columns="Unnamed: 0")
     df = df.set_index("MSOA_code")
@@ -75,7 +73,7 @@ def hse_lsoa_1_digit():
     seg_name = "sic_1_digit"
     zoning = geographies.LSOA_EWS_NAME
 
-    file_path = HSE_INPUT_DIR / filename
+    file_path = INPUT_DIR / "HSL" / "2023" / filename
     segmentation = SegmentsSuper(seg_name).get_segment().values
 
     revised_segmentation = {k: v[0] for k, v in segmentation.items()}
