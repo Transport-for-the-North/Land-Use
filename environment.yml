@@ -13,6 +13,8 @@ dependencies:
   # Setup for interactive maps
   - folium=0.17.0
   - mapclassify=2.5.0
+  # Only used for memory usage tracking
+  - psutil=6.1.0
   - pip:
-      - git+https://github.com/Transport-for-the-North/caf.core@IPF
+      - git+https://github.com/Transport-for-the-North/caf.base@dependencies
       - git+https://github.com/Transport-for-the-North/caf.space
