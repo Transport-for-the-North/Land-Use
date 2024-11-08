@@ -22,5 +22,5 @@ def render_scenario_page(scenario_name: str) -> str:
 def render_data_type_page(data_type: str) -> str:
     return DATA_TYPE_TEMPLATE.render(data_type=data_type)
 
-def render_segment_page(segment_name, graph_paths, table_paths) -> str:
-    return SEGMENT_TEMPLATE.render(segment_name=segment_name, graph_paths=graph_paths, table_paths=table_paths)
+def render_segment_page(segment_name, graph_paths, table_paths, map_paths) -> str:
+    return SEGMENT_TEMPLATE.render(segment_name=segment_name, graph_paths=graph_paths, table_paths=table_paths, map_paths=map_paths)

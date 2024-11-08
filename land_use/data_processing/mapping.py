@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from branca.colormap import ColorMap
 from caf.base import DVector, ZoningSystem
@@ -12,7 +12,10 @@ from ..constants import CACHE_FOLDER
 
 LOGGER = logging.getLogger(__name__)
 
-def load_spatial_zoning(dvec: DVector, simplification: Optional[int] = 30) -> gpd.GeoDataFrame:
+def load_spatial_zoning(
+        dvec: DVector, simplification: Optional[int] = 30,
+        filter_by: Optional[Dict] = None
+    ) -> gpd.GeoDataFrame:
     """Loads the spatial representation of a DVector's zoning, optionally simplifying
 
     Parameters
@@ -31,6 +34,11 @@ def load_spatial_zoning(dvec: DVector, simplification: Optional[int] = 30) -> gp
     # Load the zone system, filter to only relevant columns
     spatial_zones = gpd.read_file(dvec.zoning_system.metadata.shapefile_path)
     id_col = dvec.zoning_system.metadata.shapefile_id_col
+
+    if filter_by:
+        for column, values in filter_by.items():
+            spatial_zones = spatial_zones[spatial_zones[column].isin(values)]
+
     spatial_zones = spatial_zones[[id_col, 'geometry']]
 
     # Simplify if required
@@ -69,7 +77,6 @@ def render_map(
     vmax: Optional[float] = None,
     vmin: Optional[float] = None
 ) -> folium.Map:
-    print(spatial_data)
     output_map = folium.Map(tiles=None)
 
     # Set up background options
@@ -111,7 +118,10 @@ def create_interactive_maps(
     output_folder: Path,
     desired_zoning_system: Optional[str] = None,
     zone_cache_path: Path = CACHE_FOLDER,
-    max_unique_categories: int = 15
+    max_unique_categories: int = 15,
+    specific_segment: Optional[str] = None,
+    filter_by: Optional[Dict] = None,
+    simplification: Optional[int] = 30
 ) -> List[Path]:
     
     if desired_zoning_system:
@@ -126,9 +136,18 @@ def create_interactive_maps(
     segmentation = dvec.segmentation
     id_col = dvec.zoning_system.metadata.shapefile_id_col
 
-    spatial_zoning = load_spatial_zoning(dvec=dvec)
+    spatial_zoning = load_spatial_zoning(
+        dvec=dvec, filter_by=filter_by, simplification=simplification
+    )
 
-    for seg in segmentation.segments:
+    if specific_segment:
+        segments = [segmentation.get_segment(specific_segment)]
+    else:
+        segments = segmentation.segments
+
+    all_output_paths = []
+
+    for seg in segments:
         if len(seg) > max_unique_categories:
             LOGGER.info(
                 f'Skipping {seg.name}, too many categories '
@@ -152,6 +171,7 @@ def create_interactive_maps(
         
         for unit, data in (('absolute', segment_absolute), ('proportional', segment_proportional)):
             label = f'{seg.name} ({unit})'
+            output_path = output_folder / f'{label}.html'
             segment_spatial = spatial_zoning.merge(
                 data, how='left', right_index=True, left_on=id_col
             )
@@ -162,4 +182,8 @@ def create_interactive_maps(
                 cbar_label=label
             )
 
-            output_map.save(output_folder / f'{label}.html')
+            with output_path.open('w') as text_file:
+                text_file.write(output_map._repr_html_())
+            all_output_paths.append(output_path)
+    
+    return all_output_paths

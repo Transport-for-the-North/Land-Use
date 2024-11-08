@@ -2,9 +2,12 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from pathlib import Path
 
+from caf.base import ZoningSystem
 import yaml
 
+from land_use.constants.geographies import CACHE_FOLDER
 from land_use import data_processing
+from land_use.data_processing.mapping import create_interactive_maps
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
@@ -37,8 +40,9 @@ for cf in args.config_file:
     file_dict['Population'].extend(OUTPUT_DIR.glob('Output P13_*.hdf'))
     file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
 
-# define zone system to translate to
-REPORTING_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
+# define zone systems to translate to. NOTE: the map zone system must aggregate to the chart zone system if the two are different
+MAP_ZONE_SYSTEM = 'LAD2023+SCOTLANDLAD'
+CHART_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
 
 # Calculate all of our "total" dictionaries in one go
 data_dict = {}
@@ -49,7 +53,7 @@ for key, input_files in file_dict.items():
     
     data_dict[key] = data_processing.translate_and_combine_dvectors(
         input_files=input_files,
-        aggregate_zone_system=REPORTING_ZONE_SYSTEM
+        aggregate_zone_system=MAP_ZONE_SYSTEM
     )
 
 if 'Population' in data_dict.keys():
@@ -57,18 +61,22 @@ if 'Population' in data_dict.keys():
         'age_9', [4, 5, 6, 7, 8]
     )
 
-for unit, total_dvector in data_dict.items():
+for unit, map_total_dvector in data_dict.items():
     # Set up the output directory for that unit category
     unit_docs_dir = docs_dir / unit
     unit_docs_dir.mkdir(exist_ok=True)
     with open(unit_docs_dir / 'index.rst', 'w') as unit_index:
         unit_index.write(templating.render_data_type_page(data_type=unit))
 
+    chart_total_dvector = map_total_dvector.translate_zoning(
+        ZoningSystem.get_zoning(CHART_ZONE_SYSTEM, search_dir=CACHE_FOLDER)
+    )
+
     # And set up the folder for all the results to go into
     results_dir = unit_docs_dir / 'Segment Results'
     results_dir.mkdir(exist_ok=True)
 
-    for segment_plot in data_processing.generate_segment_bar_plots(total_dvector, unit=unit):
+    for segment_plot in data_processing.generate_segment_bar_plots(chart_total_dvector, unit=unit):
         # First - save the figure
         segment_plot.figure.savefig(results_dir / f'{segment_plot.segments}.png')
 
@@ -78,12 +86,21 @@ for unit, total_dvector in data_dict.items():
             float_format=lambda x: '{:,.0f}'.format(x)
         )
 
+        # Make the maps - note we filter to the northern regions here
+        map_paths = create_interactive_maps(
+            map_total_dvector, output_folder=results_dir, 
+            specific_segment=segment_plot.segment_identifiers[0],
+            filter_by={'RGN21CD': ['E12000001', 'E12000002', 'E12000003']},
+            simplification=500
+        )
+
         # Then fill out the template
         with open(results_dir / f'{segment_plot.segments}.rst', 'w') as segment_page:
             segment_page.write(
                 templating.render_segment_page(
                     segment_name=segment_plot.segments,
                     graph_paths=[f'{segment_plot.segments}.png'],
-                    table_paths=[f'{segment_plot.segments}.csv']
+                    table_paths=[f'{segment_plot.segments}.csv'],
+                    map_paths=[p.name for p in map_paths]
                 )
             )
