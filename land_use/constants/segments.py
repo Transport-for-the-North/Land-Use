@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from caf.core.segments import SegmentsSuper, Segment, Exclusion
+from caf.base.segments import SegmentsSuper, Segment, Exclusion
 
 
 def is_standard_segment(identifier: str) -> bool:

@@ -2,7 +2,7 @@ import logging
 from os import PathLike
 from pathlib import Path
 
-from caf.core.zoning import ZoningSystem, ZoningSystemMetaData
+from caf.base.zoning import ZoningSystem, ZoningSystemMetaData
 import geopandas as gpd
 import pandas as pd
 
@@ -50,7 +50,7 @@ def generate_zoning_system(
             f'({CACHE_FOLDER.absolute()}), attempting to generate'
         )
 
-    # TODO: should use this line, but something in caf.core seems to break geopandas. Using pandas *temporarily*, once this is fixed we should use the following and csv_path will no longer be needed
+    # TODO: should use this line, but something in caf.base seems to break geopandas. Using pandas *temporarily*, once this is fixed we should use the following and csv_path will no longer be needed
     # layer_info = gpd.read_file(str(shapefile_path))
     csv_path = Path(shapefile_path).with_suffix('.csv')
     layer_info = pd.read_csv(csv_path)
@@ -141,7 +141,7 @@ def combine_zoning_systems(
 CACHE_FOLDER = Path(r'F:\Working\Land-Use\CACHE')
 CACHE_FOLDER.mkdir(exist_ok=True)
 SHAPEFILE_DIRECTORY = Path(r'F:\Working\Land-Use\SHAPEFILES')
-GORS = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']
+GORS = ['NE', 'NW', 'YH', 'Wales', 'WM', 'EM', 'SW', 'EoE', 'Lon', 'SE']
 
 # --- LSOA ZONE SYSTEMS (ENGLAND AND WALES ONLY) --- #
 LSOA_NAME = 'LSOA2021'
@@ -263,6 +263,10 @@ LSOA_2011_EWS_NAME = "DZ2011+LSOA2011"
 LSOA_2011_EWS_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_2011_ZONING_SYSTEM
 )
+LAD_EWS_2023_NAME = "LAD2023+SCOTLANDLAD"
+LAD_EWS_2023_ZONING_SYSTEM = combine_zoning_systems(
+    SCOTLAND_LAD_ZONING_SYSTEM, LAD23_ZONING_SYSTEM
+)
 # --- Define zone systems by GOR to chunk the processing by GOR to save memory issues --- #
 LSOAS_BY_GOR = dict()
 MSOAS_BY_GOR = dict()
@@ -339,6 +343,7 @@ KNOWN_GEOGRAPHIES = {
     MSOA_2011_EWS_NAME : MSOA_2011_EWS_ZONING_SYSTEM,
     LSOA_EWS_NAME: LSOA_EWS_ZONING_SYSTEM,
     LSOA_2011_EWS_NAME: LSOA_2011_EWS_ZONING_SYSTEM,
+    LAD_EWS_2023_NAME: LAD_EWS_2023_ZONING_SYSTEM,
 }
 
 KNOWN_GEOGRAPHIES = {

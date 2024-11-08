@@ -1,4 +1,4 @@
-from caf.core.segments import SegmentsSuper
+from caf.base.segments import SegmentsSuper
 
 
 # TODO: This is very similar to "h". Could we standardise?

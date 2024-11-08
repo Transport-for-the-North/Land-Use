@@ -19,7 +19,7 @@ def configure_logger(output_dir: Path, log_name: str) -> logging.Logger:
     """
     # Get the module logger
     lu_logger = logging.getLogger('land_use')
-    cc_logger = logging.getLogger('caf.core')
+    cc_logger = logging.getLogger('caf.base')
 
     # Set up nice formatting
     log_formatter = logging.Formatter(

@@ -8,6 +8,7 @@ import pandas as pd
 
 # TODO consider sending this to a global config/settings file as shared with reformat population script
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
+HSE_INPUT_DIR = Path(r"I:\Data\HSL\2023")
 
 
 # General structure is to repeat the following steps for a series of different data tables
@@ -18,14 +19,83 @@ INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
 
 
 def main():
-    lad_4_digit()
-    msoa_2_digit()
-    lsoa_1_digit()
+    process_bres()
+    process_hse()
     find_sic_soc_splits_by_region()
     wfj_2023()
     soc_4_factors()
 
-def lad_4_digit():
+def process_bres():
+    bres_lad_4_digit()
+    bres_msoa_2_digit()
+    bres_lsoa_1_digit()
+
+
+def process_hse():
+    hse_lad_4_digit()
+    hse_msoa_2_digit()
+    hse_lsoa_1_digit()
+
+def hse_lad_4_digit():
+    filename = "SIC4digit_byLA.csv"
+    seg_name = "sic_4_digit"
+
+    file_path = HSE_INPUT_DIR / filename
+    segmentation = SegmentsSuper(seg_name).get_segment().values
+
+    df_wide = pp.reformat_hse_lad_4_digit(
+        file_path=file_path, 
+        segmentation=segmentation, 
+        seg_name=seg_name
+    )
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
+
+def hse_msoa_2_digit():
+    filename = "SICdiv_byMSOA.csv"
+    seg_name = "sic_2_digit"
+
+    file_path = HSE_INPUT_DIR / filename
+    df = pd.read_csv(file_path)
+    df = df.drop(columns="Unnamed: 0")
+    df = df.set_index("MSOA_code")
+
+    df = df.transpose()
+    df = df.reset_index()
+
+    df[seg_name] = df["index"].str[3:].astype(int)
+    df = df.sort_values(seg_name)
+    df_wide = df.set_index(seg_name)
+    df_wide = df_wide.drop(columns="index")
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
+
+def hse_lsoa_1_digit():
+    filename = "SICsec_byLSOA.csv"
+    seg_name = "sic_1_digit"
+    zoning = geographies.LSOA_EWS_NAME
+
+    file_path = HSE_INPUT_DIR / filename
+    segmentation = SegmentsSuper(seg_name).get_segment().values
+
+    revised_segmentation = {k: v[0] for k, v in segmentation.items()}
+
+    df = pd.read_csv(file_path)
+
+    df = df.drop(columns="Unnamed: 0")
+
+    df_wide = pp.reformat_xsoa_sic_digits_to_dvector(
+        df=df,
+        heading_col="LSOA_code",
+        segmentation=revised_segmentation,
+        seg_name=seg_name,
+        zoning=zoning
+    )
+
+    pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
+
+
+def bres_lad_4_digit():
     filename = "bres_employment22_lad_4digit_sic.csv"
     zoning = geographies.LAD_NAME
     seg_name = "sic_4_digit"
@@ -76,7 +146,7 @@ def fetch_lad_lu(zoning: str) -> pd.DataFrame:
     return pd.concat([lad_lu, missing_lad])
 
 
-def msoa_2_digit():
+def bres_msoa_2_digit():
     filename = "bres_employment22_msoa2011_2digit_sic.csv"
     zoning = geographies.MSOA_2011_NAME
     seg_name = "sic_2_digit"
@@ -132,7 +202,7 @@ def msoa_2_digit():
     )
 
 
-def lsoa_1_digit():
+def bres_lsoa_1_digit():
 
     filename = "bres_employment22_lsoa2011_1digit_sic.csv"
     zoning = geographies.LSOA_2011_NAME
