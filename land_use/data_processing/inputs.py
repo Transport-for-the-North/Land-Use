@@ -3,8 +3,8 @@ from warnings import warn
 import logging
 from typing import Optional, Union
 
-from caf.core.data_structures import DVector
-from caf.core.segmentation import Segmentation, SegmentationInput
+from caf.base.data_structures import DVector
+from caf.base.segmentation import Segmentation, SegmentationInput
 import pandas as pd
 
 from land_use.constants import segments

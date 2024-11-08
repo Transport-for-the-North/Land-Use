@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 import pandas as pd
-from caf.core.data_structures import DVector
+from caf.base.data_structures import DVector
 
 from land_use.constants import geographies
 from .verifications import generate_segment_heatmaps, generate_segment_bar_plots

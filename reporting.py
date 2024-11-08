@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
@@ -7,19 +8,12 @@ from land_use import data_processing
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
-parser = ArgumentParser('Land-Use base population command line runner')
-parser.add_argument('config_file', type=Path)
+parser = ArgumentParser(description='Land-Use base population command line runner')
+parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
+parser.add_argument('config_file', type=Path, nargs='+')
 args = parser.parse_args()
 
-# load configuration file
-with open(args.config_file, 'r') as text_file:
-    config = yaml.load(text_file, yaml.SafeLoader)
-
-# Get output directory of main model outputs from config file
-OUTPUT_DIR = Path(config['output_directory'])
-
-# TODO: move this into the YAML
-scenario_name = '2024-10-10 Example Reporting'
+scenario_name = args.scenario_name
 
 # Set up the root results page
 docs_dir = Path(__file__).parent / 'docs' / 'Scenario Results' / scenario_name
@@ -28,19 +22,42 @@ if not docs_dir.is_dir():
     with open(docs_dir / 'index.rst', 'w') as docs_index:
         docs_index.write(templating.render_scenario_page(scenario_name))
 
-# get files from existing output
-data_dict = {
-    'Households': list(OUTPUT_DIR.glob('Output P4.3_*.hdf')),
-    'Population': list(OUTPUT_DIR.glob('Output P13_*.hdf')),
-    'Employment': list(OUTPUT_DIR.glob('Output E4.hdf')),
-}
+file_dict = defaultdict(list)
+
+for cf in args.config_file:
+    # load configuration file
+    with open(cf, 'r') as text_file:
+        config = yaml.load(text_file, yaml.SafeLoader)
+
+    # Get output directory of main model outputs from config file
+    OUTPUT_DIR = Path(config['output_directory'])
+
+    # get files from existing output
+    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P4.3_*.hdf'))
+    file_dict['Population'].extend(OUTPUT_DIR.glob('Output P13_*.hdf'))
+    file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
 
 # define zone system to translate to
 REPORTING_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
 
-for unit, input_files in data_dict.items():
+# Calculate all of our "total" dictionaries in one go
+data_dict = {}
+for key, input_files in file_dict.items():
+    print(key)
     if not input_files:
         continue
+    
+    data_dict[key] = data_processing.translate_and_combine_dvectors(
+        input_files=input_files,
+        aggregate_zone_system=REPORTING_ZONE_SYSTEM
+    )
+
+if 'Population' in data_dict.keys():
+    data_dict['Working Age Population'] = data_dict['Population'].filter_segment_value(
+        'age_9', [4, 5, 6, 7, 8]
+    )
+
+for unit, total_dvector in data_dict.items():
     # Set up the output directory for that unit category
     unit_docs_dir = docs_dir / unit
     unit_docs_dir.mkdir(exist_ok=True)
@@ -50,12 +67,6 @@ for unit, input_files in data_dict.items():
     # And set up the folder for all the results to go into
     results_dir = unit_docs_dir / 'Segment Results'
     results_dir.mkdir(exist_ok=True)
-
-    # generate combined dvector
-    total_dvector = data_processing.translate_and_combine_dvectors(
-        input_files=input_files,
-        aggregate_zone_system=REPORTING_ZONE_SYSTEM
-    )
 
     for segment_plot in data_processing.generate_segment_bar_plots(total_dvector, unit=unit):
         # First - save the figure

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from branca.colormap import ColorMap
-from caf.core import DVector, ZoningSystem
+from caf.base import DVector, ZoningSystem
 import folium
 import geopandas as gpd
 
