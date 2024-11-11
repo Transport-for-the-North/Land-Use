@@ -1,6 +1,6 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
-input_root_directory: I:\Data
+input_root_directory: I:\NorMITs Land Use\2023\import
 output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_hse
 output_intermediate_outputs: False
 
@@ -21,21 +21,21 @@ base_data:
         input_segments: [sic_1_digit]
 
     ons_sic_soc_jobs_lu:
-        file_path: NorMITs Land Use\2023\import\ONS\industry_occupation\preprocessing\population_region_1sic_soc.hdf
+        file_path: ONS\industry_occupation\preprocessing\population_region_1sic_soc.hdf
         geographical_level: RGN2021+SCOTLANDRGN
         input_segments: [sic_1_digit, soc]
 
     wfj:
-        file_path: NorMITs Land Use\2023\import\BRES2022\Employment\Employment Investigation\preprocessing\WFJ.hdf
+        file_path: BRES2022\Employment\Employment Investigation\preprocessing\WFJ.hdf
         geographical_level: RGN2021+SCOTLANDRGN
         input_segments: [total]
 
     soc_4_factors:
-        file_path: NorMITs Land Use\2023\import\SOC\preprocessing\Table 8 WFJ-adjusted Land Use SOC4.hdf
+        file_path: SOC\preprocessing\Table 8 WFJ-adjusted Land Use SOC4.hdf
         geographical_level: RGN2021+SCOTLANDRGN
         input_segments: [total]
 
     employment_lsoa_distribution_factors:
-        file_path: NorMITs Land Use\2023\import\Employment Attraction Distributions\sic mapped distributions\preprocessing\factors.hdf
+        file_path: Employment Attraction Distributions\sic mapped distributions\preprocessing\factors.hdf
         geographical_level: DZ2011+LSOA2021
         input_segments: [sic_1_digit]
