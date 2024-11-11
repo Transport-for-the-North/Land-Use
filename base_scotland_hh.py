@@ -2,29 +2,22 @@ from argparse import ArgumentParser
 from functools import reduce
 from pathlib import Path
 
-import pandas as pd
 import yaml
 from caf.base import DVector
-from caf.base.segments import SegmentsSuper
 from caf.base.zoning import TranslationWeighting
 import numpy as np
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
+from land_use.data_processing import OutputLevel
 
 
-# parser = ArgumentParser('Land-Use command line runner')
-# parser.add_argument('config_file', type=Path)
-# args = parser.parse_args()
-#
-# # load configuration file
-# with open(args.config_file, 'r') as text_file:
-#     config = yaml.load(text_file, yaml.SafeLoader)
+parser = ArgumentParser('Land-Use command line runner')
+parser.add_argument('config_file', type=Path)
+args = parser.parse_args()
 
-
-config_file = r'scenario_configurations\iteration_5\base_population_config.yml'
 # load configuration file
-with open(config_file, 'r') as text_file:
+with open(args.config_file, 'r') as text_file:
     config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
@@ -35,11 +28,14 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 generate_summary_outputs = bool(config['output_intermediate_outputs'])
 
 # Set up logger
-LOGGER = lu_logging.configure_logger(output_dir=OUTPUT_DIR, log_name='scotland_hh')
+LOGGER = lu_logging.configure_logger(
+    output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+    log_name='scotland_hh'
+)
 
 # SCOTLAND-SPECIFIC PROCESSING
 LOGGER.info('Read in Scotland population data created in step 13 of population')
-scot_pop = DVector.load(OUTPUT_DIR / f'Output P13_Scotland.hdf')
+scot_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_Scotland.hdf')
 
 # collapse segmentation to household-specific segmentations (i.e. remove population segmentation)
 aggregated_pop = scot_pop.aggregate(
@@ -133,7 +129,8 @@ data_processing.save_output(
     output_reference=f'Output P11.1_Scotland',
     dvector=scotland_hydrated,
     dvector_dimension='households',
-    detailed_logs=True
+    detailed_logs=True,
+    output_level=OutputLevel.FINAL
 )
 
 # calculate occupied households
@@ -160,17 +157,19 @@ data_processing.save_output(
     output_reference=f'Output P11.2_Scotland',
     dvector=occupied_households,
     dvector_dimension='households',
-    detailed_logs=True
+    detailed_logs=True,
+    output_level=OutputLevel.INTERMEDIATE
 )
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
     output_reference=f'Output P11.3_Scotland',
     dvector=unoccupied_households,
     dvector_dimension='households',
-    detailed_logs=True
+    detailed_logs=True,
+    output_level=OutputLevel.INTERMEDIATE
 )
 
 # checks on the output dvector
-df = scotland_hydrated.data.copy()
-zone_totals = df.sum().to_frame(name='households')
-zone_totals.to_csv(OUTPUT_DIR / 'Output P11.1_Scotland.csv')
+# df = scotland_hydrated.data.copy()
+# zone_totals = df.sum().to_frame(name='households')
+# zone_totals.to_csv(OUTPUT_DIR / 'Output P11.1_Scotland.csv')
