@@ -830,11 +830,11 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_level=OutputLevel.FINAL
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P13_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR / OutputLevel.FINAL,
+        output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
         file=f'Output P13_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
