@@ -6,8 +6,8 @@ from caf.base import ZoningSystem
 import yaml
 
 from land_use.constants.geographies import CACHE_FOLDER
-from land_use import data_processing
 from land_use.data_processing.mapping import create_interactive_maps
+from land_use.data_processing import OutputLevel, translate_and_combine_dvectors, generate_segment_bar_plots
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
@@ -33,10 +33,10 @@ for cf in args.config_file:
         config = yaml.load(text_file, yaml.SafeLoader)
 
     # Get output directory of main model outputs from config file
-    OUTPUT_DIR = Path(config['output_directory'])
+    OUTPUT_DIR = Path(config['output_directory']) / OutputLevel.FINAL
 
     # get files from existing output
-    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P4.3_*.hdf'))
+    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P11.1_*.hdf'))
     file_dict['Population'].extend(OUTPUT_DIR.glob('Output P13_*.hdf'))
     file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
 
@@ -51,7 +51,7 @@ for key, input_files in file_dict.items():
     if not input_files:
         continue
     
-    data_dict[key] = data_processing.translate_and_combine_dvectors(
+    data_dict[key] = translate_and_combine_dvectors(
         input_files=input_files,
         aggregate_zone_system=MAP_ZONE_SYSTEM
     )
@@ -76,7 +76,7 @@ for unit, map_total_dvector in data_dict.items():
     results_dir = unit_docs_dir / 'Segment Results'
     results_dir.mkdir(exist_ok=True)
 
-    for segment_plot in data_processing.generate_segment_bar_plots(chart_total_dvector, unit=unit):
+    for segment_plot in generate_segment_bar_plots(chart_total_dvector, unit=unit):
         # First - save the figure
         segment_plot.figure.savefig(results_dir / f'{segment_plot.segments}.png')
 
