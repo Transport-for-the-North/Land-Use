@@ -17,6 +17,8 @@ def configure_logger(output_dir: Path, log_name: str) -> logging.Logger:
     logging.Logger
         Logger object to use for generating any new logs
     """
+    output_dir.mkdir(exist_ok=True, parents=True)
+
     # Get the module logger
     lu_logger = logging.getLogger('land_use')
     cc_logger = logging.getLogger('caf.base')

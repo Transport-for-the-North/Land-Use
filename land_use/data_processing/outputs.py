@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 from typing import Optional
+from enum import StrEnum
 
 import pandas as pd
 from caf.base.data_structures import DVector
@@ -9,6 +10,13 @@ from land_use.constants import geographies
 from .verifications import generate_segment_heatmaps, generate_segment_bar_plots
 
 LOGGER = logging.getLogger(__name__)
+
+
+class OutputLevel(StrEnum):
+    SUPPORTING = '00_Logging and Supporting Info'
+    INTERMEDIATE = '01_Intermediate Files'
+    FINAL = '02_Final Outputs'
+    ASSURANCE = '03_Assurance'
 
 
 def dvector_to_long(dvec: DVector, value_name: str = 'value') -> pd.DataFrame:
@@ -226,7 +234,8 @@ def save_output(
         dvector: DVector,
         dvector_dimension: str,
         generate_summary_outputs: bool = False,
-        detailed_logs: bool = False
+        detailed_logs: bool = False,
+        output_level: str = OutputLevel.INTERMEDIATE
 
 ):
     """Output data and report logs of high level totals.
@@ -254,12 +263,19 @@ def save_output(
     detailed_logs : bool, default False
         Provides detailed logging for all segments in dvector by setting
         detailed_logs=True in the summary_reporting() function.
+    output_level : str, default OutputLevel.INTERMEDIATE.
+        Provides name of subfolder in output_folder to write outputs to. This
+        is to help clarify the stages of the outputs for distribution to others
+        in TfN. Folder is created if it doesn't already exist.
 
     """
+    # define full path to output directory using output_folder and output_level
+    write_directory = output_folder / output_level
+    write_directory.mkdir(parents=True, exist_ok=True)
 
     # save to HDF
-    LOGGER.info(fr'Writing to {output_folder}\{output_reference}.hdf')
-    dvector.save(output_folder / f'{output_reference}.hdf')
+    LOGGER.info(fr'Writing to {write_directory}\{output_reference}.hdf')
+    dvector.save(write_directory / f'{output_reference}.hdf')
 
     LOGGER.info('Output summary:')
     # logging information
@@ -269,9 +285,9 @@ def save_output(
         detailed_logs=detailed_logs
     )
 
-    LOGGER.info(fr'Generating heatmaps to {output_folder}\plots')
+    LOGGER.info(fr'Generating heatmaps to {write_directory}\plots')
     # generate heat map plots
-    plot_folder = output_folder / 'plots'
+    plot_folder = write_directory / 'plots'
     plot_folder.mkdir(exist_ok=True, parents=True)
     segmentation_combination = 1
     for segment_plot in generate_segment_heatmaps(dvec=dvector):
@@ -282,7 +298,7 @@ def save_output(
     if generate_summary_outputs:
         summarise_dvector(
             dvector=dvector,
-            output_directory=output_folder,
+            output_directory=write_directory,
             output_reference=output_reference,
             value_name=dvector_dimension
         )

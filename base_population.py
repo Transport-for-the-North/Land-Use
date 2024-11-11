@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from functools import reduce
 from pathlib import Path
 from typing import Tuple
+import shutil
 
 import yaml
 from caf.base import DVector
@@ -12,6 +13,7 @@ import numpy as np
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
+from land_use.data_processing import OutputLevel
 
 
 @dataclass
@@ -177,31 +179,36 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P1.1_{gor}',
         dvector=occupied_households,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P1.2_{gor}',
         dvector=unoccupied_households,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P1.3_{gor}',
         dvector=average_occupancy,
-        dvector_dimension='occupancy'
+        dvector_dimension='occupancy',
+        output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P1.4_{gor}',
         dvector=non_empty_proportion,
-        dvector_dimension='factor'
+        dvector_dimension='factor',
+        output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P1.5_{gor}',
         dvector=unoccupied_factor,
-        dvector_dimension='factor'
+        dvector_dimension='factor',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -221,7 +228,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P2_{gor}',
         dvector=adjusted_addressbase_dwellings,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -243,7 +251,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P3_{gor}',
         dvector=hh_by_nssec,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -280,7 +289,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P4.1_{gor}',
         dvector=hh_by_nssec_hc_ha_car,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # prepare ons_table_2 for ipf targets (drop accom_h segmentation)
@@ -301,14 +311,15 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P4.2_{gor}',
         dvector=internal_rebalanced_hh,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / f'Output P4.2_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.2_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f'Output P4.2_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
@@ -326,14 +337,15 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P4.3_{gor}',
         dvector=rebalanced_hh,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / f'Output P4.3_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.3_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f'Output P4.3_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
@@ -368,7 +380,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P5_{gor}',
         dvector=pop_by_nssec_hc_ha_car,
-        dvector_dimension='population'
+        dvector_dimension='population',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -405,7 +418,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P6_{gor}',
         dvector=pop_by_nssec_hc_ha_car_gender_age,
-        dvector_dimension='population'
+        dvector_dimension='population',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -447,7 +461,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P7_{gor}',
         dvector=pop_by_nssec_hc_ha_car_gender_age_econ_emp_soc,
-        dvector_dimension='population'
+        dvector_dimension='population',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -573,7 +588,8 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_reference=f'Output P8_{gor}',
         dvector=adjusted_pop,
         dvector_dimension='population',
-        detailed_logs=True
+        detailed_logs=True,
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -609,14 +625,15 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_reference=f'Output P9_{gor}',
         dvector=rebalanced_pop,
         dvector_dimension='population',
-        detailed_logs=True
+        detailed_logs=True,
+        output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / f'Output P9_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P9_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f'Output P9_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
@@ -644,14 +661,15 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         output_reference=f'Output P10_{gor}',
         dvector=ipfed_pop,
         dvector_dimension='population',
-        detailed_logs=True
+        detailed_logs=True,
+        output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / f'Output P10_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P10_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f'Output P10_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
@@ -716,7 +734,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P11.1_{GOR}',
         dvector=hh_rebase,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
     )
 
     # save output to hdf and csvs for checking
@@ -724,7 +743,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P11.2_{GOR}',
         dvector=occupied_households,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # save output to hdf and csvs for checking
@@ -732,7 +752,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P11.3_{GOR}',
         dvector=unoccupied_households,
-        dvector_dimension='households'
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -762,7 +783,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P12.1_{GOR}',
         dvector=pop_rebase,
-        dvector_dimension='population'
+        dvector_dimension='population',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     LOGGER.info(f'Applying population proportional splits to average occupancy')
@@ -777,7 +799,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P12.2_{GOR}',
         dvector=segmented_pop_rebase,
-        dvector_dimension='population'
+        dvector_dimension='population',
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     # clear data at the end of the loop
@@ -803,14 +826,15 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_reference=f'Output P13_{GOR}',
         dvector=rebased_pop,
         dvector_dimension='population',
-        detailed_logs=True
+        detailed_logs=True,
+        output_level=OutputLevel.FINAL
     )
     summary.to_csv(
-        OUTPUT_DIR / f'Output P13_{GOR}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{GOR}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR,
+        output_folder=OUTPUT_DIR / OutputLevel.FINAL,
         file=f'Output P13_{GOR}_VALIDATION.xlsx',
         dfs=differences
     )
@@ -835,7 +859,16 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 generate_summary_outputs = bool(config['output_intermediate_outputs'])
 
 # Set up logger
-LOGGER = lu_logging.configure_logger(output_dir=OUTPUT_DIR, log_name='population')
+LOGGER = lu_logging.configure_logger(
+    output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+    log_name='population'
+)
+
+# copy config file for traceability
+shutil.copy(
+    src=args.config_file,
+    dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
+)
 
 # loop through GORs to save memory issues further down the line
 for GOR in constants.GORS:
@@ -858,7 +891,7 @@ LOGGER.info('Applying regional profiles to Scotland population data')
 area_type_agg = []
 for gor in config['scotland_donor_regions']:
     LOGGER.debug(f'Re-reading P13 for {gor}')
-    final_pop = DVector.load(OUTPUT_DIR / f'Output P13_{gor}.hdf')
+    final_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{gor}.hdf')
     area_type_agg.append(
         final_pop.translate_zoning(constants.TFN_AT_AGG_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER)
     )
@@ -895,5 +928,6 @@ data_processing.save_output(
     output_reference=f'Output P13_Scotland',
     dvector=scotland_hydrated,
     dvector_dimension='population',
-    detailed_logs=True
+    detailed_logs=True,
+    output_level=OutputLevel.FINAL
 )
