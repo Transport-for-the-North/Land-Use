@@ -732,7 +732,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.1_{GOR}',
+        output_reference=f'Output P11.1_{gor}',
         dvector=hh_rebase,
         dvector_dimension='households',
         output_level=OutputLevel.FINAL
@@ -741,7 +741,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.2_{GOR}',
+        output_reference=f'Output P11.2_{gor}',
         dvector=occupied_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -750,7 +750,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.3_{GOR}',
+        output_reference=f'Output P11.3_{gor}',
         dvector=unoccupied_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -781,7 +781,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P12.1_{GOR}',
+        output_reference=f'Output P12.1_{gor}',
         dvector=pop_rebase,
         dvector_dimension='population',
         output_level=OutputLevel.INTERMEDIATE
@@ -797,7 +797,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P12.2_{GOR}',
+        output_reference=f'Output P12.2_{gor}',
         dvector=segmented_pop_rebase,
         dvector_dimension='population',
         output_level=OutputLevel.INTERMEDIATE
@@ -823,19 +823,19 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P13_{GOR}',
+        output_reference=f'Output P13_{gor}',
         dvector=rebased_pop,
         dvector_dimension='population',
         detailed_logs=True,
         output_level=OutputLevel.FINAL
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{GOR}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.FINAL,
-        file=f'Output P13_{GOR}_VALIDATION.xlsx',
+        file=f'Output P13_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
 
