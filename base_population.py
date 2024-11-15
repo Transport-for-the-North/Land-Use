@@ -30,11 +30,11 @@ class BaseYearPopulationData:
             f'Loading base year data from {folder_path}'
         )
         return BaseYearPopulationData(
-            population=DVector.load(folder_path / f'Output P10{identifier}.hdf', cut_read=True),
-            households=DVector.load(folder_path / f'Output P4.3{identifier}.hdf', cut_read=True),
-            average_occupancy=DVector.load(folder_path / f'Output P1.3{identifier}.hdf', cut_read=True),
-            non_empty_proportion=DVector.load(folder_path / f'Output P1.4{identifier}.hdf', cut_read=True),
-            unoccupied_factor=DVector.load(folder_path / f'Output P1.5{identifier}.hdf', cut_read=True),
+            population=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P10{identifier}.hdf', cut_read=True),
+            households=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P4.3{identifier}.hdf', cut_read=True),
+            average_occupancy=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.3{identifier}.hdf', cut_read=True),
+            non_empty_proportion=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.4{identifier}.hdf', cut_read=True),
+            unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
         )
 
 def process_base(config, gor: str) -> BaseYearPopulationData:
@@ -610,13 +610,17 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         segs=[seg for seg in hh_age_gender_2021.data.index.names if seg != 'accom_h']
     )
 
+    # calculate adjustment factor for 2021 population at a total level and apply to the IPF target
+    # TODO This is because children ages are small in adjusted_pop and adding as explicit target means these are matched when they probs shouldnt be
+    adjustment_factor = adjusted_pop.total / hh_age_gender_2021_target.total
+    hh_age_gender_2021_target = hh_age_gender_2021_target * adjustment_factor
+
     # applying IPF (adjusting totals to match P9 outputs)
     LOGGER.info('Applying IPF for internal validation population targets')
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
         seed_data=adjusted_pop,
         target_dvectors=[hh_age_gender_2021_target],
-        cache_folder=constants.CACHE_FOLDER,
-        target_dvector=adjusted_pop
+        cache_folder=constants.CACHE_FOLDER
     )
 
     # save output to hdf and csvs for checking
@@ -648,11 +652,17 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     # applying IPF (adjusting totals to match P9 outputs)
     LOGGER.info('Applying IPF for independent population targets')
+    # calculate adjustment factor for 2021 population at a total level and apply to the IPF target
+    # TODO This is because children ages are small in adjusted_pop and adding as explicit target means these are matched when they probs shouldnt be
+    population_adjustments = []
+    for target in population_adjustment:
+        adjustment_factor = rebalanced_pop.total / target.total
+        population_adjustments.append(target * adjustment_factor)
+
     ipfed_pop, summary, differences = data_processing.apply_ipf(
         seed_data=rebalanced_pop,
-        target_dvectors=list(population_adjustment),
-        cache_folder=constants.CACHE_FOLDER,
-        target_dvector=rebalanced_pop
+        target_dvectors=population_adjustments,
+        cache_folder=constants.CACHE_FOLDER
     )
 
     # save output to hdf and csvs for checking
@@ -817,7 +827,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         seed_data=segmented_pop_rebase,
         target_dvectors=population_adjustment,
         cache_folder=constants.CACHE_FOLDER,
-        target_dvector=population_adjustment[0]
+        target_dvector=population_adjustment[0],
+        output_path=OUTPUT_DIR
     )
 
     # save output to hdf and csvs for checking
