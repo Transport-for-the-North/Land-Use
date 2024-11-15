@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Iterable, Optional
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -19,8 +20,11 @@ for template in SCENARIO_TEMPLATE, DATA_TYPE_TEMPLATE, SEGMENT_TEMPLATE:
 def render_scenario_page(scenario_name: str) -> str:
     return SCENARIO_TEMPLATE.render(scenario_name=scenario_name)
 
-def render_data_type_page(data_type: str) -> str:
-    return DATA_TYPE_TEMPLATE.render(data_type=data_type)
+def render_data_type_page(data_type: str, skipped_segments: Optional[Iterable[str]]=None) -> str:
+    return DATA_TYPE_TEMPLATE.render(
+        data_type=data_type, 
+        skipped_segments=skipped_segments or []
+    )
 
 def render_segment_page(segment_name, graph_paths, table_paths, map_paths) -> str:
     return SEGMENT_TEMPLATE.render(segment_name=segment_name, graph_paths=graph_paths, table_paths=table_paths, map_paths=map_paths)

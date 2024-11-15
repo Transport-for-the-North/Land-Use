@@ -65,12 +65,13 @@ for unit, map_total_dvector in data_dict.items():
     # Set up the output directory for that unit category
     unit_docs_dir = docs_dir / unit
     unit_docs_dir.mkdir(exist_ok=True)
-    with open(unit_docs_dir / 'index.rst', 'w') as unit_index:
-        unit_index.write(templating.render_data_type_page(data_type=unit))
 
     chart_total_dvector = map_total_dvector.translate_zoning(
         ZoningSystem.get_zoning(CHART_ZONE_SYSTEM, search_dir=CACHE_FOLDER)
     )
+
+    # Store all segment names so we can figure out which ones we skip
+    all_segment_names = set(chart_total_dvector.segmentation.names)
 
     # And set up the folder for all the results to go into
     results_dir = unit_docs_dir / 'Segment Results'
@@ -104,3 +105,15 @@ for unit, map_total_dvector in data_dict.items():
                     map_paths=[p.name for p in map_paths]
                 )
             )
+
+        all_segment_names -= set(segment_plot.segment_identifiers)
+
+    # Write the data type page now we know which segments have been skipped
+    with open(unit_docs_dir / 'index.rst', 'w') as unit_index:
+        unit_index.write(
+            templating.render_data_type_page(
+                data_type=unit,
+                skipped_segments=all_segment_names
+            )
+        )
+    
