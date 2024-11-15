@@ -746,11 +746,13 @@ def apply_ipf(
     """
     LOGGER.info('Preparing data for the IPF')
     # make sure target totals match before calling IPF
-    list_of_dvectors = IpfTarget.check_compatibility(
+    rmses, list_of_dvectors, target_differences = IpfTarget.check_compatibility(
         target_dvectors,
         adjust=True,
-        reference=target_dvector
-    )[1]
+        reference=target_dvector,
+        chain_adjust=False,
+        trans_cache=cache_folder
+    )
 
     # making sure all the segmentations in the targets are in the seed (not the
     # case if one of the targets is at an aggregated segmentation)
