@@ -4,34 +4,30 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-import caf.core as cc
-from caf.core.data_structures import DVector
-from caf.core.segments import SegmentsSuper
-from caf.core.zoning import TranslationWeighting
+import caf.base as cc
+from caf.base.data_structures import DVector
+from caf.base.segments import SegmentsSuper
+from caf.base.zoning import TranslationWeighting
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
 
 
 # TODO: expand on the documentation here
-# parser = ArgumentParser('Land-Use base employment command line runner')
-# parser.add_argument('config_file', type=Path)
-# args = parser.parse_args()
-
-
+parser = ArgumentParser('Land-Use base employment command line runner')
+parser.add_argument('config_file', type=Path)
+args = parser.parse_args()
 
 # load configuration file
-# with open(args.config_file, 'r') as text_file:
-#     config = yaml.load(text_file, yaml.SafeLoader)
-config_file = Path(r"scenario_configurations\iteration_5\base_employment_hse_config.yml")
-with open(config_file, 'r') as text_file:
-     config = yaml.load(text_file, yaml.SafeLoader)
+with open(args.config_file, 'r') as text_file:
+    config = yaml.load(text_file, yaml.SafeLoader)
+
 
 # Get output directory for intermediate outputs from config file
 OUTPUT_DIR = Path(config["output_directory"])
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-FARMERS_ADJ = Path(config["adjust_for_farmers"])
+FARMERS_ADJ = bool(config["adjust_for_farmers"])
 
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 generate_summary_outputs = bool(config["output_intermediate_outputs"])
@@ -186,10 +182,8 @@ def constrain_to_lad_totals_w_farmers_adj(
     lsoa_adj_factors_no_farmers = lad_total_no_farmers / lsoa_total_at_lad_no_farmers
 
     rehydrated_adj_factors_for_msoa = (
-        msoa_adj_factors_no_farmers.add_segments(
-            [SegmentsSuper("sic_2_digit").get_segment()]
-        )
-        .aggregate([SegmentsSuper("sic_2_digit").get_segment().name])
+        msoa_adj_factors_no_farmers.add_segments(["sic_2_digit"])
+        .aggregate(["sic_2_digit"])
         .translate_zoning(
             new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,
@@ -200,9 +194,9 @@ def constrain_to_lad_totals_w_farmers_adj(
 
     rehydrated_adj_factors_for_lsoa = (
         lsoa_adj_factors_no_farmers.add_segments(
-            [SegmentsSuper("sic_1_digit").get_segment()]
+            ["sic_1_digit"]
         )
-        .aggregate([SegmentsSuper("sic_1_digit").get_segment().name])
+        .aggregate(["sic_1_digit"])
         .translate_zoning(
             new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,
@@ -215,11 +209,11 @@ def constrain_to_lad_totals_w_farmers_adj(
     # apply proportions filling in nas with 0
     msoa_2011_2_digit_sic_not_farmers = drop_seg_values(msoa_dv, [1])
     adj_msoa_2011_2_digit_sic = (
-        rehydrated_adj_factors_for_msoa * msoa_2011_2_digit_sic_not_farmers
+        msoa_2011_2_digit_sic_not_farmers * rehydrated_adj_factors_for_msoa
     )
     adj_msoa_2011_2_digit_sic.fillna(0)
 
-    adj_msoa_2011_2_digit_sic = drop_seg_values(adj_msoa_2011_2_digit_sic, [1])
+    #adj_msoa_2011_2_digit_sic = drop_seg_values(adj_msoa_2011_2_digit_sic, [1])
 
     # Moving onto the farmers part of the process
     # Find the number of farmers provided at LAD but translate to MSOA
@@ -239,11 +233,11 @@ def constrain_to_lad_totals_w_farmers_adj(
     # Find the number of farmers provided at LAD but translate to LSOA
     lsoa_2011_1_digit_sic_not_farmers = drop_seg_values(lsoa_dv, [1])
     adj_lsoa_2011_1_digit_sic = (
-        rehydrated_adj_factors_for_lsoa * lsoa_2011_1_digit_sic_not_farmers
+        lsoa_2011_1_digit_sic_not_farmers * rehydrated_adj_factors_for_lsoa
     )
     adj_lsoa_2011_1_digit_sic.fillna(0)
 
-    adj_lsoa_2011_1_digit_sic = drop_seg_values(adj_lsoa_2011_1_digit_sic, [1])
+    # adj_lsoa_2011_1_digit_sic = drop_seg_values(adj_lsoa_2011_1_digit_sic, [1])
 
     # Find the number of farmers provided at LAD but translate to MSOA
     lad_data_in_msoa = lad_dv.translate_zoning(
@@ -340,6 +334,11 @@ def constrain_to_lad_totals(
         )
     )
 
+    rehydrated_adj_factors_for_msoa = drop_seg_values(
+        rehydrated_adj_factors_for_msoa, 
+        drop_values=[-1]
+    )
+
     rehydrated_adj_factors_for_lsoa = (
         lsoa_adj_factors.add_segments([SegmentsSuper('sic_1_digit').get_segment()])
         .aggregate([SegmentsSuper('sic_1_digit').get_segment().name])
@@ -349,6 +348,11 @@ def constrain_to_lad_totals(
             weighting=TranslationWeighting.NO_WEIGHT,
             check_totals=False,
         )
+    )
+
+    rehydrated_adj_factors_for_lsoa = drop_seg_values(
+        rehydrated_adj_factors_for_lsoa, 
+        drop_values=[-1]
     )
 
     msoa_dv = msoa_dv.translate_zoning(
@@ -378,8 +382,8 @@ if FARMERS_ADJ:
 else:
     constraint_func = constrain_to_lad_totals
 
-# applying farmers adjustment
-adj_lsoa_2011_1_digit_sic, adj_msoa_2011_2_digit_sic = constrain_to_lad_totals(
+# constraining to lad totals
+adj_lsoa_2011_1_digit_sic, adj_msoa_2011_2_digit_sic = constraint_func(
     lad_dv=lad_raw_4_digit_sic, 
     msoa_dv=msoa_raw_2_digit_sic, 
     lsoa_dv=lsoa_raw_1_digit_sic
@@ -595,8 +599,13 @@ lad_at_lsoa = lad_totals.translate_zoning(
     check_totals=False,
 )
 # multiply lad totals by splits for that sic/lsoa combination. Note resulting DVector will have lots of nas
-# the nas will correspoded to where we do not wish to update the distribution for that sic/lsoa.
-adj_jobs_lsoa_no_soc_4 = lad_at_lsoa * employment_redistri_lsoa
+# the nas will correspond to where we do not wish to update the distribution for that sic/lsoa.
+
+# TODO: see if we can avoid the na rows being dropped and if so could switch to the more straightforward
+# adj_jobs_lsoa_no_soc_4 = lad_at_lsoa * employment_redistri_lsoa
+
+adj_jobs_lsoa_no_soc_4 = lad_at_lsoa.copy()
+adj_jobs_lsoa_no_soc_4.data = lad_at_lsoa.data * employment_redistri_lsoa.data
 
 # infill the nas back with the original values
 adj_jobs_lsoa_no_soc_4.data = adj_jobs_lsoa_no_soc_4.data.fillna(
@@ -664,11 +673,17 @@ soc_4_dummy = DVector(
 adjusted_e1 = lad_raw_4_digit_sic.concat(soc_4_dummy)
 
 # Now having got the adjusted e1 we can prepare it for merging with e4
+# e1_with_sic_2_lad = adjusted_e1.translate_segment(
+#     from_seg=SegmentsSuper('sic_4_digit').get_segment(),
+#     to_seg=SegmentsSuper('sic_2_digit').get_segment(),
+#     drop_from=False
+# )
 e1_with_sic_2_lad = adjusted_e1.translate_segment(
-    from_seg=SegmentsSuper('sic_4_digit').get_segment(),
-    to_seg=SegmentsSuper('sic_2_digit').get_segment(),
+    from_seg='sic_4_digit',
+    to_seg='sic_2_digit',
     drop_from=False
 )
+
 e1_with_sic_2_lsoa = e1_with_sic_2_lad.translate_zoning(
     new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
     cache_path=constants.CACHE_FOLDER,
