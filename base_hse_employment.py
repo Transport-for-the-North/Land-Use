@@ -129,7 +129,7 @@ employment_redistri_lsoa = data_processing.read_dvector_from_config(
 # --- Step 0 --- #
 LOGGER.info('--- Step 0 ---')
 LOGGER.info(
-    'Balance the input datasets to each have the same totals at LAD level as the 4 Digit SIC 2022 BRES data'
+    'Balance the input datasets to each have the same totals at LAD level as the 4 Digit SIC 2022 Raw data'
 )
 
 def constrain_to_lad_totals_w_farmers_adj(
@@ -387,7 +387,7 @@ adj_lsoa_2011_1_digit_sic, adj_msoa_2011_2_digit_sic = constrain_to_lad_totals(
 
 # --- Step 1 --- #
 LOGGER.info('--- Step 1 ---')
-LOGGER.info('Exporting district-based 4 Digit SIC 2022 BRES data (Output E1)')
+LOGGER.info('Exporting district-based 4 Digit SIC 2022 data (Output E1)')
 # save output to hdf and csvs for checking
 data_processing.save_output(
         output_folder=OUTPUT_DIR,
@@ -398,7 +398,7 @@ data_processing.save_output(
 
 # --- Step 2 --- #
 LOGGER.info('--- Step 2 ---')
-LOGGER.info('Convert 2 Digit SIC 2022 BRES data held in MSOA 2011 zoning to 2021 MSOA (Output E2)')
+LOGGER.info('Convert 2 Digit SIC 2022 data held in MSOA 2011 zoning to 2021 MSOA (Output E2)')
 # LAD is already at LAD 2021 zoning so doesn't need translating
 msoa_2021_2_digit_sic = adj_msoa_2011_2_digit_sic.translate_zoning(
         new_zoning=constants.MSOA_EWS_ZONING_SYSTEM,
@@ -418,7 +418,7 @@ data_processing.save_output(
 
 # --- Step 3 --- #
 LOGGER.info('--- Step 3 ---')
-LOGGER.info('Convert 1 Digit SIC 2022 BRES data held in LSOA 2011 zoning to 2021 LSOA (Output E3)')
+LOGGER.info('Convert 1 Digit SIC 2022 data held in LSOA 2011 zoning to 2021 LSOA (Output E3)')
 lsoa_2021_1_digit_sic = adj_lsoa_2011_1_digit_sic.translate_zoning(
         new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
@@ -445,7 +445,7 @@ ons_sic_soc_jobs_lsoa = ons_sic_soc_jobs_lu.translate_zoning(
 )
 
 # Note a warning is generated here about combinations with SOC as 4. We can ignore it.
-LOGGER.info(f'Applying SOC group proportions to BRES 1-digit SIC jobs')
+LOGGER.info(f'Applying SOC group proportions to 1-digit SIC jobs')
 jobs_by_lsoa_with_soc_group = data_processing.apply_proportions(
     source_dvector=ons_sic_soc_jobs_lsoa,
     apply_to=lsoa_2021_1_digit_sic
@@ -464,7 +464,7 @@ msoa_1_digit_2_digit_sic = lsoa_1_digit_2_digit_sic.translate_zoning(
 )
 
 # Note a warning is generated here about combinations with SOC as 4. We can ignore it.
-LOGGER.info(f'Applying SOC group proportions to BRES 2-digit SIC jobs')
+LOGGER.info(f'Applying SOC group proportions to 2-digit SIC jobs')
 jobs_by_sic_soc_lsoa_no_soc_4 = data_processing.apply_proportions(
     source_dvector=msoa_1_digit_2_digit_sic,
     apply_to=jobs_by_lsoa_with_soc_group
