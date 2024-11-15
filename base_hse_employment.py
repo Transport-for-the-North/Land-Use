@@ -31,6 +31,8 @@ with open(config_file, 'r') as text_file:
 OUTPUT_DIR = Path(config["output_directory"])
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+FARMERS_ADJ = Path(config["adjust_for_farmers"])
+
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 generate_summary_outputs = bool(config["output_intermediate_outputs"])
 
@@ -370,9 +372,8 @@ def constrain_to_lad_totals(
     adj_lsoa_2011_1_digit_sic = rehydrated_adj_factors_for_lsoa * lsoa_dv
     adj_lsoa_2011_1_digit_sic.fillna(0)
     return adj_lsoa_2011_1_digit_sic, adj_msoa_2011_2_digit_sic
-    
-farmers_adj = False
-if farmers_adj:
+
+if FARMERS_ADJ:
     constraint_func = constrain_to_lad_totals_w_farmers_adj
 else:
     constraint_func = constrain_to_lad_totals

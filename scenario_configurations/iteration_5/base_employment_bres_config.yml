@@ -3,6 +3,7 @@
 input_root_directory: I:\NorMITs Land Use\2023\import
 output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_inc_scotland_v2_voa_and_farmers_adjust
 output_intermediate_outputs: False
+adjust_for_farmers: True
 
 base_data:
     lad_4_digit_sic:
