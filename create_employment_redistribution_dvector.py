@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 import land_use.preprocessing as pp
-import furnessing_voa_floorspace_values
+import furnessing_voa_values
 
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
 
@@ -32,7 +32,7 @@ ONS_LU.columns = map(str.lower, ONS_LU.columns)
 
 
 def main():
-    furnessing_voa_floorspace_values.main()
+    furnessing_voa_values.main()
     lsoa_type_distributions = create_lsoa_distributions_by_measure()
     create_lsoa_sic_factors(lsoa_type_distributions=lsoa_type_distributions)
 
@@ -55,9 +55,13 @@ def create_lsoa_distributions_by_measure() -> pd.DataFrame:
     voa_floorspace_splits = calc_floorspace_splits(df=floorspaces)
     voa_floorspace_w_jobs = pd.merge(voa_floorspace_splits, lsoa_voa_jobs)
 
-    lsoa_pupil_splits = calc_pupil_lsoa_splits()
+    lsoa_pupil_splits = calc_school_pupil_lsoa_splits()
 
     lsoa_type_distrib = pd.merge(lsoa_pupil_splits, voa_floorspace_w_jobs, how="outer")
+
+    lsoa_student_splits = calc_student_all_ages_lsoa_splits()
+
+    lsoa_type_distrib = pd.merge(lsoa_type_distrib, lsoa_student_splits, how="outer")
 
     ons_lsoa_to_lad = ONS_LU[["lsoa21nm", "lad21cd"]]
 
@@ -87,7 +91,7 @@ def calc_floorspace_splits(df):
     return df_wide
 
 
-def calc_pupil_lsoa_splits() -> pd.DataFrame:
+def calc_school_pupil_lsoa_splits() -> pd.DataFrame:
 
     df = pd.read_csv(
         Path(RAW_DIR, "spc_school_level_underlying_data_lsoa21_202223.csv")
@@ -95,20 +99,40 @@ def calc_pupil_lsoa_splits() -> pd.DataFrame:
 
     df_with_lad = pd.merge(df, ONS_LU[["lsoa21cd", "lad21cd"]])
 
-    df_with_lad["pupils"] = df_with_lad.groupby("lad21cd")["fte pupils"].transform(
-        lambda x: x / x.sum()
-    )
+    df_with_lad["school_pupils"] = df_with_lad.groupby("lad21cd")[
+        "fte pupils"
+    ].transform(lambda x: x / x.sum())
 
     # infill nas with 0, note at the moment this puts Wales and Scotland to 0 as well.
-    df_with_lad["pupils"] = df_with_lad["pupils"].fillna(0.0)
+    df_with_lad["school_pupils"] = df_with_lad["school_pupils"].fillna(0.0)
 
-    pupils_splits = df_with_lad[["lsoa21cd", "pupils"]]
+    df_splits = df_with_lad[["lsoa21cd", "school_pupils"]]
 
-    pupils_splits.to_csv(INTERMIDIATE_DIR / "fte_pupil_proportions.csv", index=False)
+    df_splits.to_csv(INTERMIDIATE_DIR / "fte_school_pupil_proportions.csv", index=False)
 
     lsoa_nm_cd_lu = ONS_LU[["lsoa21cd", "lsoa21nm", "rgn21cd", "rgn21nm"]]
 
-    return pd.merge(pupils_splits, lsoa_nm_cd_lu, how="outer")
+    return pd.merge(df_splits, lsoa_nm_cd_lu, how="outer")
+
+
+def calc_student_all_ages_lsoa_splits() -> pd.DataFrame:
+
+    df = pd.read_csv(Path(RAW_DIR, "pupils_fe_he_111524.csv"))
+
+    df_with_lad = pd.merge(df, ONS_LU[["lsoa21cd", "lad21cd"]])
+    df_with_lad["students_all_ages"] = df_with_lad.groupby("lad21cd")[
+        "total"
+    ].transform(lambda x: x / x.sum())
+    # infill nas with 0, note at the moment this puts Wales and Scotland to 0 as well.
+    df_with_lad["students_all_ages"] = df_with_lad["students_all_ages"].fillna(0.0)
+
+    df_splits = df_with_lad[["lsoa21cd", "students_all_ages"]]
+
+    df_splits.to_csv(INTERMIDIATE_DIR / "student_all_ages_proportions.csv", index=False)
+
+    lsoa_nm_cd_lu = ONS_LU[["lsoa21cd", "lsoa21nm", "rgn21cd", "rgn21nm"]]
+
+    return pd.merge(df_splits, lsoa_nm_cd_lu, how="outer")
 
 
 def calc_voa_jobs_splits(df: pd.DataFrame) -> pd.DataFrame:
@@ -175,7 +199,8 @@ def prepare_for_export(df: pd.DataFrame) -> pd.DataFrame:
             "office",
             "retail",
             "other",
-            "pupils",
+            "school_pupils",
+            "students_all_ages",
         ]
     ]
 
@@ -196,7 +221,16 @@ def create_lsoa_sic_factors(lsoa_type_distributions: pd.DataFrame) -> None:
     )
 
     lsoa_type_distributions = lsoa_type_distributions[
-        ["lsoa21cd", "voa jobs", "industry", "office", "retail", "other", "pupils"]
+        [
+            "lsoa21cd",
+            "voa jobs",
+            "industry",
+            "office",
+            "retail",
+            "other",
+            "school_pupils",
+            "students_all_ages",
+        ]
     ]
 
     distribution_by_type_wide = lsoa_type_distributions.transpose()
