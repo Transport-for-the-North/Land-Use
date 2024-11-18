@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from caf.core.segments import SegmentsSuper
+from caf.base.segments import SegmentsSuper
 
 import land_use.preprocessing as pp
 from land_use.constants import geographies

@@ -19,15 +19,20 @@ ONS_CORRESPONDENCE = (
 
 def main():
     geographies = ["LSOA", "MSOA", "LAD"]
-    for geography in geographies:
-        extract_floorspace_for(geography_type=geography)
-    adjust_and_infill_msoa_parts_to_reach_total()
-    adjust_and_infill_lsoa_parts_to_reach_total()
-    furness_process()
+    for measure in ["floorspace", "rate"]:
+        for geography in geographies:
+            extract_voa_values_for(geography_type=geography, measure=measure)
+    # current infill and furness process only makes sense with floorspace, as rate is an average not a summation
+    infill_msoa_floorspace()
+    infill_lsoa_floorspace()
+    furness_floorspace()
 
 
-def extract_floorspace_for(geography_type: str) -> None:
-    voa_tables = RAW_DIR.glob("table_*.csv")
+def extract_voa_values_for(geography_type: str, measure:str, year:str="2023") -> None:
+    if measure == "floorspace":
+        voa_tables = RAW_DIR.glob("table_*1.csv")
+    elif measure == "rate":
+        voa_tables = RAW_DIR.glob("table_*2.csv")
 
     dfs_long = []
 
@@ -38,7 +43,7 @@ def extract_floorspace_for(geography_type: str) -> None:
     df_long = pd.concat(dfs_long)
 
     wide = df_long.pivot(
-        index=["geography", "ons_name"], columns="measure", values="2023"
+        index=["geography", "ons_name"], columns="measure", values=year
     )
 
     wide = wide.sort_values(["ons_name"])
@@ -51,7 +56,7 @@ def extract_floorspace_for(geography_type: str) -> None:
             wide["ons_name"] == "Swansea 025J", "Swansea 025F", wide["ons_name"]
         )
 
-    wide.to_csv(INTERMIDIATE_DIR / f"{geography_type}_voa_floorspace.csv", index=False)
+    wide.to_csv(INTERMIDIATE_DIR / f"{geography_type}_voa_{measure}.csv", index=False)
 
 
 def process_file(file: Path, geography_type: str) -> pd.DataFrame:
@@ -70,23 +75,23 @@ def process_file(file: Path, geography_type: str) -> pd.DataFrame:
 
 
 def get_floortype_from_filename(file: Path) -> str:
-    file_stem = file.stem
-    if file_stem == "table_FS_OA1_1":
+    file_stem_starts = file.stem[:-1]
+    if file_stem_starts == "table_FS_OA1_":
         return "all"
-    if file_stem == "table_FS_OA2_1":
+    if file_stem_starts == "table_FS_OA2_":
         return "retail"
-    if file_stem == "table_FS_OA3_1":
+    if file_stem_starts == "table_FS_OA3_":
         return "office"
-    if file_stem == "table_FS_OA4_1":
+    if file_stem_starts == "table_FS_OA4_":
         return "industry"
-    if file_stem == "table_FS_OA5_1":
+    if file_stem_starts == "table_FS_OA5_":
         return "other"
-    raise ValueError(f"Unknown floor type for filename: {file_stem}")
+    raise ValueError(f"Unknown floor type for filename: {file_stem_starts}")
 
 
-def adjust_and_infill_msoa_parts_to_reach_total():
+def infill_msoa_floorspace() -> None:
 
-    input_df = pd.read_csv(INTERMIDIATE_DIR / "MSOA_voa_floorspace.csv", na_values="..")
+    input_df = pd.read_csv(INTERMIDIATE_DIR / f"MSOA_voa_floorspace.csv", na_values="..")
 
     wide = input_df.copy()
     wide = wide.drop(columns=["geography"])
@@ -157,10 +162,10 @@ def adjust_and_infill_msoa_parts_to_reach_total():
     infilled_msoa = pd.merge(floor_type_all_df, infilled_floor_types_wide)
     infilled_msoa["all"] = infilled_msoa["all"].fillna(0)
 
-    infilled_msoa.to_csv(INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv", index=False)
+    infilled_msoa.to_csv(INTERMIDIATE_DIR / f"infilled_msoa_floorspace.csv", index=False)
 
 
-def adjust_and_infill_lsoa_parts_to_reach_total():
+def infill_lsoa_floorspace() -> None:
 
     msoa_infilled_targets = pd.read_csv(
         INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv",
@@ -246,18 +251,18 @@ def attach_msoa(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def furness_process():
+def furness_floorspace():
     lsoa_targets = pd.read_csv(
         INTERMIDIATE_DIR / "infilled_lsoa_floorspace_targets.csv"
     )
 
     lsoa_targets = attach_msoa(lsoa_targets)
 
-    floorspace_targets = pd.read_csv(INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv")
-    floorspace_targets = floorspace_targets.drop(columns=["geography", "all"])
-    floorspace_targets = floorspace_targets.rename(columns={"ons_name": "msoa"})
-    floorspace_targets_long = pd.melt(
-        floorspace_targets,
+    measure_targets = pd.read_csv(INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv")
+    measure_targets = measure_targets.drop(columns=["geography", "all"])
+    measure_targets = measure_targets.rename(columns={"ons_name": "msoa"})
+    measure_targets_long = pd.melt(
+        measure_targets,
         id_vars=["msoa"],
         var_name="floor_type",
         value_name="floor_type_target",
@@ -285,7 +290,7 @@ def furness_process():
     for _ in range(21):
         lsoa_long = furness_loop(
             lsoa_long=lsoa_long,
-            floorspace_targets_long=floorspace_targets_long,
+            measure_targets_long=measure_targets_long,
             lsoa_targets=lsoa_targets,
         )
         # make sure we haven't lost any rows
@@ -335,11 +340,11 @@ def prepare_data_for_furness(df: pd.DataFrame) -> pd.DataFrame:
 
 def furness_loop(
     lsoa_long: pd.DataFrame,
-    floorspace_targets_long: pd.DataFrame,
+    measure_targets_long: pd.DataFrame,
     lsoa_targets: pd.DataFrame,
 ) -> pd.DataFrame:
     # factor to reach floor_types values across msoa
-    df2 = factor_to_floor_types(lsoa_long, floorspace_targets_long)
+    df2 = factor_to_floor_types(lsoa_long, measure_targets_long)
 
     # factor to reach lsoa constraint
     twice_factored = factor_to_lsoa_targets(df=df2, lsoa_targets=lsoa_targets)
@@ -350,7 +355,7 @@ def furness_loop(
 
 
 def factor_to_floor_types(
-    lsoa_long: pd.DataFrame, floorspace_targets_long: pd.DataFrame
+    lsoa_long: pd.DataFrame, measure_targets_long: pd.DataFrame
 ) -> pd.DataFrame:
     current_floor_type_totals = (
         lsoa_long.groupby(["msoa", "floor_type"])
@@ -358,7 +363,7 @@ def factor_to_floor_types(
         .reset_index()
     )
 
-    df = pd.merge(current_floor_type_totals, floorspace_targets_long)
+    df = pd.merge(current_floor_type_totals, measure_targets_long)
 
     df["floor_type_factor"] = df["floor_type_target"] / df["current_value"]
 

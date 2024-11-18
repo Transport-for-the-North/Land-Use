@@ -1,8 +1,9 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_hse
+output_directory: F:\Working\Land-Use\OUTPUTS_base_employment_hse_refactoring
 output_intermediate_outputs: False
+adjust_for_farmers: False
 
 base_data:
     lad_raw_4_digit_sic:
