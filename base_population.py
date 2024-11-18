@@ -828,7 +828,6 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         target_dvectors=population_adjustment,
         cache_folder=constants.CACHE_FOLDER,
         target_dvector=population_adjustment[0],
-        output_path=OUTPUT_DIR
     )
 
     # save output to hdf and csvs for checking
@@ -869,35 +868,50 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 generate_summary_outputs = bool(config['output_intermediate_outputs'])
 
-# Set up logger
-LOGGER = lu_logging.configure_logger(
-    output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
-    log_name='population'
-)
+# define whether to run scotland population only (requires outputs of all the
+# separate GOR population builds)
+run_scotland_only = bool(config['run_scotland_only'])
 
-# copy config file for traceability
-shutil.copy(
-    src=args.config_file,
-    dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
-)
+# Set up logger (different name if running scotland only)
+if not run_scotland_only:
+    LOGGER = lu_logging.configure_logger(
+        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+        log_name='population'
+    )
 
-# loop through GORs to save memory issues further down the line
-for GOR in constants.GORS:
-    # Try and load in base year data
-    try:
-        base_data = BaseYearPopulationData.from_folder(
-            Path(config['base_year_folder']), identifier=f'_{GOR}'
-        )
-    except (KeyError, FileNotFoundError) as e:
-        if isinstance(e, FileNotFoundError):
-            LOGGER.warning('Base year data could not be found. Attempting to re-process')
-        base_data = process_base(config, gor=GOR)
+    # copy config file for traceability
+    shutil.copy(
+        src=args.config_file,
+        dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
+    )
 
-    rebase(config, base_data, gor=GOR)
+    # loop through GORs to save memory issues further down the line
+    for GOR in constants.GORS:
+        # Try and load in base year data
+        try:
+            base_data = BaseYearPopulationData.from_folder(
+                Path(config['base_year_folder']), identifier=f'_{GOR}'
+            )
+        except (KeyError, FileNotFoundError) as e:
+            if isinstance(e, FileNotFoundError):
+                LOGGER.warning('Base year data could not be found. Attempting to re-process')
+            base_data = process_base(config, gor=GOR)
 
-    LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
+        rebase(config, base_data, gor=GOR)
+
+        # trying to delete data to save memory to hopefully allow scotland
+        # processing to run subsequently, currently crashes with memory error
+        base_data = None
+
+        LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
 
 # SCOTLAND-SPECIFIC PROCESSING
+else:
+    LOGGER = lu_logging.configure_logger(
+        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+        log_name='scotland_population'
+    )
+
 LOGGER.info('Applying regional profiles to Scotland population data')
 area_type_agg = []
 for gor in config['scotland_donor_regions']:
