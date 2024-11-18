@@ -44,6 +44,7 @@ lad_raw_4_digit_sic = data_processing.read_dvector_from_config(
     data_block=block,
     key='lad_raw_4_digit_sic'
 )
+# if warning is made about only being 350 columns after filter then this is okay as Northern Ireland is not in shapefile
 
 msoa_raw_2_digit_sic = data_processing.read_dvector_from_config(
     config=config,
