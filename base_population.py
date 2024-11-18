@@ -839,6 +839,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         detailed_logs=True,
         output_level=OutputLevel.FINAL
     )
+    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P13_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
