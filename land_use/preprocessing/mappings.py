@@ -205,7 +205,7 @@ SOC_10_TO_4_AGGREGATIONS = {
     '4. Administrative and secretarial occupations': 'SOC2',
     '5. Skilled trades occupations': 'SOC2',
     '6. Caring, leisure and other service occupations': 'SOC2',
-    '7. Sales and customer service occupations': 'SOC3',
+    '7. Sales and customer service occupations': 'SOC2',
     '8. Process, plant and machine operatives': 'SOC3',
     '9. Elementary occupations': 'SOC3',
     'Does not apply': 'SOC4'
