@@ -25,8 +25,40 @@ pp.save_preprocessed_hdf(
     multiple_output_ref='soc-aggregated'
 )
 
+# *** population by SOC9 and LSOA
+file_path = data_path / 'population_16-74_soc9_lsoa.csv'
+# read in data and reformat for DVector
+df = pp.read_ons(
+    file_path=file_path,
+    zoning=geographies.LSOA_NAME,
+    zoning_column='Lower layer Super Output Areas Code',
+    segment_mappings=pp.ONS_OCC_MAPPING,
+    segment_aggregations={
+        'Occupation (current) (10 categories)': pp.SOC_10_TO_4_AGGREGATIONS
+    }
+)
+pp.save_preprocessed_hdf(
+    source_file_path=file_path,
+    df=df,
+    multiple_output_ref='soc-aggregated'
+)
+
 # *** population by economic status and LSOA
 file_path = data_path / 'population_status_lsoa.csv'
+# read in data and reformat for DVector
+df = pp.read_ons(
+    file_path=file_path,
+    zoning=geographies.LSOA_NAME,
+    zoning_column='Lower layer Super Output Areas Code',
+    segment_mappings=pp.ONS_ECON_STATUS_MAPPING,
+)
+pp.save_preprocessed_hdf(
+    source_file_path=file_path,
+    df=df
+)
+
+# *** population by economic status and LSOA
+file_path = data_path / 'population_16-74_status_lsoa.csv'
 # read in data and reformat for DVector
 df = pp.read_ons(
     file_path=file_path,
