@@ -23,12 +23,123 @@ def main():
         for geography in geographies:
             extract_voa_values_for(geography_type=geography, measure=measure)
     # current infill and furness process only makes sense with floorspace, as rate is an average not a summation
-    infill_msoa_floorspace()
-    infill_lsoa_floorspace()
+    initial_infill_msoa_floorspace()
+    initial_infill_lsoa_floorspace()
     furness_floorspace()
 
+    infilling_lsoa_voa_rates_from_above()
 
-def extract_voa_values_for(geography_type: str, measure:str, year:str="2023") -> None:
+    calculate_lsoa_voa_value()
+
+
+def infilling_lsoa_voa_rates_from_above():
+    """
+    Where masked unfill LSOA by the closest provided geography above.
+    So first go to MSOA. And then to LAD.
+    LAD is a complete dataset.
+    Where "." is given then the value is 0.
+    Where ".." is given then the value is masked.
+    """
+    lsoa_input = pd.read_csv(INTERMIDIATE_DIR / "lsoa_voa_rate.csv")
+
+    lsoa_long = turn_voa_input_to_long(lsoa_input, "LSOA21NM")
+
+    lsoa_msoa_lu = pd.read_csv(
+        ONS_CORRESPONDENCE,
+        usecols=["LSOA21NM", "MSOA21NM"],
+    ).drop_duplicates()
+
+    df = pd.merge(lsoa_long, lsoa_msoa_lu, how="left")
+
+    df["MSOA21NM"] = np.where(
+        df["MSOA21NM"].isna(), df["LSOA21NM"].str[:-1], df["MSOA21NM"]
+    )
+
+    msoa_input = pd.read_csv(INTERMIDIATE_DIR / "msoa_voa_rate.csv")
+
+    msoa_long = turn_voa_input_to_long(msoa_input, "MSOA21NM")
+
+    df = pd.merge(df, msoa_long, how="left")
+
+    df = attach_lad_to_msoas(df)
+
+    lad_long = get_lad_long()
+
+    df = pd.merge(df, lad_long, how="left")
+
+    df["infilled_msoa_voa_rate"] = np.where(
+        df["MSOA21NM_raw_rate"] == "..", df["lad_rate"], df["MSOA21NM_raw_rate"]
+    )
+    df["infilled_msoa_voa_rate"] = np.where(
+        df["MSOA21NM_raw_rate"] == ".", 0, df["infilled_msoa_voa_rate"]
+    )
+
+    df["infilled_lsoa_voa_rate"] = np.where(
+        df["LSOA21NM_raw_rate"] == "..",
+        df["infilled_msoa_voa_rate"],
+        df["LSOA21NM_raw_rate"],
+    )
+
+    df["infilled_lsoa_voa_rate"] = np.where(
+        df["LSOA21NM_raw_rate"] == ".", 0, df["infilled_lsoa_voa_rate"]
+    )
+
+    df.to_csv(INTERMIDIATE_DIR / "infilled_lsoa_voa_rate.csv", index=False)
+
+
+def turn_voa_input_to_long(df: pd.DataFrame, geo_name: str) -> pd.DataFrame:
+    df = df.drop(columns="geography")
+    df = df.rename(columns={"ons_name": geo_name})
+    df_long = df.melt(
+        id_vars=geo_name, var_name="floor_type", value_name=f"{geo_name}_raw_rate"
+    )
+    return df_long
+
+
+def attach_lad_to_msoas(df: pd.DataFrame) -> pd.DataFrame:
+    lad_msoa_lu = pd.read_csv(
+        ONS_CORRESPONDENCE,
+        usecols=["LAD21NM", "MSOA21NM"],
+    ).drop_duplicates()
+
+    additional_data = pd.DataFrame(
+        {"MSOA21NM": "Redbridge 041", "LAD21NM": "Redbridge"}, index=[0]
+    )
+
+    lad_msoa_lu = pd.concat([lad_msoa_lu, additional_data])
+
+    df = pd.merge(df, lad_msoa_lu)
+    return df
+
+
+def get_lad_long() -> pd.DataFrame:
+    lad_input = pd.read_csv(INTERMIDIATE_DIR / "lad_voa_rate.csv")
+
+    lad_input = lad_input.drop(columns="geography")
+    lad_input = lad_input.rename(columns={"ons_name": "LAD21NM"})
+    lad_long = lad_input.melt(
+        id_vars="LAD21NM", var_name="floor_type", value_name="lad_rate"
+    )
+
+    # rename lads to match other datsets
+
+    # strip UA from names
+    lad_long["LAD21NM"] = lad_long["LAD21NM"].str.replace(" UA", "")
+
+    # keep only first English version of name for Welsh LADs
+    lad_long["LAD21NM"] = lad_long["LAD21NM"].str.split(pat=" /").str[0]
+
+    # For Bristol and Hull
+    lad_long["LAD21NM"] = lad_long["LAD21NM"].str.replace(", City of", "")
+
+    # For Herefordshire
+    lad_long["LAD21NM"] = lad_long["LAD21NM"].str.replace(", County of", "")
+    return lad_long
+
+
+def extract_voa_values_for(
+    geography_type: str, measure: str, year: str = "2023"
+) -> None:
     if measure == "floorspace":
         voa_tables = RAW_DIR.glob("table_*1.csv")
     elif measure == "rate":
@@ -56,7 +167,9 @@ def extract_voa_values_for(geography_type: str, measure:str, year:str="2023") ->
             wide["ons_name"] == "Swansea 025J", "Swansea 025F", wide["ons_name"]
         )
 
-    wide.to_csv(INTERMIDIATE_DIR / f"{geography_type}_voa_{measure}.csv", index=False)
+    wide.to_csv(
+        INTERMIDIATE_DIR / f"{geography_type.lower()}_voa_{measure}.csv", index=False
+    )
 
 
 def process_file(file: Path, geography_type: str) -> pd.DataFrame:
@@ -89,9 +202,11 @@ def get_floortype_from_filename(file: Path) -> str:
     raise ValueError(f"Unknown floor type for filename: {file_stem_starts}")
 
 
-def infill_msoa_floorspace() -> None:
+def initial_infill_msoa_floorspace() -> None:
 
-    input_df = pd.read_csv(INTERMIDIATE_DIR / f"MSOA_voa_floorspace.csv", na_values="..")
+    input_df = pd.read_csv(
+        INTERMIDIATE_DIR / f"MSOA_voa_floorspace.csv", na_values=".."
+    )
 
     wide = input_df.copy()
     wide = wide.drop(columns=["geography"])
@@ -162,13 +277,15 @@ def infill_msoa_floorspace() -> None:
     infilled_msoa = pd.merge(floor_type_all_df, infilled_floor_types_wide)
     infilled_msoa["all"] = infilled_msoa["all"].fillna(0)
 
-    infilled_msoa.to_csv(INTERMIDIATE_DIR / f"infilled_msoa_floorspace.csv", index=False)
+    infilled_msoa.to_csv(
+        INTERMIDIATE_DIR / f"infilled_msoa_voa_floorspace.csv", index=False
+    )
 
 
-def infill_lsoa_floorspace() -> None:
+def initial_infill_lsoa_floorspace() -> None:
 
     msoa_infilled_targets = pd.read_csv(
-        INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv",
+        INTERMIDIATE_DIR / "infilled_msoa_voa_floorspace.csv",
         usecols=["ons_name", "all"],
     )
     msoa_infilled_targets = msoa_infilled_targets.rename(columns={"ons_name": "msoa"})
@@ -258,7 +375,7 @@ def furness_floorspace():
 
     lsoa_targets = attach_msoa(lsoa_targets)
 
-    measure_targets = pd.read_csv(INTERMIDIATE_DIR / "infilled_msoa_floorspace.csv")
+    measure_targets = pd.read_csv(INTERMIDIATE_DIR / "infilled_msoa_voa_floorspace.csv")
     measure_targets = measure_targets.drop(columns=["geography", "all"])
     measure_targets = measure_targets.rename(columns={"ons_name": "msoa"})
     measure_targets_long = pd.melt(
@@ -268,7 +385,7 @@ def furness_floorspace():
         value_name="floor_type_target",
     )
 
-    input_df = pd.read_csv(INTERMIDIATE_DIR / "LSOA_voa_floorspace.csv", na_values="..")
+    input_df = pd.read_csv(INTERMIDIATE_DIR / "lsoa_voa_floorspace.csv", na_values="..")
 
     input_df = input_df.drop(columns=["geography", "all"])
 
@@ -282,7 +399,7 @@ def furness_floorspace():
         np.isnan(lsoa_long["input_value"].values), True, False
     )
 
-    lsoa_long = prepare_data_for_furness(df=lsoa_long)
+    lsoa_long = prepare_mosa_for_furness(df=lsoa_long)
 
     entries_pre_furness = len(lsoa_long)
 
@@ -296,19 +413,32 @@ def furness_floorspace():
         # make sure we haven't lost any rows
         assert len(lsoa_long) == entries_pre_furness
 
-    # infill with starting values where we have missing data (e.g., Oxford 020 which is a missing MSOA)
-    lsoa_long["current_value_updated"] = lsoa_long["current_value_updated"].fillna(
+    # infill with starting values where we have missing data (e.g., Oxford 020 which is a missing msoa)
+    lsoa_long["current_value"] = lsoa_long["current_value"].fillna(
         lsoa_long["input_value"]
     )
 
-    lsoa_long["current_value_updated"] = lsoa_long["current_value_updated"].fillna(0)
+    lsoa_long["current_value"] = lsoa_long["current_value"].fillna(0)
 
-    lsoa_long.to_csv(INTERMIDIATE_DIR / "infilled_lsoa_voa_floorspace.csv")
+    totals = (
+        lsoa_long.groupby(["ons_name", "msoa"])
+        .agg({"input_value": "sum", "current_value": "sum"})
+        .reset_index()
+    )
+
+    # put in some defaults
+    # TODO: consider if there is a better way to do this avoiding having to use np.NaN, as won't be the case for all rows
+    totals["floor_type"] = "all"
+    totals["masked"] = np.NaN
+    totals["lsoa_factor"] = np.NaN
+
+    lsoa_long = pd.concat([lsoa_long, totals])
+
+    lsoa_long.to_csv(INTERMIDIATE_DIR / "infilled_lsoa_voa_floorspace.csv", index=False)
 
 
-def prepare_data_for_furness(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_mosa_for_furness(df: pd.DataFrame) -> pd.DataFrame:
 
-    # set 0 value to be 0.45 to allow these to grow/shrink as required.
     # NAs needs to be converted to a seed where na (which may be 0.1, or average of something)
 
     msoa_averages = (
@@ -329,6 +459,7 @@ def prepare_data_for_furness(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # we know that 0's must be less than 0.5. So we set the seed as being just less than 0.5.
+    # set 0 value to be 0.45 to allow these to grow/shrink as required.
     df_with_averages["current_value"] = np.where(
         df_with_averages["current_value"] == 0, 0.45, df_with_averages["current_value"]
     )
@@ -397,35 +528,55 @@ def factor_to_lsoa_targets(
     df4 = df4[["msoa", "ons_name", "lsoa_factor"]]
     # attach lsoa factors
     twice_factored = pd.merge(df, df4, how="left")
-    twice_factored["current_value_updated"] = (
+    twice_factored["current_value"] = (
         twice_factored["current_value"] * twice_factored["lsoa_factor"]
     )
 
     return twice_factored
 
 
-def constrain_changes(twice_factored: pd.DataFrame) -> pd.DataFrame:
-    twice_factored["change_from_start"] = np.where(
-        twice_factored["masked"],
+def constrain_changes(df: pd.DataFrame) -> pd.DataFrame:
+    df["change_from_start"] = np.where(
+        df["masked"],
         0,
-        twice_factored["current_value_updated"] - twice_factored["input_value"],
+        df["current_value"] - df["input_value"],
     )
 
     # make change max of 0.5
-    twice_factored["current_value_updated"] = np.where(
-        twice_factored["change_from_start"] > 0.5,
-        twice_factored["input_value"] + 0.5,
+    df["current_value"] = np.where(
+        df["change_from_start"] > 0.5,
+        df["input_value"] + 0.5,
         np.where(
-            twice_factored["change_from_start"] < -0.5,
-            twice_factored["input_value"] - 0.5,
-            twice_factored["current_value_updated"],
+            df["change_from_start"] < -0.5,
+            df["input_value"] - 0.5,
+            df["current_value"],
         ),
     )
 
     # remove extra column that we do not need
-    twice_factored = twice_factored.drop(columns="change_from_start")
+    df = df.drop(columns="change_from_start")
 
-    return twice_factored
+    return df
+
+
+def calculate_lsoa_voa_value():
+
+    lsoa_floorspace = pd.read_csv(
+        INTERMIDIATE_DIR / "infilled_lsoa_voa_floorspace.csv",
+        usecols=["ons_name", "floor_type", "current_value"],
+    )
+    lsoa_rates = pd.read_csv(
+        INTERMIDIATE_DIR / "infilled_lsoa_voa_rate.csv",
+        usecols=["LSOA21NM", "LAD21NM", "floor_type", "infilled_lsoa_voa_rate"],
+    )
+
+    lsoa_floorspace = lsoa_floorspace.rename(columns={"ons_name": "lsoa21nm"})
+
+    lsoa_rates.columns = map(str.lower, lsoa_rates.columns)
+
+    df = pd.merge(lsoa_floorspace, lsoa_rates, how="outer")
+
+    df.to_csv(INTERMIDIATE_DIR / "infilled_lsoa_voa_value.csv", index=False)
 
 
 if __name__ == "__main__":

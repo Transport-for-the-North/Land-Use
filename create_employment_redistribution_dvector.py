@@ -14,6 +14,11 @@ RAW_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "raw data"
 INTERMIDIATE_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "intermediate steps"
 DVECTOR_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "sic mapped distributions"
 
+YAML_PATH = (
+    EMPLOYMENT_DISTRIBUTION_DIR
+    / "adjusting_employment_distribution_approach_a_weighting_2.yml"
+)
+
 
 # So implied figures for m2 / fte
 OFFICE = 12
@@ -31,10 +36,11 @@ ONS_LU = pd.read_csv(
 ONS_LU.columns = map(str.lower, ONS_LU.columns)
 
 
-def main():
-    furnessing_voa_values.main()
-    lsoa_type_distributions = create_lsoa_distributions_by_measure()
-    create_lsoa_sic_factors(lsoa_type_distributions=lsoa_type_distributions)
+def main(update_input_distributions:bool=False):
+    if update_input_distributions:
+        furnessing_voa_values.main()
+        create_lsoa_distributions_by_measure()
+    create_lsoa_sic_factors_dvector(yaml_path=YAML_PATH)
 
 
 def create_lsoa_distributions_by_measure() -> pd.DataFrame:
@@ -44,20 +50,24 @@ def create_lsoa_distributions_by_measure() -> pd.DataFrame:
     # have no impact.
     floorspaces = pd.read_csv(
         INTERMIDIATE_DIR / "infilled_lsoa_voa_floorspace.csv",
-        usecols=["ons_name", "floor_type", "msoa", "current_value_updated"],
+        usecols=["ons_name", "floor_type", "msoa", "current_value"],
     )
 
     floorspaces = floorspaces.rename(
-        columns={"ons_name": "lsoa21nm", "current_value_updated": "floorspace"}
+        columns={"ons_name": "lsoa21nm", "current_value": "floorspace"}
     )
 
-    lsoa_voa_jobs = calc_voa_jobs_splits(df=floorspaces)
-    voa_floorspace_splits = calc_floorspace_splits(df=floorspaces)
-    voa_floorspace_w_jobs = pd.merge(voa_floorspace_splits, lsoa_voa_jobs)
+    voa_values = pd.read_csv(INTERMIDIATE_DIR / "infilled_lsoa_voa_value.csv")
+
+    voa_job_splits = calc_voa_jobs_splits(df=floorspaces)
+    voa_floorspace_splits = calc_voa_floorspace_splits(df=floorspaces)
+    voa_value_splits = calc_voa_value_splits(df=voa_values)
+    voa_splits = pd.merge(voa_floorspace_splits, voa_job_splits)
+    voa_splits = pd.merge(voa_splits, voa_value_splits)
 
     lsoa_pupil_splits = calc_school_pupil_lsoa_splits()
 
-    lsoa_type_distrib = pd.merge(lsoa_pupil_splits, voa_floorspace_w_jobs, how="outer")
+    lsoa_type_distrib = pd.merge(lsoa_pupil_splits, voa_splits, how="outer")
 
     lsoa_student_splits = calc_student_all_ages_lsoa_splits()
 
@@ -72,10 +82,9 @@ def create_lsoa_distributions_by_measure() -> pd.DataFrame:
     lsoa_type_distrib.to_csv(
         INTERMIDIATE_DIR / "lsoa_distributions_by_type.csv", index=False
     )
-    return lsoa_type_distrib
 
 
-def calc_floorspace_splits(df):
+def calc_voa_floorspace_splits(df):
 
     df = pd.merge(df, ONS_LU[["lsoa21nm", "lad21cd", "rgn21nm"]])
 
@@ -87,6 +96,33 @@ def calc_floorspace_splits(df):
     df_wide = df.pivot_table(
         index="lsoa21nm", columns="floor_type", values="jobs_proportion", fill_value=0
     ).reset_index()
+
+    # remap columns
+    for col in df_wide.columns:
+        if col != "lsoa21nm":
+            df_wide = df_wide.rename(columns={col: f"{col}_floorspace"})
+
+    return df_wide
+
+
+def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = df[["lsoa21nm", "floor_type", "lad21nm", "infilled_lsoa_voa_rate"]]
+
+    df = df.copy()
+
+    df["proportion"] = df.groupby(["lad21nm", "floor_type"])[
+        "infilled_lsoa_voa_rate"
+    ].transform(lambda x: x / x.sum())
+
+    df_wide = df.pivot_table(
+        index="lsoa21nm", columns="floor_type", values="proportion", fill_value=0
+    ).reset_index()
+
+    # remap columns
+    for col in df_wide.columns:
+        if col != "lsoa21nm":
+            df_wide = df_wide.rename(columns={col: f"{col}_value"})
 
     return df_wide
 
@@ -195,22 +231,33 @@ def prepare_for_export(df: pd.DataFrame) -> pd.DataFrame:
             "rgn21nm",
             "rgn_short_code",
             "voa jobs",
-            "industry",
-            "office",
-            "retail",
-            "other",
+            "industry_floorspace",
+            "office_floorspace",
+            "retail_floorspace",
+            "other_floorspace",
+            "all_value",
+            "industry_value",
+            "office_value",
+            "retail_value",
+            "other_value",
             "school_pupils",
             "students_all_ages",
         ]
     ]
 
 
-def create_lsoa_sic_factors(lsoa_type_distributions: pd.DataFrame) -> None:
-    yaml_path = EMPLOYMENT_DISTRIBUTION_DIR / "adjusting_employment_distribution.yml"
+def create_lsoa_sic_factors_dvector(yaml_path: Path) -> None:
+
+    lsoa_type_distributions = pd.read_csv(
+        INTERMIDIATE_DIR / "lsoa_distributions_by_type.csv"
+    )
+
     with open(yaml_path) as text_file:
         config = yaml.load(text_file, yaml.SafeLoader)
 
     rgn_to_adj = config["rgn_to_adj"]
+
+    distribution_approach = config["distribution_approach"]
 
     lsoa_type_distributions = lsoa_type_distributions[
         lsoa_type_distributions["rgn_short_code"].isin(rgn_to_adj)
@@ -224,10 +271,15 @@ def create_lsoa_sic_factors(lsoa_type_distributions: pd.DataFrame) -> None:
         [
             "lsoa21cd",
             "voa jobs",
-            "industry",
-            "office",
-            "retail",
-            "other",
+            "industry_floorspace",
+            "office_floorspace",
+            "retail_floorspace",
+            "other_floorspace",
+            "all_value",
+            "industry_value",
+            "office_value",
+            "retail_value",
+            "other_value",
             "school_pupils",
             "students_all_ages",
         ]
@@ -242,6 +294,23 @@ def create_lsoa_sic_factors(lsoa_type_distributions: pd.DataFrame) -> None:
     distribution_by_type_wide = distribution_by_type_wide[
         distribution_by_type_wide["distribution type"] != "lsoa21cd"
     ]
+
+    # chekcing requested distribtions are available
+    available_distributions = set(
+        distribution_by_type_wide["distribution type"].to_list()
+    )
+
+    available_distributions.add("none")
+
+    requested_distrubtions = set(sic_allocation["distribution type"].to_list())
+
+    missing_distributions = requested_distrubtions - available_distributions
+
+    if missing_distributions:
+        raise ValueError(
+            f"The following distributions were requested but not available: {missing_distributions}\n"
+            f"Available distributions are: {available_distributions}"
+        )
 
     factors = pd.merge(sic_allocation, distribution_by_type_wide, how="left")
     factors = factors.drop(columns="distribution type")
@@ -261,14 +330,15 @@ def create_lsoa_sic_factors(lsoa_type_distributions: pd.DataFrame) -> None:
     factors = pd.merge(factors, dummy_values)
     factors = factors.set_index("sic_1_digit")
 
-    factors_out_path = DVECTOR_DIR / "factors.csv"
-    factors.transpose().to_csv(DVECTOR_DIR / "transposed_factors.csv")
+    factors_out_path = DVECTOR_DIR / f"factors_{distribution_approach}.csv"
 
     pp.save_preprocessed_hdf(source_file_path=factors_out_path, df=factors)
 
     # Also write as a transposed csv for ease of checking
-    factors.to_csv(DVECTOR_DIR / "factors.csv")
+    factors.transpose().to_csv(
+        DVECTOR_DIR / f"transposed_factors_{distribution_approach}.csv"
+    )
 
 
 if __name__ == "__main__":
-    main()
+    main(update_input_distributions=False)
