@@ -20,10 +20,6 @@ def create_shp_for_distributions(distribution_name: str) -> None:
 
     MAP_DIR.mkdir(exist_ok=True)
 
-    regions_to_keep = ["NE", "NW", "YH"]
-
-    df = df[df["rgn_short_code"].isin(regions_to_keep)]
-
     shp = gpd.read_file(MAP_DIR / "LSOA_2021_EnglandWales_NORTH.shp")
 
     df = df.rename(columns={"lsoa21cd": "lsoa"})
