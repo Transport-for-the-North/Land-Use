@@ -6,6 +6,7 @@ import pandas as pd
 RUN_DIR = Path(
     r"F:\Working\Land-Use\OUTPUTS_base_employment_bres_approach_a_weighting_2_level_check"
 )
+
 ASSURANCE_DIR = RUN_DIR / "03_Assurance"
 SHP_DIR = Path(r"F:\Working\Land-Use\SHAPEFILES")
 GEO_LU = Path(
@@ -129,7 +130,7 @@ def create_sic_soc_shp(df: pd.DataFrame, geography: str) -> None:
 
     shp = get_northern_shp_for_geography(geography=geography)
 
-    shp_with_values = shp.merge(df, on=f"{geography}21CD")
+    shp_with_values = shp.merge(df, on=f"{geography.upper()}21CD")
 
     for col in shp_with_values.columns:
         new_string = col.replace("_", "")
