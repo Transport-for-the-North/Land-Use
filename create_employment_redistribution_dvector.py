@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 
 import land_use.preprocessing as pp
-import furnessing_voa_values
+import land_use.employment_redistribution.processing_voa_inputs as processing_voa_inputs
 
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
 
 EMPLOYMENT_DISTRIBUTION_DIR = INPUT_DIR / "Employment Attraction Distributions"
+EMPLOYMENT_DISTRIBUTION_DIR = Path(r"C:\Users\kilbys\Desktop\tfn-employment\refactoring\Employment Attraction Distributions on local")
 RAW_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "raw data"
 INTERMIDIATE_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "intermediate steps"
 DVECTOR_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "sic mapped distributions"
@@ -38,7 +39,7 @@ ONS_LU.columns = map(str.lower, ONS_LU.columns)
 
 def main(update_input_distributions:bool=False):
     if update_input_distributions:
-        furnessing_voa_values.main()
+        processing_voa_inputs.main()
         create_lsoa_distributions_by_measure()
     create_lsoa_sic_factors_dvector(yaml_path=YAML_PATH)
 
@@ -331,6 +332,8 @@ def create_lsoa_sic_factors_dvector(yaml_path: Path) -> None:
     factors = factors.set_index("sic_1_digit")
 
     factors_out_path = DVECTOR_DIR / f"factors_{distribution_approach}.csv"
+
+    DVECTOR_DIR.mkdir(exist_ok=True, parents=True)
 
     pp.save_preprocessed_hdf(source_file_path=factors_out_path, df=factors)
 
