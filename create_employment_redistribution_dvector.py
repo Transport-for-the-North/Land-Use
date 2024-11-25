@@ -10,7 +10,7 @@ import land_use.employment_redistribution.processing_voa_inputs as processing_vo
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
 
 EMPLOYMENT_DISTRIBUTION_DIR = INPUT_DIR / "Employment Attraction Distributions"
-EMPLOYMENT_DISTRIBUTION_DIR = Path(r"C:\Users\kilbys\Desktop\tfn-employment\refactoring\Employment Attraction Distributions on local")
+
 RAW_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "raw data"
 INTERMIDIATE_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "intermediate steps"
 DVECTOR_DIR = EMPLOYMENT_DISTRIBUTION_DIR / "sic mapped distributions"
@@ -37,10 +37,10 @@ ONS_LU = pd.read_csv(
 ONS_LU.columns = map(str.lower, ONS_LU.columns)
 
 
-def main(update_input_distributions:bool=False):
+def main(update_input_distributions: bool = False):
     if update_input_distributions:
         processing_voa_inputs.main()
-        create_lsoa_distributions_by_measure()
+    create_lsoa_distributions_by_measure()
     create_lsoa_sic_factors_dvector(yaml_path=YAML_PATH)
 
 
@@ -108,13 +108,13 @@ def calc_voa_floorspace_splits(df):
 
 def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
 
-    df = df[["lsoa21nm", "floor_type", "lad21nm", "infilled_lsoa_voa_rate"]]
+    lsoa_name_to_lad_name = ONS_LU[["lsoa21nm", "lad21nm"]]
 
-    df = df.copy()
+    df = pd.merge(df, lsoa_name_to_lad_name)
 
-    df["proportion"] = df.groupby(["lad21nm", "floor_type"])[
-        "infilled_lsoa_voa_rate"
-    ].transform(lambda x: x / x.sum())
+    df["proportion"] = df.groupby(["lad21nm", "floor_type"])["voa_value"].transform(
+        lambda x: x / x.sum()
+    )
 
     df_wide = df.pivot_table(
         index="lsoa21nm", columns="floor_type", values="proportion", fill_value=0
@@ -129,6 +129,8 @@ def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def calc_school_pupil_lsoa_splits() -> pd.DataFrame:
+
+    # TODO combine with students all ages (next function)
 
     df = pd.read_csv(
         Path(RAW_DIR, "spc_school_level_underlying_data_lsoa21_202223.csv")
@@ -154,6 +156,8 @@ def calc_school_pupil_lsoa_splits() -> pd.DataFrame:
 
 def calc_student_all_ages_lsoa_splits() -> pd.DataFrame:
 
+    # TODO combine with previous (pupils)
+
     df = pd.read_csv(Path(RAW_DIR, "pupils_fe_he_111524.csv"))
 
     df_with_lad = pd.merge(df, ONS_LU[["lsoa21cd", "lad21cd"]])
@@ -162,6 +166,8 @@ def calc_student_all_ages_lsoa_splits() -> pd.DataFrame:
     ].transform(lambda x: x / x.sum())
     # infill nas with 0, note at the moment this puts Wales and Scotland to 0 as well.
     df_with_lad["students_all_ages"] = df_with_lad["students_all_ages"].fillna(0.0)
+
+    print(df_with_lad)
 
     df_splits = df_with_lad[["lsoa21cd", "students_all_ages"]]
 
