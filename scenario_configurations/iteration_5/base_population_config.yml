@@ -1,8 +1,8 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Deliverables\Land-Use\241119_Population_2021 Target update NE test
-#base_year_folder: F:\Working\Land-Use\DELIVERABLES\20241111_POPULATION
+output_directory: F:\Deliverables\Land-Use\241123_Population rebase
+base_year_folder: F:\Deliverables\Land-Use\241122_Population
 output_intermediate_outputs: False
 scotland_donor_regions: [NE, NW, YH]
 run_scotland_only: False
@@ -98,18 +98,6 @@ household_adjustment_data:
 
 population_adjustment_data:
     validation_data:
-        - file_path: ONS-validation\preprocessing\population_16-74_soc9_lsoa_soc-aggregated.hdf
-          geographical_level: LSOA2021
-          input_segments: [soc]
-        - file_path: ONS-validation\preprocessing\population_16-74_status_lsoa.hdf
-          geographical_level: LSOA2021
-          input_segments: [economic_status]
-        - file_path: ONS-validation\preprocessing\population_age11_gender_occupation_lad_age-occ-aggregated.hdf
-          geographical_level: LAD2021
-          input_segments: [age_9, g, soc]
-        - file_path: ONS-validation\preprocessing\population_age11_gender_economicstatus_region_age-econ-aggregated.hdf
-          geographical_level: RGN2021
-          input_segments: [age_9, g, economic_status]
         - file_path: ONS-validation\preprocessing\population_adults_children_status_region_adults-children-aggregated.hdf
           geographical_level: RGN2021
           input_segments: [adults, children, economic_status]
@@ -122,6 +110,18 @@ population_adjustment_data:
         - file_path: ONS-validation\preprocessing\population_age_gender_car_msoa_age-aggregated.hdf
           geographical_level: MSOA2021
           input_segments: [car_availability, age_9, g]
+        - file_path: ONS-validation\preprocessing\population_age11_gender_occupation_lad_age-occ-aggregated.hdf
+          geographical_level: LAD2021
+          input_segments: [age_9, g, soc]
+        - file_path: ONS-validation\preprocessing\population_age11_gender_economicstatus_region_age-econ-aggregated.hdf
+          geographical_level: RGN2021
+          input_segments: [age_9, g, economic_status]
+        - file_path: ONS-validation\preprocessing\population_16-74_soc9_lsoa_soc-aggregated.hdf
+          geographical_level: LSOA2021
+          input_segments: [soc]
+        - file_path: ONS-validation\preprocessing\population_16-74_status_lsoa.hdf
+          geographical_level: LSOA2021
+          input_segments: [economic_status]
 
     rebase_data:
         - file_path: MYPE\preprocessing\myebtablesenglandwales20112023.hdf
@@ -139,3 +139,9 @@ population_adjustment_data:
         - file_path: APS 2023 for IPF\Regional-based-targets\preprocessing\APS-24-regional-based-targets_revamp_v3_t08-modifiedtomypev3.hdf
           geographical_level: RGN2021
           input_segments: [g, pop_emp]
+
+    # add in order of priority (last being top priority)
+    rebase_segments_to_maintain:
+      - adults
+      - children
+      - car_availability

@@ -713,6 +713,24 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         key='rebase_data',
         geography_subset=gor
     )
+    # bring in segmentations to maintain from the 2021 build datasets
+    # try looking for `rebase_segments_to_maintain` key and log if not provided
+    rebase_segments_to_maintain = config['population_adjustment_data'].get(
+        'rebase_segments_to_maintain', []
+    )
+
+    # loop through the supplied segmentations, aggregating the 2021 population
+    # data to each of the segmentations provided and deriving a monovariate
+    # target for the IPF and adding it to the start if the rebase targets
+    added_targets = []
+    for segmentation in rebase_segments_to_maintain:
+        target = base_data.population.aggregate(segs=[segmentation])
+        added_targets.append(target)
+
+    LOGGER.info(
+        f'{rebase_segments_to_maintain} added to population rebase IPF targets'
+    )
+    population_adjustment_targets = added_targets + population_adjustment
 
     # --- Step 11 --- #
     LOGGER.info('--- Step 11 ---')
@@ -825,8 +843,9 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     LOGGER.info('Applying IPF for population rebase targets')
     rebased_pop, summary, differences = data_processing.apply_ipf(
         seed_data=segmented_pop_rebase,
-        target_dvectors=population_adjustment,
+        target_dvectors=population_adjustment_targets,
         cache_folder=constants.CACHE_FOLDER,
+        # todo change
         target_dvector=population_adjustment[0],
     )
 
