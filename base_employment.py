@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from pathlib import Path
+import shutil
 
 import pandas as pd
 import yaml
@@ -11,6 +12,7 @@ from caf.base.zoning import TranslationWeighting
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
+from land_use.data_processing import OutputLevel
 
 
 # TODO: expand on the documentation here
@@ -32,7 +34,13 @@ FARMERS_ADJ = bool(config["adjust_for_farmers"])
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 generate_summary_outputs = bool(config["output_intermediate_outputs"])
 
-LOGGER = lu_logging.configure_logger(OUTPUT_DIR, log_name='employment')
+LOGGER = lu_logging.configure_logger(OUTPUT_DIR / OutputLevel.SUPPORTING, log_name='employment')
+
+# copy config file for traceability
+shutil.copy(
+    src=args.config_file,
+    dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
+)
 
 # --- Step 0 --- #
 # read in the data from the config file
@@ -398,7 +406,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E1',
         dvector=lad_raw_4_digit_sic,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.INTERMEDIATE
 )
 
 # --- Step 2 --- #
@@ -417,7 +426,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E2',
         dvector=msoa_2021_2_digit_sic,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.INTERMEDIATE
 )
 
 
@@ -436,7 +446,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E3',
         dvector=lsoa_2021_1_digit_sic,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.INTERMEDIATE
 )
 
 # --- Step 4 --- #
@@ -533,7 +544,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E4',
         dvector=jobs_by_sic_soc_lsoa,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.FINAL
 )
 
 LOGGER.info(f'Uplifting Output E4 to Workforce jobs (WFJ) levels by region (Output E4_2)')
@@ -577,7 +589,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E4_2',
         dvector=output_e4_2,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.FINAL
 )
 
 LOGGER.info("Adjusting Output E4 to adjust distributions within LADs (Output E4.3)")
@@ -644,6 +657,7 @@ data_processing.save_output(
     output_reference="Output E4_3",
     dvector=adj_jobs_sic_soc_lsoa,
     dvector_dimension="jobs",
+    output_level=OutputLevel.FINAL
 )
 
 LOGGER.info('--- Step 5 ---')
@@ -702,7 +716,8 @@ data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference='Output E5',
         dvector=jobs_by_sic_2_4_soc_lsoa,
-        dvector_dimension='jobs'
+        dvector_dimension='jobs',
+        output_level=OutputLevel.FINAL
 )
 
 LOGGER.info(
@@ -721,5 +736,6 @@ data_processing.save_output(
     output_reference="Output E6",
     dvector=adj_jobs_by_sic_2_4_soc_lsoa,
     dvector_dimension="jobs",
+    output_level=OutputLevel.FINAL
 )
 
