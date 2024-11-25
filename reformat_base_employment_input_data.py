@@ -22,11 +22,12 @@ def main():
     find_sic_soc_splits_by_region()
     wfj_2023()
     soc_4_factors()
+    process_bres(year=2023)
 
-def process_bres():
-    bres_lad_4_digit()
-    bres_msoa_2_digit()
-    bres_lsoa_1_digit()
+def process_bres(year:int=2022):
+    bres_lad_4_digit(year=year)
+    bres_msoa_2_digit(year=year)
+    bres_lsoa_1_digit(year=year)
 
 
 def process_hse():
@@ -93,13 +94,19 @@ def hse_lsoa_1_digit():
     pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
 
 
-def bres_lad_4_digit():
-    filename = "bres_employment22_lad_4digit_sic.csv"
+def bres_lad_4_digit(year:int=2022):
+    if year == 2022:
+        filename = f"bres_employment22_lad_4digit_sic.csv"
+    elif year == 2023:
+        filename = f"bres_employment23_lad2011_4digit_sic.csv"
+    else:
+        raise NotImplementedError (f"year {year} is not supported")
+    
     zoning = geographies.LAD_NAME
     seg_name = "sic_4_digit"
     header_string = "Industry"
 
-    file_path = INPUT_DIR / "BRES2022" / "Employment" / filename
+    file_path = INPUT_DIR / f"BRES{year}" / "Employment" / filename
 
     df, seg_col = pp.read_headered_and_tailed_csv(
         file_path=file_path, header_string=header_string, encoding="Latin-1"
@@ -144,13 +151,14 @@ def fetch_lad_lu(zoning: str) -> pd.DataFrame:
     return pd.concat([lad_lu, missing_lad])
 
 
-def bres_msoa_2_digit():
-    filename = "bres_employment22_msoa2011_2digit_sic.csv"
+def bres_msoa_2_digit(year:int=2022):
+    year_final_two = str(year)[2:4]
+    filename = f"bres_employment{year_final_two}_msoa2011_2digit_sic.csv"
     zoning = geographies.MSOA_2011_NAME
     seg_name = "sic_2_digit"
     header_string = "Area"
 
-    file_path = INPUT_DIR / "BRES2022" / "Employment" / filename
+    file_path = INPUT_DIR / f"BRES{year}" / "Employment" / filename
 
     df, heading_col = pp.read_headered_and_tailed_csv(
         file_path=file_path, header_string=header_string, low_memory=False
@@ -200,14 +208,16 @@ def bres_msoa_2_digit():
     )
 
 
-def bres_lsoa_1_digit():
+def bres_lsoa_1_digit(year:int=2022):
 
-    filename = "bres_employment22_lsoa2011_1digit_sic.csv"
+    year_final_two = str(year)[2:4]
+
+    filename = f"bres_employment{year_final_two}_lsoa2011_1digit_sic.csv"
     zoning = geographies.LSOA_2011_NAME
     seg_name = "sic_1_digit"
     header_string = "Area"
 
-    file_path = INPUT_DIR / "BRES2022" / "Employment" / filename
+    file_path = INPUT_DIR / f"BRES{year}" / "Employment" / filename
 
     df, heading_col = pp.read_headered_and_tailed_csv(
         file_path=file_path, header_string=header_string, low_memory=False
