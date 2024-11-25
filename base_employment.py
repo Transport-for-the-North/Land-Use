@@ -92,38 +92,22 @@ lad_raw_4_digit_sic = lad_raw_4_digit_sic.translate_zoning(
     check_totals=False,
 )
 
-# --- Useful functions that probably should be DVector methods --- #
-def drop_seg_values(dvec: DVector, drop_values: list[int]) -> DVector:
-    """Drop rows with provided seg values keep other rows (requires dvector to be single index)
+
+# --- Useful function that probably should be DVector method --- #
+def drop_seg_values(dvec: DVector, segment_name:str, drop_values: list[int]) -> DVector:
+    """Drop rows with provided seg values for the given segmentation, keep other rows
     Args:
         dvec (DVector): DVector function will be applied to
-        drop_values (list[int]): values to drop
+        segment_name (str): The name of the segment to filter by.
+        drop_values (list[int]): Segment values to drop
     Returns:
-        DVector: Dvector with values removed
+        DVector: Dvector with values removed for the given segment
     """
 
-    return DVector(
-        segmentation=dvec.segmentation,
-        import_data=dvec.data.drop(drop_values),
-        zoning_system=dvec.zoning_system,
-        cut_read=True,
-    )
+    current_values = dvec.data.index.get_level_values(segment_name).tolist()
+    keep_values = list(set(current_values) - set(drop_values))
+    return dvec.filter_segment_value(segment_name, keep_values)
 
-def keep_seg_values(dvec: DVector, keep_values: list[int]) -> DVector:
-    """Keep rows with provided seg values drop other rows (requires dvector to be single index)
-    Args:
-        dvec (DVector): DVector function will be applied to
-        keep_values (list[int]): segmentation values to keep
-    Returns:
-        DVector: Dvector with values removed
-    """
-
-    return DVector(
-        segmentation=dvec.segmentation,
-        import_data=dvec.data.loc[keep_values],
-        zoning_system=dvec.zoning_system,
-        cut_read=True,
-    )
 
 employment_redistri_lsoa = data_processing.read_dvector_from_config(
     config=config, 
@@ -151,7 +135,7 @@ def constrain_to_lad_totals_w_farmers_adj(
 
     # check to see if farmers are mentioned in lad data, if not then halt process
     try:
-        lad_not_farmers_sic_4_digit = drop_seg_values(lad_dv, [1])
+        lad_not_farmers_sic_4_digit = drop_seg_values(lad_dv, segment_name="sic_4_digit", drop_values=[1])
     except KeyError:
         raise ValueError(f"Category 1 does not appear in LAD input, so farmers correction can not be applied")
 
@@ -159,18 +143,22 @@ def constrain_to_lad_totals_w_farmers_adj(
         [constants.CUSTOM_SEGMENTS["total"]], split_method="split"
     ).aggregate(["total"])
 
-    msoa_2011_1_digit_sic_no_farmers = drop_seg_values(msoa_dv, [1]).translate_zoning(
+    msoa_2011_2_digit_sic_no_farmers = drop_seg_values(
+        msoa_dv, segment_name="sic_2_digit", drop_values=[1]
+        ).translate_zoning(
         new_zoning=constants.LAD_EWS_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
         check_totals=False,
     )
 
-    msoa_total_at_lad_no_farmers = msoa_2011_1_digit_sic_no_farmers.add_segments(
+    msoa_total_at_lad_no_farmers = msoa_2011_2_digit_sic_no_farmers.add_segments(
         [constants.CUSTOM_SEGMENTS["total"]], split_method="split"
     ).aggregate(["total"])
 
-    lsoa_2011_1_digit_sic_no_farmers = drop_seg_values(lsoa_dv, [1]).translate_zoning(
+    lsoa_2011_1_digit_sic_no_farmers = drop_seg_values(
+        lsoa_dv, segment_name="sic_1_digit", drop_values=[1]
+        ).translate_zoning(
         new_zoning=constants.LAD_EWS_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
@@ -216,13 +204,13 @@ def constrain_to_lad_totals_w_farmers_adj(
 
     # apply proportions and fill in nas with 0 (which will be for the unemployed rows)
     # apply proportions filling in nas with 0
-    msoa_2011_2_digit_sic_not_farmers = drop_seg_values(msoa_dv, [1])
+    msoa_2011_2_digit_sic_not_farmers = drop_seg_values(
+        msoa_dv, segment_name="sic_2_digit", drop_values=[1]
+        )
     adj_msoa_2011_2_digit_sic = (
         msoa_2011_2_digit_sic_not_farmers * rehydrated_adj_factors_for_msoa
     )
     adj_msoa_2011_2_digit_sic.fillna(0)
-
-    #adj_msoa_2011_2_digit_sic = drop_seg_values(adj_msoa_2011_2_digit_sic, [1])
 
     # Moving onto the farmers part of the process
     # Find the number of farmers provided at LAD but translate to MSOA
@@ -233,34 +221,20 @@ def constrain_to_lad_totals_w_farmers_adj(
         check_totals=False,
     )
 
-    lad_farmers_in_msoa = keep_seg_values(lad_data_in_msoa, [1])
+    lad_farmers_in_msoa = lad_data_in_msoa.filter_segment_value("sic_4_digit", [1])
 
     lad_farmers_in_msoa_sic_2 = lad_farmers_in_msoa.add_segments(
         [SegmentsSuper("sic_2_digit").get_segment()]
     ).aggregate([SegmentsSuper("sic_2_digit").get_segment().name])
 
     # Find the number of farmers provided at LAD but translate to LSOA
-    lsoa_2011_1_digit_sic_not_farmers = drop_seg_values(lsoa_dv, [1])
+    lsoa_2011_1_digit_sic_not_farmers = drop_seg_values(
+        lsoa_dv, segment_name="sic_1_digit", drop_values=[1]
+        )
     adj_lsoa_2011_1_digit_sic = (
         lsoa_2011_1_digit_sic_not_farmers * rehydrated_adj_factors_for_lsoa
     )
     adj_lsoa_2011_1_digit_sic.fillna(0)
-
-    # adj_lsoa_2011_1_digit_sic = drop_seg_values(adj_lsoa_2011_1_digit_sic, [1])
-
-    # Find the number of farmers provided at LAD but translate to MSOA
-    lad_data_in_msoa = lad_dv.translate_zoning(
-        new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.SPATIAL,
-        check_totals=False,
-    )
-
-    lad_farmers_in_msoa = keep_seg_values(lad_data_in_msoa, [1])
-
-    lad_farmers_in_msoa_sic_2 = lad_farmers_in_msoa.add_segments(
-        [SegmentsSuper("sic_2_digit").get_segment()]
-    ).aggregate([SegmentsSuper("sic_2_digit").get_segment().name])
 
     # Find the number of farmers provided at LAD but translate to LSOA
     lad_data_in_lsoa = lad_dv.translate_zoning(
@@ -270,20 +244,19 @@ def constrain_to_lad_totals_w_farmers_adj(
         check_totals=False,
     )
 
-    lad_farmers_in_lsoa = keep_seg_values(lad_data_in_lsoa, [1])
-
+    lad_farmers_in_lsoa = lad_data_in_lsoa.filter_segment_value("sic_4_digit", [1])
     lad_farmers_in_lsoa_sic_1 = lad_farmers_in_lsoa.add_segments(
         [SegmentsSuper("sic_1_digit").get_segment()]
     ).aggregate([SegmentsSuper("sic_1_digit").get_segment().name])
 
     # combining farmers from LAD with balanced non farmers (from MSOA and LSOA) inputs
     # MSOA
-    farmers_in_msoa_input = keep_seg_values(msoa_dv, [1])
+    farmers_in_msoa_input = msoa_dv.filter_segment_value("sic_2_digit", [1])
     farmers_by_msoa = farmers_in_msoa_input + lad_farmers_in_msoa_sic_2
     adj_msoa_2011_2_digit_sic = adj_msoa_2011_2_digit_sic.concat(farmers_by_msoa)
 
     # LSOA
-    farmers_in_lsoa_input = keep_seg_values(lsoa_dv, [1])
+    farmers_in_lsoa_input = lsoa_dv.filter_segment_value("sic_1_digit", [1])
     farmers_by_lsoa = farmers_in_lsoa_input + lad_farmers_in_lsoa_sic_1
     adj_lsoa_2011_1_digit_sic = adj_lsoa_2011_1_digit_sic.concat(farmers_by_lsoa)
     return adj_lsoa_2011_1_digit_sic, adj_msoa_2011_2_digit_sic
@@ -345,6 +318,7 @@ def constrain_to_lad_totals(
 
     rehydrated_adj_factors_for_msoa = drop_seg_values(
         rehydrated_adj_factors_for_msoa, 
+        segment_name="sic_2_digit",
         drop_values=[-1]
     )
 
@@ -361,6 +335,7 @@ def constrain_to_lad_totals(
 
     rehydrated_adj_factors_for_lsoa = drop_seg_values(
         rehydrated_adj_factors_for_lsoa, 
+        segment_name="sic_1_digit",
         drop_values=[-1]
     )
 
@@ -738,4 +713,3 @@ data_processing.save_output(
     dvector_dimension="jobs",
     output_level=OutputLevel.FINAL
 )
-
