@@ -30,11 +30,11 @@ class BaseYearPopulationData:
             f'Loading base year data from {folder_path}'
         )
         return BaseYearPopulationData(
-            population=DVector.load(folder_path / f'Output P10{identifier}.hdf', cut_read=True),
-            households=DVector.load(folder_path / f'Output P4.3{identifier}.hdf', cut_read=True),
-            average_occupancy=DVector.load(folder_path / f'Output P1.3{identifier}.hdf', cut_read=True),
-            non_empty_proportion=DVector.load(folder_path / f'Output P1.4{identifier}.hdf', cut_read=True),
-            unoccupied_factor=DVector.load(folder_path / f'Output P1.5{identifier}.hdf', cut_read=True),
+            population=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P10{identifier}.hdf', cut_read=True),
+            households=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P4.3{identifier}.hdf', cut_read=True),
+            average_occupancy=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.3{identifier}.hdf', cut_read=True),
+            non_empty_proportion=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.4{identifier}.hdf', cut_read=True),
+            unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
         )
 
 def process_base(config, gor: str) -> BaseYearPopulationData:
@@ -610,13 +610,17 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         segs=[seg for seg in hh_age_gender_2021.data.index.names if seg != 'accom_h']
     )
 
+    # calculate adjustment factor for 2021 population at a total level and apply to the IPF target
+    # TODO This is because children ages are small in adjusted_pop and adding as explicit target means these are matched when they probs shouldnt be
+    adjustment_factor = adjusted_pop.total / hh_age_gender_2021_target.total
+    hh_age_gender_2021_target = hh_age_gender_2021_target * adjustment_factor
+
     # applying IPF (adjusting totals to match P9 outputs)
     LOGGER.info('Applying IPF for internal validation population targets')
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
         seed_data=adjusted_pop,
         target_dvectors=[hh_age_gender_2021_target],
-        cache_folder=constants.CACHE_FOLDER,
-        target_dvector=adjusted_pop
+        cache_folder=constants.CACHE_FOLDER
     )
 
     # save output to hdf and csvs for checking
@@ -648,11 +652,17 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     # applying IPF (adjusting totals to match P9 outputs)
     LOGGER.info('Applying IPF for independent population targets')
+    # calculate adjustment factor for 2021 population at a total level and apply to the IPF target
+    # TODO This is because children ages are small in adjusted_pop and adding as explicit target means these are matched when they probs shouldnt be
+    population_adjustments = []
+    for target in population_adjustment:
+        adjustment_factor = rebalanced_pop.total / target.total
+        population_adjustments.append(target * adjustment_factor)
+
     ipfed_pop, summary, differences = data_processing.apply_ipf(
         seed_data=rebalanced_pop,
-        target_dvectors=list(population_adjustment),
-        cache_folder=constants.CACHE_FOLDER,
-        target_dvector=rebalanced_pop
+        target_dvectors=population_adjustments,
+        cache_folder=constants.CACHE_FOLDER
     )
 
     # save output to hdf and csvs for checking
@@ -703,6 +713,24 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         key='rebase_data',
         geography_subset=gor
     )
+    # bring in segmentations to maintain from the 2021 build datasets
+    # try looking for `rebase_segments_to_maintain` key and log if not provided
+    rebase_segments_to_maintain = config['population_adjustment_data'].get(
+        'rebase_segments_to_maintain', []
+    )
+
+    # loop through the supplied segmentations, aggregating the 2021 population
+    # data to each of the segmentations provided and deriving a monovariate
+    # target for the IPF and adding it to the start if the rebase targets
+    added_targets = []
+    for segmentation in rebase_segments_to_maintain:
+        target = base_data.population.aggregate(segs=[segmentation])
+        added_targets.append(target)
+
+    LOGGER.info(
+        f'{rebase_segments_to_maintain} added to population rebase IPF targets'
+    )
+    population_adjustment_targets = added_targets + population_adjustment
 
     # --- Step 11 --- #
     LOGGER.info('--- Step 11 ---')
@@ -815,9 +843,10 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     LOGGER.info('Applying IPF for population rebase targets')
     rebased_pop, summary, differences = data_processing.apply_ipf(
         seed_data=segmented_pop_rebase,
-        target_dvectors=population_adjustment,
+        target_dvectors=population_adjustment_targets,
         cache_folder=constants.CACHE_FOLDER,
-        target_dvector=population_adjustment[0]
+        # todo change
+        target_dvector=population_adjustment[0],
     )
 
     # save output to hdf and csvs for checking
@@ -829,6 +858,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         detailed_logs=True,
         output_level=OutputLevel.FINAL
     )
+    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P13_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
@@ -858,35 +888,50 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 generate_summary_outputs = bool(config['output_intermediate_outputs'])
 
-# Set up logger
-LOGGER = lu_logging.configure_logger(
-    output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
-    log_name='population'
-)
+# define whether to run scotland population only (requires outputs of all the
+# separate GOR population builds)
+run_scotland_only = bool(config['run_scotland_only'])
 
-# copy config file for traceability
-shutil.copy(
-    src=args.config_file,
-    dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
-)
+# Set up logger (different name if running scotland only)
+if not run_scotland_only:
+    LOGGER = lu_logging.configure_logger(
+        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+        log_name='population'
+    )
 
-# loop through GORs to save memory issues further down the line
-for GOR in constants.GORS:
-    # Try and load in base year data
-    try:
-        base_data = BaseYearPopulationData.from_folder(
-            Path(config['base_year_folder']), identifier=f'_{GOR}'
-        )
-    except (KeyError, FileNotFoundError) as e:
-        if isinstance(e, FileNotFoundError):
-            LOGGER.warning('Base year data could not be found. Attempting to re-process')
-        base_data = process_base(config, gor=GOR)
+    # copy config file for traceability
+    shutil.copy(
+        src=args.config_file,
+        dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
+    )
 
-    rebase(config, base_data, gor=GOR)
+    # loop through GORs to save memory issues further down the line
+    for GOR in constants.GORS:
+        # Try and load in base year data
+        try:
+            base_data = BaseYearPopulationData.from_folder(
+                Path(config['base_year_folder']), identifier=f'_{GOR}'
+            )
+        except (KeyError, FileNotFoundError) as e:
+            if isinstance(e, FileNotFoundError):
+                LOGGER.warning('Base year data could not be found. Attempting to re-process')
+            base_data = process_base(config, gor=GOR)
 
-    LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
+        rebase(config, base_data, gor=GOR)
+
+        # trying to delete data to save memory to hopefully allow scotland
+        # processing to run subsequently, currently crashes with memory error
+        base_data = None
+
+        LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
 
 # SCOTLAND-SPECIFIC PROCESSING
+else:
+    LOGGER = lu_logging.configure_logger(
+        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+        log_name='scotland_population'
+    )
+
 LOGGER.info('Applying regional profiles to Scotland population data')
 area_type_agg = []
 for gor in config['scotland_donor_regions']:
