@@ -15,7 +15,7 @@ def create_shp_for_distributions(distribution_name: str) -> None:
         distribution_name (str): Descriptive name for distribution used in output
     """
 
-    # TODO: consider if the 
+    # TODO: consider if this should be flexible
     df = pd.read_csv(DISTRIBUTION_DIRECTORY / "lsoa_distributions_by_type.csv")
 
     MAP_DIR.mkdir(exist_ok=True)
