@@ -7,6 +7,13 @@ Quick Start
     It may be possible to run in other locations, however this should be discussed with appropriate
     TfN staff first.
 
+Minimum requirements
+====================
+
+At present, the only known minimum requirement for this process is at least **64gb** of RAM, due to 
+the size of the datasets used. This also may require a separate running of Scotland for Population 
+analysis - a 128gb setup may allow Population to run end-to-end
+
 Environment set-up
 ==================
 
@@ -55,3 +62,21 @@ repository you could call:
 .. code-block:: shell
 
     python base_population.py "scenario_configurations\iteration_5\base_population_config.yml"
+
+
+Reviewing outputs
+=================
+
+Within the output directory, you will see a number of different folders. The standard folder 
+structure is as follows: 
+
+.. code-block:: text
+
+    output folder/
+    ├─ 00_Logging and Supporting Info/
+    ├─ 01_Intermediate Files/
+    ├─ 02_Final Outputs/
+    ├─ 03_Assurance/
+
+In the main, you should refer to the :doc:`Base Model Structure <base_model_structure.rst>` page to 
+understand the stage each output exists at within the wider process.

@@ -6,6 +6,16 @@ Information
 
 Generated on: {{ now() }}
 
+{% if skipped_segments is defined and skipped_segments|length > 0 %}
+
+Skipped Segments
+----------------
+The following segments are present in the output data, but have been omitted from reporting due to the number of categories found:
+{% for segment in skipped_segments %}
+- ``{{ segment }}``{% endfor %}
+
+{% endif %}
+
 Contents
 ========
 

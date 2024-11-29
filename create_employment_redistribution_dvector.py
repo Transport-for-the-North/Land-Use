@@ -66,13 +66,9 @@ def create_lsoa_distributions_by_measure() -> pd.DataFrame:
     voa_splits = pd.merge(voa_floorspace_splits, voa_job_splits)
     voa_splits = pd.merge(voa_splits, voa_value_splits)
 
-    lsoa_pupil_splits = calc_school_pupil_lsoa_splits()
+    lsoa_student_splits = calc_education_lsoa_splits()
 
-    lsoa_type_distrib = pd.merge(lsoa_pupil_splits, voa_splits, how="outer")
-
-    lsoa_student_splits = calc_student_all_ages_lsoa_splits()
-
-    lsoa_type_distrib = pd.merge(lsoa_type_distrib, lsoa_student_splits, how="outer")
+    lsoa_type_distrib = pd.merge(voa_splits, lsoa_student_splits, how="outer")
 
     ons_lsoa_to_lad = ONS_LU[["lsoa21nm", "lad21cd"]]
 
@@ -128,35 +124,7 @@ def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
     return df_wide
 
 
-def calc_school_pupil_lsoa_splits() -> pd.DataFrame:
-
-    # TODO combine with students all ages (next function)
-
-    df = pd.read_csv(
-        Path(RAW_DIR, "spc_school_level_underlying_data_lsoa21_202223.csv")
-    )
-
-    df_with_lad = pd.merge(df, ONS_LU[["lsoa21cd", "lad21cd"]])
-
-    df_with_lad["school_pupils"] = df_with_lad.groupby("lad21cd")[
-        "fte pupils"
-    ].transform(lambda x: x / x.sum())
-
-    # infill nas with 0, note at the moment this puts Wales and Scotland to 0 as well.
-    df_with_lad["school_pupils"] = df_with_lad["school_pupils"].fillna(0.0)
-
-    df_splits = df_with_lad[["lsoa21cd", "school_pupils"]]
-
-    df_splits.to_csv(INTERMIDIATE_DIR / "fte_school_pupil_proportions.csv", index=False)
-
-    lsoa_nm_cd_lu = ONS_LU[["lsoa21cd", "lsoa21nm", "rgn21cd", "rgn21nm"]]
-
-    return pd.merge(df_splits, lsoa_nm_cd_lu, how="outer")
-
-
-def calc_student_all_ages_lsoa_splits() -> pd.DataFrame:
-
-    # TODO combine with previous (pupils)
+def calc_education_lsoa_splits() -> pd.DataFrame:
 
     df = pd.read_csv(Path(RAW_DIR, "pupils_fe_he_111524.csv"))
 
@@ -164,14 +132,13 @@ def calc_student_all_ages_lsoa_splits() -> pd.DataFrame:
     df_with_lad["students_all_ages"] = df_with_lad.groupby("lad21cd")[
         "total"
     ].transform(lambda x: x / x.sum())
-    # infill nas with 0, note at the moment this puts Wales and Scotland to 0 as well.
-    df_with_lad["students_all_ages"] = df_with_lad["students_all_ages"].fillna(0.0)
+    df_with_lad["school_pupils"] = df_with_lad.groupby("lad21cd")[
+        "pupils"
+    ].transform(lambda x: x / x.sum())
 
-    print(df_with_lad)
+    df_splits = df_with_lad[["lsoa21cd", "students_all_ages", "school_pupils"]]
 
-    df_splits = df_with_lad[["lsoa21cd", "students_all_ages"]]
-
-    df_splits.to_csv(INTERMIDIATE_DIR / "student_all_ages_proportions.csv", index=False)
+    df_splits.to_csv(INTERMIDIATE_DIR / "education_proportions.csv", index=False)
 
     lsoa_nm_cd_lu = ONS_LU[["lsoa21cd", "lsoa21nm", "rgn21cd", "rgn21nm"]]
 
