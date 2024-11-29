@@ -696,6 +696,14 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     )
 
 def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector]:
+
+    # calculate average occupancy by all household variables from the base year
+    # post-IPFed households and population
+    final_base_occupancy = (
+        base_data.population.aggregate(list(base_data.households.segmentation.overlap(base_data.population.segmentation)))
+        / base_data.households
+    )
+
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household rebase data from config file')
     household_adjustment = data_processing.read_dvector_from_config(
@@ -745,7 +753,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     adjusted_hh_rebase = dwellings_rebase * base_data.non_empty_proportion
 
     # get proportions of households by segment and zone from the output of the
-    # 2021 IPFed households
+    # base year IPFed households
     hh_rebase = data_processing.apply_proportions(
         source_dvector=base_data.households,
         apply_to=adjusted_hh_rebase
@@ -794,7 +802,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     LOGGER.info('Rebasing population to 2023')
     LOGGER.info(f'Applying average occupancy to households')
     # apply average occupancy by dwelling type
-    pop_rebase = hh_rebase * base_data.average_occupancy
+    pop_rebase = hh_rebase * final_base_occupancy
 
     # calculate expected population based in the addressbase "occupied" dwellings
     addressbase_rebase = adjusted_hh_rebase * base_data.average_occupancy
