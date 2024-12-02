@@ -25,14 +25,14 @@ def main(run_dir: Path) -> None:
 
 def calculate_totals(dv: DVector, name: str, out_dir: Path) -> None:
 
-    dv_cols = dv.data.columns
+    dv_index = dv.data.index.names
 
-    if "soc" in dv_cols:
+    if "soc" in dv_index:
         soc = dv.aggregate(["soc"])
         soc_transposed = soc.data.transpose()
         soc_transposed.to_csv(out_dir / f"{name}_soc_transposed.csv")
 
-    if "sic_1_digit" in dv_cols:
+    if "sic_1_digit" in dv_index:
         sic = dv.aggregate(["sic_1_digit"])
         sic_transposed = sic.data.transpose()
         sic_transposed.to_csv(out_dir / f"{name}_sic_transposed.csv")
