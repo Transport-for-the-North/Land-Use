@@ -538,3 +538,25 @@ pp.save_preprocessed_hdf(
     source_file_path=file_path,
     df=pivoted
 )
+
+file_path = Path(
+    r'I:\NorMITs Land Use\2023\import\RM002 accom type by household size'
+    r'\Household_growth_checks.xlsx'
+)
+
+# read in specific tabs
+growth = pd.read_excel(
+    file_path, sheet_name='DISTRICT_OUTPUT'
+)
+growth = growth.rename(columns={'zone_id': geographies.LAD_NAME})
+growth['total'] = 1
+pivoted = pp.pivot_to_dvector(
+    data=growth,
+    zoning_column=geographies.LAD_NAME,
+    index_cols=['total'],
+    value_column='growth'
+)
+pp.save_preprocessed_hdf(
+    source_file_path=file_path,
+    df=pivoted
+)
