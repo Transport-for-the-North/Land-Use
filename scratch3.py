@@ -162,7 +162,7 @@ rebased = rebased_households.data.reset_index().melt(
     var_name='LSOA', value_name='households'
 )
 rebased.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2023_hh.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2023_hh.csv", index=False
 )
 
 census = census_hh.data.reset_index().melt(
@@ -172,7 +172,7 @@ census = census_hh.data.reset_index().melt(
     value_name='households'
 )
 census.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2021_hh.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2021_hh.csv", index=False
 )
 
 # calculate and output occupancies
@@ -185,7 +185,7 @@ occupancies = resulting_occupancies.data.reset_index().melt(
     value_name='occupancy'
 )
 occupancies.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2023_occupancies.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2023_occupancies.csv", index=False
 )
 
 resulting_occupancies = rebased_pop.filter_segment_value(
@@ -199,7 +199,7 @@ occupancies = resulting_occupancies.data.reset_index().melt(
     value_name='occupancy'
 )
 occupancies.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2023_adult_occupancies.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2023_adult_occupancies.csv", index=False
 )
 
 # calculate resulting household growth by district
@@ -219,7 +219,7 @@ resulting_household_growth = resulting_household_growth.data.reset_index().melt(
     value_name='growth'
 )
 resulting_household_growth.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2023_output_growth.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2023_output_growth.csv", index=False
 )
 
 # calculate input household growth by district
@@ -230,6 +230,6 @@ input_household_growth = growth.data.reset_index().melt(
     value_name='growth'
 )
 input_household_growth.to_csv(
-    r"F:\Working\Land-Use\241012_occupancy checks\2023_input_growth.csv", index=False
+    r"F:\Working\Land-Use\241210_occupancy checks\2023_input_growth.csv", index=False
 )
 
