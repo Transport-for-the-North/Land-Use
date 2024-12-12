@@ -188,6 +188,23 @@ occupancies.to_csv(
     r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies.csv", index=False
 )
 
+resulting_occupancies = rebased_pop.translate_zoning(
+new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+).add_segments(['total']).aggregate(['total']) / rebased_households.translate_zoning(
+new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+).aggregate(['total'])
+occupancies = resulting_occupancies.data.reset_index().melt(
+    id_vars=list(resulting_occupancies.data.index.names),
+    value_vars=list(resulting_occupancies.data.columns),
+    var_name='LAD',
+    value_name='occupancy'
+)
+occupancies.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies_LAD.csv", index=False
+)
+
 resulting_occupancies = rebased_pop.filter_segment_value(
     segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
 ).aggregate(['adults']) / rebased_households.aggregate(['adults'])
@@ -285,6 +302,23 @@ occupancies = resulting_occupancies.data.reset_index().melt(
 )
 occupancies.to_csv(
     r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies_post_cap.csv", index=False
+)
+
+resulting_occupancies = rebased_pop.translate_zoning(
+new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+).add_segments(['total']).aggregate(['total']) / rebased_households.translate_zoning(
+new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+).aggregate(['total'])
+occupancies = resulting_occupancies.data.reset_index().melt(
+    id_vars=list(resulting_occupancies.data.index.names),
+    value_vars=list(resulting_occupancies.data.columns),
+    var_name='LAD',
+    value_name='occupancy'
+)
+occupancies.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies_LAD_post_cap.csv", index=False
 )
 
 resulting_occupancies = rebased_pop.filter_segment_value(
