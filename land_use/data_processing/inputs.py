@@ -140,6 +140,116 @@ def read_dvector_data(
     )
 
 
+# TODO this shares a lot of code with read_dvector_data, streamline
+def create_dvector_from_data(
+        dvector_data: pd.DataFrame,
+        geographical_level: str,
+        input_segments: list,
+        geography_subset: Optional[str] = None,
+        **params
+) -> DVector:
+    """Create DVector from a formatted for input (i.e. "wide") DataFrame.
+
+    Parameters
+    ----------
+    dvector_data : pd.DataFrame
+        DataFrame in DVector ready format (i.e. index with segment names and
+        columns of zone names) to be converted to DVector
+    geographical_level : str
+        specification of the zone system of the input file
+    input_segments : list
+        codes corresponding to the various segments contained within the data,
+        in the order they are provided.
+    geography_subset: Optional[str], optional
+        Subset to filter `geographical_level` to, if desired. Suitable
+        ZonzingSystem files must exist for this subset, and input data will
+        automatically be filtered to only match zones within this subset. By
+        default None, in which case no filtering is applied
+
+    Returns
+    -------
+    DVector
+        object representing the geographical, segmented data ready to be used by
+        standard caf processes
+
+    Raises
+    ------
+    ValueError
+        if undefined segments are passed to the function
+    """
+    # TODO make sure geographical_level is consistent with the KNOWN_GEOGRAPHIES defined in constants\geographies.py
+
+    # warn if extra stuff is passed unexpedtedly from yaml file
+    if params:
+        warn(
+            f'Unexpected parameters passed, please check - {params.keys()}.'
+        )
+
+    if geography_subset:
+        zoning = f'{geographical_level}-{geography_subset}'
+    else:
+        zoning = geographical_level
+
+    # filter columns if necessary
+    zones = KNOWN_GEOGRAPHIES.get(zoning).zone_ids
+    filtered_data = dvector_data[zones]
+    if len(filtered_data.columns) != len(dvector_data.columns):
+        LOGGER.warning(
+            f'The input data '
+            f'started with {len(dvector_data.columns):,.0f} columns. Filtering to '
+            f'{geography_subset} results in {len(filtered_data.columns):,.0f} '
+            'columns.'
+        )
+
+    # get flags for segments that are or are not TfN standard super segments
+    segment_flags = segments.split_input_segments(input_segments)
+
+    # "False" are our custom segments - check they exist, error if they don't
+    missing_segments = [
+        seg for seg in segment_flags[False]
+        if seg not in segments.CUSTOM_SEGMENTS.keys()
+    ]
+    if missing_segments:
+        raise ValueError(
+            f'Undefined segments provided: {",".join(missing_segments)}'
+        )
+
+    # flag which segments are custom
+    if segment_flags[False]:
+        LOGGER.warning(
+            f'Custom segments defined are: {segment_flags[False]}. '
+            f'Please check this is what you were expecting.'
+        )
+
+    # Get the hydrated segment objects
+    custom_segments = [
+        segments.CUSTOM_SEGMENTS.get(seg)
+        for seg in segment_flags[False]
+    ]
+
+    # Ensure we have consistently sorted segments
+    sorted_segments = sorted(input_segments)
+    if len(sorted_segments) > 1:
+        sorted_data = filtered_data.reorder_levels(order=sorted(input_segments))
+    else:
+        sorted_data = filtered_data
+
+    # Configure the segmentation
+    segmentation_input = SegmentationInput(
+        enum_segments=segment_flags[True],
+        custom_segments=custom_segments,
+        naming_order=sorted_segments
+    )
+    resulting_segmentation = Segmentation(segmentation_input)
+
+    return DVector(
+        segmentation=resulting_segmentation,
+        zoning_system=KNOWN_GEOGRAPHIES.get(zoning),
+        import_data=sorted_data,
+        cut_read=True
+    )
+
+
 def try_loading_dvector(
         input_file: Path
     ) -> Union[None, DVector]:

@@ -23,6 +23,9 @@ LOGGER = lu_logging.configure_logger(
     log_name='population'
 )
 
+# maximum percentile cut off
+max_percentile = 0.95
+
 # read in 2021 base year population and households
 census_input_path = Path(r'F:\Working\Land-Use\241206_hh-test\01_Intermediate Files')
 census_pop = DVector.load(census_input_path / 'Output P10_NW.hdf')
@@ -159,7 +162,7 @@ rebased = rebased_households.data.reset_index().melt(
     var_name='LSOA', value_name='households'
 )
 rebased.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2023_hh.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_hh.csv", index=False
 )
 
 census = census_hh.data.reset_index().melt(
@@ -169,7 +172,7 @@ census = census_hh.data.reset_index().melt(
     value_name='households'
 )
 census.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2021_hh.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2021_hh.csv", index=False
 )
 
 # calculate and output occupancies
@@ -182,7 +185,7 @@ occupancies = resulting_occupancies.data.reset_index().melt(
     value_name='occupancy'
 )
 occupancies.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2023_occupancies.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies.csv", index=False
 )
 
 resulting_occupancies = rebased_pop.filter_segment_value(
@@ -196,7 +199,7 @@ occupancies = resulting_occupancies.data.reset_index().melt(
     value_name='occupancy'
 )
 occupancies.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2023_adult_occupancies.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_adult_occupancies.csv", index=False
 )
 
 # calculate resulting household growth by district
@@ -216,7 +219,7 @@ resulting_household_growth = resulting_household_growth.data.reset_index().melt(
     value_name='growth'
 )
 resulting_household_growth.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2023_output_growth.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_output_growth.csv", index=False
 )
 
 # calculate input household growth by district
@@ -227,6 +230,92 @@ input_household_growth = growth.data.reset_index().melt(
     value_name='growth'
 )
 input_household_growth.to_csv(
-    r"F:\Working\Land-Use\241211_occupancy checks\2023_input_growth.csv", index=False
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_input_growth.csv", index=False
 )
 
+# get resulting occupancies by adults and children
+resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(['adults', 'children'])
+
+# get max_percentile cap by adult and children combination for all zones in the data
+region_code = constants.KNOWN_GEOGRAPHIES.get('RGN2021-NW').zone_ids[0]
+percentiles = resulting_occupancies.data.quantile(
+    q=max_percentile, axis=1
+).rename(region_code).to_frame()
+
+# convert the caps to DVector format at region level
+percentiles = data_processing.create_dvector_from_data(
+    dvector_data=percentiles,
+    geographical_level='RGN2021',
+    input_segments=['adults', 'children'],
+    geography_subset='NW'
+)
+# convert these percentiles to LSOA
+percentiles = percentiles.translate_zoning(
+    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-NW'),
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False
+)
+# calculate adjustment factors for zones which have occupancy over the max_percentile
+control_factors = percentiles / resulting_occupancies
+control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
+
+# apply these factors back to the households, to increase the number of
+# households to decrease occupancy
+rebased_households = rebased_households / control_factors
+
+# output adhoc stuff for analysis
+rebased = rebased_households.data.reset_index().melt(
+    id_vars=list(rebased_households.data.index.names),
+    value_vars=list(rebased_households.data.columns),
+    var_name='LSOA', value_name='households'
+)
+rebased.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_hh_post_cap.csv", index=False
+)
+
+# calculate and output occupancies
+resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(['adults', 'children'])
+occupancies = resulting_occupancies.data.reset_index().melt(
+    id_vars=list(resulting_occupancies.data.index.names),
+    value_vars=list(resulting_occupancies.data.columns),
+    var_name='LSOA',
+    value_name='occupancy'
+)
+occupancies.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_occupancies_post_cap.csv", index=False
+)
+
+resulting_occupancies = rebased_pop.filter_segment_value(
+    segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
+).aggregate(['adults']) / rebased_households.aggregate(['adults'])
+occupancies = resulting_occupancies.data.reset_index().melt(
+    id_vars=list(resulting_occupancies.data.index.names),
+    value_vars=list(resulting_occupancies.data.columns),
+    var_name='LSOA',
+    value_name='occupancy'
+)
+occupancies.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_adult_occupancies_post_cap.csv", index=False
+)
+
+# calculate resulting household growth by district
+resulting_household_growth = rebased_households.aggregate(['total']).translate_zoning(
+    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+) / census_hh.add_segments(
+    ["total"]
+).aggregate(['total']).translate_zoning(
+    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-NW'),
+    cache_path=constants.CACHE_FOLDER
+)
+resulting_household_growth = resulting_household_growth.data.reset_index().melt(
+    id_vars=list(resulting_household_growth.data.index.names),
+    value_vars=list(resulting_household_growth.data.columns),
+    var_name='LAD',
+    value_name='growth'
+)
+resulting_household_growth.to_csv(
+    r"F:\Working\Land-Use\241212_occupancy checks\2023_output_growth_post_cap.csv", index=False
+)
