@@ -4,7 +4,7 @@ import geopandas as gpd
 import pandas as pd
 
 RUN_DIR = Path(
-    r"F:\Working\Land-Use\OUTPUTS_base_employment_bres_approach_a_weighting_2_level_check"
+    r"F:\Deliverables\Land-Use\241213_Employment"
 )
 
 ASSURANCE_DIR = RUN_DIR / "03_Assurance"
@@ -125,6 +125,12 @@ def compare_jobs_for_sic_soc() -> None:
 
 
 def create_sic_soc_shp(df: pd.DataFrame, geography: str) -> None:
+    """Turn the dataframe containing the sic/soc data into a spatial format.
+
+    Args:
+        df (pd.DataFrame): Dataframe that contains the sic/soc data
+        geography (str): geography of data, (LSOA/MSOA)
+    """
 
     df = df.rename(columns={geography.lower(): f"{geography.upper()}21CD"})
 
@@ -258,6 +264,15 @@ def create_xsoa_lad_proportion_shp(geography: str) -> None:
 
 
 def get_northern_shp_for_geography(geography: str) -> gpd.GeoDataFrame:
+    """Fetch a shapefile from the directory.
+
+    Args:
+        geography (str): Geography prefix name to return (LSOA/MSOA but could easily be extended to LAD)
+
+    Returns:
+        gpd.GeoDataFrame: The shapefile filtered for the north.
+    """
+
     return gpd.read_file(
         SHP_DIR
         / f"{geography.upper()} (2021)"

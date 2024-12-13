@@ -44,7 +44,8 @@ def main(update_input_distributions: bool = False):
     create_lsoa_sic_factors_dvector(yaml_path=YAML_PATH)
 
 
-def create_lsoa_distributions_by_measure() -> pd.DataFrame:
+def create_lsoa_distributions_by_measure() -> None:
+    """Write a csv with the distribution by measure giving lsoa/lad proprtions."""
 
     # Jobs could be uplifted to take account of part-time/full-time but as we only
     # have this at LAD level, and only looking to redistribute within LAD this would
@@ -81,7 +82,15 @@ def create_lsoa_distributions_by_measure() -> pd.DataFrame:
     )
 
 
-def calc_voa_floorspace_splits(df):
+def calc_voa_floorspace_splits(df: pd.DataFrame) -> pd.DataFrame:
+    """Find the floor space lsoa floor type proportions by lad
+
+    Args:
+        df (pd.DataFrame): floorspace values by floor types and lsoas in long format
+
+    Returns:
+        pd.DataFrame: floorspace value lsoa/lad proportions by floor type
+    """
 
     df = pd.merge(df, ONS_LU[["lsoa21nm", "lad21cd", "rgn21nm"]])
 
@@ -103,6 +112,14 @@ def calc_voa_floorspace_splits(df):
 
 
 def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
+    """Find the voa value lsoa floor type proportions by lad
+
+    Args:
+        df (pd.DataFrame): voa values by floor types and lsoas in long format
+
+    Returns:
+        pd.DataFrame: voa value lsoa/lad proportions by floor type
+    """
 
     lsoa_name_to_lad_name = ONS_LU[["lsoa21nm", "lad21nm"]]
 
@@ -125,6 +142,11 @@ def calc_voa_value_splits(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def calc_education_lsoa_splits() -> pd.DataFrame:
+    """Find the students (all ages) lsoa proportions by lad
+
+    Returns:
+        pd.DataFrame: Proportion of lad students (all ages) that falls within the lsoa
+    """
 
     df = pd.read_csv(Path(RAW_DIR, "pupils_fe_he_111524.csv"))
 
@@ -146,6 +168,14 @@ def calc_education_lsoa_splits() -> pd.DataFrame:
 
 
 def calc_voa_jobs_splits(df: pd.DataFrame) -> pd.DataFrame:
+    """Find the implied jobs (from voa data) proportions by lad
+
+    Args:
+        df (pd.DataFrame): floor area by floor type in lsoa geography
+
+    Returns:
+        pd.DataFrame: Proportion of lad students (all ages) that falls within the lsoa
+    """
     # calculate jobs proportions
     df_floorspace_to_jobs = pd.DataFrame(
         data={
@@ -173,6 +203,14 @@ def calc_voa_jobs_splits(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_for_export(df: pd.DataFrame) -> pd.DataFrame:
+    """Reduce the dataframe down to just the columns we need (lsoa, msoa, lad, region and distribution proportions).
+
+    Args:
+        df (pd.DataFrame): Various data in lsoa geography
+
+    Returns:
+        pd.DataFrame: A dataset with the regional short code
+    """
     df = df.rename(columns={"jobs_proportion": "voa jobs"})
 
     rgn_short_code_lu = pd.DataFrame.from_records(
@@ -221,6 +259,14 @@ def prepare_for_export(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_lsoa_sic_factors_dvector(yaml_path: Path) -> None:
+    """Use the yaml to write a DVector sic 1-digit segmentation with lsoa geography
+
+    Args:
+        yaml_path (Path): Yaml path to specific geographies to adjust, and which distributions (or none) to use by sic 1-digit
+
+    Raises:
+        ValueError: If a requested distribution is not available
+    """
 
     lsoa_type_distributions = pd.read_csv(
         INTERMIDIATE_DIR / "lsoa_distributions_by_type.csv"

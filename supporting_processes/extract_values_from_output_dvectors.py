@@ -4,6 +4,11 @@ from caf.base.data_structures import DVector
 
 
 def main(run_dir: Path) -> None:
+    """Extract values for the given base employment directory output
+
+    Args:
+        run_dir (Path): Directory of base employment output
+    """
     dvect_dir = run_dir / "02_Final Outputs"
     assurance_dir = run_dir / "03_Assurance"
 
@@ -24,6 +29,15 @@ def main(run_dir: Path) -> None:
 
 
 def calculate_totals(dv: DVector, name: str, out_dir: Path) -> None:
+    """Calculate totals by soc and sic_1_digit categories.
+    The other segmnentations (sic 2, 4 digit) probably contain too many values to be useful.
+    Though in theory nothing would stop this function being expanded to include them.
+
+    Args:
+        dv (DVector): The Dvector to analyse.
+        name (str): Name to use as a prefix for output files. The name of the dvector is usually the best choice.
+        out_dir (Path): Directory to save the output to. Suggestion would be the assurance dir.
+    """
 
     dv_index = dv.data.index.names
 
@@ -39,12 +53,10 @@ def calculate_totals(dv: DVector, name: str, out_dir: Path) -> None:
 
         sic_totals = sic_transposed.sum().reset_index()
         sic_totals.to_csv(out_dir / f"{name}_sic_totals.csv")
-    
-    # note other segmnentations probably contain too many values to be useful
 
 
 if __name__ == "__main__":
     run_dir = Path(
-        r"F:\Working\Land-Use\OUTPUTS_base_employment_bres_approach_a_weighting_2_level_check"
+        r"F:\Deliverables\Land-Use\241213_Employment"
     )
     main(run_dir=run_dir)
