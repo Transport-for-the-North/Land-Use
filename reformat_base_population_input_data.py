@@ -14,6 +14,7 @@ header_string = 'output area'
 # Two files to read, but the same processing
 rm_002_folder = Path(r'I:\NorMITs Land Use\2023\import\RM002 accom type by household size')
 
+hh_frames = []
 for file_name in ('2072764328175065 zero.csv', '2672385425907310 all.csv'):
     file_path = rm_002_folder / file_name
     # Read the data and reformat for DVector (this involves auto-detecting the column header row but this is excluded from this example for now)
@@ -24,7 +25,14 @@ for file_name in ('2072764328175065 zero.csv', '2672385425907310 all.csv'):
             SegmentsSuper.ACCOMODATION_TYPE_H
         ).values
     )
+    hh_frames.append(df)
     pp.save_preprocessed_hdf(source_file_path=file_path, df=df)
+
+total = hh_frames[0] + hh_frames[1]
+pp.save_preprocessed_hdf(
+    source_file_path=rm_002_folder / 'combined_households.hdf',
+    df=total
+)
 
 # ****** ONS Custom Download Tables
 
@@ -502,4 +510,53 @@ pp.save_preprocessed_hdf(
     source_file_path=file_path,
     df=pivoted_65_plus,
     multiple_output_ref='t01-modifiedtomype-65plus'
+)
+
+# --- 2023 HOUSEHOLDS FROM ONS --- #
+file_path = Path(
+    r'I:\NorMITs Land Use\2023\import\RM002 accom type by household size'
+    r'\2023 household derivation.xlsx'
+)
+
+# read in specific tabs
+households = pd.read_excel(
+    file_path, sheet_name='OUTPUT'
+)
+melted = households.melt(
+    id_vars='LSOA',
+    value_vars=[1, 2, 3, 4, 5],
+    var_name='accom_h',
+    value_name='households'
+).rename(columns={'LSOA': geographies.LSOA_NAME})
+pivoted = pp.pivot_to_dvector(
+    data=melted,
+    zoning_column=geographies.LSOA_NAME,
+    index_cols=['accom_h'],
+    value_column='households'
+)
+pp.save_preprocessed_hdf(
+    source_file_path=file_path,
+    df=pivoted
+)
+
+file_path = Path(
+    r'I:\NorMITs Land Use\2023\import\RM002 accom type by household size'
+    r'\Household_growth_checks.xlsx'
+)
+
+# read in specific tabs
+growth = pd.read_excel(
+    file_path, sheet_name='DISTRICT_OUTPUT'
+)
+growth = growth.rename(columns={'zone_id': geographies.LAD_NAME})
+growth['total'] = 1
+pivoted = pp.pivot_to_dvector(
+    data=growth,
+    zoning_column=geographies.LAD_NAME,
+    index_cols=['total'],
+    value_column='growth'
+)
+pp.save_preprocessed_hdf(
+    source_file_path=file_path,
+    df=pivoted
 )

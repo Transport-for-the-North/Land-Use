@@ -366,8 +366,8 @@ AddressBase
 Annual Population Survey
 ========================
 
-T01
----
+T01 (16-64)
+-----------
 
 .. list-table::
    :header-rows: 0
@@ -375,15 +375,36 @@ T01
    :stub-columns: 1
 
    * - Unit
-     - Population (working age only)
+     - Population (ages 16-64 only)
    * - Geography
      - GOR 2021
    * - Segmentation
-     - Gender, APS economic status
+     - Age, gender, APS economic status
    * - Source
      - `Nomis Statistical Queries <https://www.nomisweb.co.uk/datasets/apsnew>`_
    * - File Location
-     - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/APS-24-regional-based-targets_revamp.xlsx
+     - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/T01_targets_291024_analysis_revamp.xlsx
+   * - Access
+     - Freely available to download
+
+T01 (65+)
+-----------
+
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - Population (ages 65+ only)
+   * - Geography
+     - GOR 2021
+   * - Segmentation
+     - Age, APS economic status
+   * - Source
+     - `Nomis Statistical Queries <https://www.nomisweb.co.uk/datasets/apsnew>`_
+   * - File Location
+     - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/T01_targets_291024_analysis_revamp.xlsx
    * - Access
      - Freely available to download
 
@@ -404,7 +425,7 @@ T08
    * - Source
      - `Nomis Statistical Queries <https://www.nomisweb.co.uk/datasets/apsnew>`_
    * - File Location
-     - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/APS-24-regional-based-targets_revamp.xlsx
+     - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/APS-24-regional-based-targets_revamp_v3.xlsx
    * - Access
      - Freely available to download
 
