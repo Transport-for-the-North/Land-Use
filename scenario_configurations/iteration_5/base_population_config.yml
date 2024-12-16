@@ -1,11 +1,12 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Deliverables\Land-Use\241129_Population
+output_directory: F:\Deliverables\Land-Use\241213_Population
 #base_year_folder: F:\Deliverables\Land-Use\241122_Population
 output_intermediate_outputs: False
 scotland_donor_regions: [NE, NW, YH]
 run_scotland_only: False
+occupancy_cap_percentile: 0.95
 
 base_data:
     unoccupied_households:
@@ -24,8 +25,9 @@ base_data:
         geographical_level: LSOA2021
         input_segments: [accom_h]
 
+    # TODO not actually addressbase now, to rename
     addressbase_dwellings:
-        file_path: ABP\ABP2021\preprocessing\output_results_all_2021(no red).hdf
+        file_path: RM002 accom type by household size\preprocessing\combined_households.hdf
         geographical_level: LSOA2021
         input_segments: [accom_h]
 
@@ -92,9 +94,9 @@ household_adjustment_data:
           geographical_level: LSOA2021
           input_segments: [ns_sec]
     rebase_data:
-        - file_path: ABP\ABP2023\preprocessing\output_results_all_2023(no red).hdf
-          geographical_level: LSOA2021
-          input_segments: [accom_h]
+        - file_path: RM002 accom type by household size\preprocessing\Household_growth_checks.hdf
+          geographical_level: LAD2021
+          input_segments: [total]
 
 population_adjustment_data:
     validation_data:
@@ -142,6 +144,5 @@ population_adjustment_data:
 
     # add in order of priority (last being top priority)
     rebase_segments_to_maintain:
-      - adults
-      - children
+      - [adults, children]
       - car_availability

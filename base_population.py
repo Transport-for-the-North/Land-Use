@@ -483,9 +483,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     LOGGER.info(f'Calculating splits of CE type by MSOA')
     # calculate msoa-based splits of CE types
-    ce_pop_by_type_total = ce_pop_by_type.add_segments(
-        [constants.CUSTOM_SEGMENTS.get('total')]
-    )
+    ce_pop_by_type_total = ce_pop_by_type.add_segments(['total'])
     ce_type_splits = ce_pop_by_type_total / ce_pop_by_type_total.aggregate(segs=['total'])
     # fill in nan values with 0 (this is where there are no CEs in a given MSOA)
     ce_type_splits.data = ce_type_splits.data.fillna(0)
@@ -500,9 +498,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     LOGGER.info(f'Calculating splits of CE population by age, gender, and economic status')
     # calculate gor-based splits of person types
-    ce_pop_by_age_gender_econ_total = ce_pop_by_age_gender_econ.add_segments(
-        [constants.CUSTOM_SEGMENTS.get('total')]
-    )
+    ce_pop_by_age_gender_econ_total = ce_pop_by_age_gender_econ.add_segments(['total'])
     ce_econ_splits = ce_pop_by_age_gender_econ_total / ce_pop_by_age_gender_econ_total.aggregate(segs=['total'])
     # fill in nan values with 0 (this is where there are no CEs in a given REGION)
     ce_econ_splits.data = ce_econ_splits.data.fillna(0)
@@ -517,9 +513,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     LOGGER.info(f'Calculating splits of CE population by age, gender, and SOC')
     # calculate gor-based splits of person types
-    ce_pop_by_age_gender_soc_total = ce_pop_by_age_gender_soc.add_segments(
-        [constants.CUSTOM_SEGMENTS.get('total')]
-    )
+    ce_pop_by_age_gender_soc_total = ce_pop_by_age_gender_soc.add_segments(['total'])
     ce_soc_splits = ce_pop_by_age_gender_soc_total / ce_pop_by_age_gender_soc_total.aggregate(segs=['total'])
     # fill in nan values with 0 (this is where there are no CEs in a given REGION)
     ce_soc_splits.data = ce_soc_splits.data.fillna(0)
@@ -697,21 +691,21 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
 def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector]:
 
-    # calculate average occupancy by all household variables from the base year
-    # post-IPFed households and population
-    final_base_occupancy = (
-        base_data.population.aggregate(list(base_data.households.segmentation.overlap(base_data.population.segmentation)))
-        / base_data.households
-    )
+    # # calculate average occupancy by all household variables from the base year
+    # # post-IPFed households and population
+    # final_base_occupancy = (
+    #     base_data.population.aggregate(list(base_data.households.segmentation.overlap(base_data.population.segmentation)))
+    #     / base_data.households
+    # )
 
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household rebase data from config file')
-    household_adjustment = data_processing.read_dvector_from_config(
+    household_growth = data_processing.read_dvector_from_config(
         config=config,
         data_block='household_adjustment_data',
         key='rebase_data',
         geography_subset=gor
-    )
+    )[0]
 
     # read in the population adjustment data from the config file
     LOGGER.info(f'Importing population rebase data from config file')
@@ -729,128 +723,22 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     # loop through the supplied segmentations, aggregating the 2021 population
     # data to each of the segmentations provided and deriving a monovariate
-    # target for the IPF and adding it to the start if the rebase targets
+    # target for the IPF and adding it to the start of the rebase targets
     added_targets = []
     for segmentation in rebase_segments_to_maintain:
-        target = base_data.population.aggregate(segs=[segmentation])
+        if isinstance(segmentation, list):
+            target = base_data.population.aggregate(segs=segmentation)
+        else:
+            target = base_data.population.aggregate(segs=[segmentation])
         added_targets.append(target)
 
-    LOGGER.info(
-        f'{rebase_segments_to_maintain} added to population rebase IPF targets'
-    )
     population_adjustment_targets = added_targets + population_adjustment
 
     # --- Step 11 --- #
     LOGGER.info('--- Step 11 ---')
-    LOGGER.info('Rebasing households to 2023')
-
-    # get the 2023 addresses by dwelling type
-    # TODO: the way the config is set up means this will be a list of one DVector so for now am just popping the first one out, although maybe we should be more explicit about this
-    dwellings_rebase = household_adjustment[0]
-
-    LOGGER.info(f'Adjusting addressbase buildings to reflect unoccupied dwellings')
-    # apply factors of proportion of total households that are occupied by LSOA
-    adjusted_hh_rebase = dwellings_rebase * base_data.non_empty_proportion
-
-    # get proportions of households by segment and zone from the output of the
-    # base year IPFed households
-    hh_rebase = data_processing.apply_proportions(
-        source_dvector=base_data.households,
-        apply_to=adjusted_hh_rebase
-    )
-
-    # calculate unoccupied households
-    occupied_households = hh_rebase.aggregate(['accom_h'])
-
-    # calculate unoccupied households
-    unoccupied_households = occupied_households * base_data.unoccupied_factor
-
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.1_{gor}',
-        dvector=hh_rebase,
-        dvector_dimension='households',
-        output_level=OutputLevel.FINAL
-    )
-
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.2_{gor}',
-        dvector=occupied_households,
-        dvector_dimension='households',
-        output_level=OutputLevel.INTERMEDIATE
-    )
-
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11.3_{gor}',
-        dvector=unoccupied_households,
-        dvector_dimension='households',
-        output_level=OutputLevel.INTERMEDIATE
-    )
-
-    # clear data at the end of the loop
-    data_processing.clear_dvectors(
-        dwellings_rebase, unoccupied_households
-    )
-
-    # --- Step 12 --- #
-    LOGGER.info('--- Step 12 ---')
     LOGGER.info('Rebasing population to 2023')
-    LOGGER.info(f'Applying average occupancy to households')
-    # apply average occupancy by dwelling type
-    pop_rebase = hh_rebase * final_base_occupancy
-
-    # calculate expected population based in the addressbase "occupied" dwellings
-    addressbase_rebase = adjusted_hh_rebase * base_data.average_occupancy
-
-    # TODO: Review this. This step will correct the zone totals to match what's in our uplifted AddressBase. Is this going to give the correct number?
-    # Rebalance the zone totals
-    data_processing.rebalance_zone_totals(
-        input_dvector=pop_rebase,
-        desired_totals=addressbase_rebase
-    )
-
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P12.1_{gor}',
-        dvector=pop_rebase,
-        dvector_dimension='population',
-        output_level=OutputLevel.INTERMEDIATE
-    )
-
-    LOGGER.info(f'Applying population proportional splits to average occupancy')
-    # apply average occupancy by dwelling type
-    segmented_pop_rebase = data_processing.apply_proportions(
-        source_dvector=base_data.population,
-        apply_to=pop_rebase
-    )
-
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P12.2_{gor}',
-        dvector=segmented_pop_rebase,
-        dvector_dimension='population',
-        output_level=OutputLevel.INTERMEDIATE
-    )
-
-    # clear data at the end of the loop
-    data_processing.clear_dvectors(
-        pop_rebase, addressbase_rebase
-    )
-
-    # --- Step 13 --- #
-    LOGGER.info('--- Step 13 ---')
-
-    # applying IPF (adjusting totals to match P9 outputs)
-    LOGGER.info('Applying IPF for population rebase targets')
     rebased_pop, summary, differences = data_processing.apply_ipf(
-        seed_data=segmented_pop_rebase,
+        seed_data=base_data.population,
         target_dvectors=population_adjustment_targets,
         cache_folder=constants.CACHE_FOLDER,
         # todo change
@@ -860,24 +748,377 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P13_{gor}',
+        output_reference=f'Output P11_{gor}',
         dvector=rebased_pop,
         dvector_dimension='population',
-        detailed_logs=True,
         output_level=OutputLevel.FINAL
     )
     (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P13_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{gor}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-        file=f'Output P13_{gor}_VALIDATION.xlsx',
+        file=f'Output P11_{gor}_VALIDATION.xlsx',
         dfs=differences
     )
 
-    return rebased_pop, hh_rebase
+    # --- Step 12 --- #
+    LOGGER.info('--- Step 12 ---')
+    LOGGER.info('Rebasing households to 2023')
+
+    # get 2021 average occupancies by zone
+    census_occupancy = (
+            base_data.population.add_segments(['total']).aggregate(['total']) /
+            base_data.households.add_segments(['total']).aggregate(['total'])
+    )
+
+    # use this to derive approximate 2023 households totals by LSOA
+    rebase_hh_approx = rebased_pop.add_segments(['total']).aggregate(['total']) / census_occupancy
+
+    # calculate total growth in 2021 to 2023 households by district based on this
+    # approximation
+    rebased_hh_total = rebase_hh_approx.aggregate(["total"]).translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{gor}'),
+        cache_path=constants.CACHE_FOLDER
+    )
+    census_hh_total = base_data.households.add_segments(['total']).aggregate(["total"]).translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{gor}'),
+        cache_path=constants.CACHE_FOLDER
+    )
+    derived_growth = rebased_hh_total / census_hh_total
+
+    # compare this derived growth to the actual growth to get district based control factors
+    control_factors = household_growth / derived_growth
+
+    # translate the control factors back to LSOA
+    control_factors_lsoa = control_factors.translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+
+    # apply these control factors to the approximate 2023 households
+    rebase_hh = rebase_hh_approx * control_factors_lsoa
+
+    # apply household type splits from the 2021 data
+    rebase_hh = data_processing.apply_proportions(
+        source_dvector=base_data.households.add_segments(['total']),
+        apply_to=rebase_hh
+    ).aggregate(base_data.households.segmentation.names)
+
+    # derive household total targets based on growth applied to 2021 households
+    # at district level
+    rebase_household_target = census_hh_total * household_growth
+
+    # derive household constraints from population data (required occupancies)
+    household_occupancy_1_target = rebased_pop.aggregate(['adults', 'children']).filter_segment_value(
+        segment_name='adults', segment_values=[1]
+    ).filter_segment_value(
+        segment_name='children', segment_values=[1]
+    )
+    household_occupancy_2_target = rebased_pop.aggregate(['adults', 'children']).filter_segment_value(
+        segment_name='adults', segment_values=[2]
+    ).filter_segment_value(
+        segment_name='children', segment_values=[1]
+    ) / 2
+
+    household_adult_1_target = rebased_pop.aggregate(['adults', 'age_9']).filter_segment_value(
+        segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
+    ).filter_segment_value(
+        segment_name='adults', segment_values=[1]
+    ).aggregate(['adults'])
+    household_adult_2_target = (rebased_pop.aggregate(['adults', 'age_9']).filter_segment_value(
+        segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
+    ).filter_segment_value(
+        segment_name='adults', segment_values=[2]
+    ) / 2).aggregate(['adults'])
+
+    household_adjustment_targets = [
+        rebase_household_target, household_occupancy_1_target, household_occupancy_2_target,
+        household_adult_1_target, household_adult_2_target
+    ]
+    rebased_households, summary, differences = data_processing.apply_ipf(
+        seed_data=rebase_hh,
+        target_dvectors=household_adjustment_targets,
+        cache_folder=constants.CACHE_FOLDER,
+    )
+
+    # save output to hdf and csvs for checking
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P12_{gor}',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+    summary.to_csv(
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_{gor}_VALIDATION.csv',
+        float_format='%.5f', index=False
+    )
+    data_processing.write_to_excel(
+        output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+        file=f'Output P12_{gor}_VALIDATION.xlsx',
+        dfs=differences
+    )
+
+    # --- Step 13 --- #
+    LOGGER.info('--- Step 13 ---')
+    LOGGER.info('Applying occupancy rules to households')
+
+    LOGGER.info('Set households to 0 where there is 0 population')
+    # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
+    population_masking = rebased_pop.aggregate(['adults', 'children'])
+    population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
+    rebased_households = rebased_households * population_masking
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.1_{gor}',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+
+    LOGGER.info(
+        f'Cap maximum occupancies based on the '
+        f'{float(config["occupancy_cap_percentile"])}th percentile'
+    )
+    # get resulting occupancies by adults and children
+    resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(
+        ['adults', 'children'])
+
+    # get max_percentile cap by adult and children combination for all zones in the data
+    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
+    percentiles = resulting_occupancies.data.quantile(
+        q=float(config['occupancy_cap_percentile']), axis=1
+    ).rename(region_code).to_frame()
+
+    # convert the caps to DVector format at region level
+    percentiles = data_processing.create_dvector_from_data(
+        dvector_data=percentiles,
+        geographical_level='RGN2021',
+        input_segments=['adults', 'children'],
+        geography_subset=gor
+    )
+    # convert these percentiles to LSOA
+    percentiles = percentiles.translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = percentiles / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    rebased_households = rebased_households / control_factors
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.2_{gor}',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+
+    LOGGER.info(f'Cap minimum occupancies based on the household type')
+    # get resulting occupancies by adults and children
+    resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(
+        ['adults', 'children'])
+
+    # get lower caps by adult and children combinations
+    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
+    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame().reset_index()
+    lower_caps[region_code] = 0
+    lower_caps.loc[(lower_caps['adults'] == 1) & (lower_caps['children'] == 2), region_code] = 2
+    lower_caps.loc[(lower_caps['adults'] == 2) & (lower_caps['children'] == 2), region_code] = 3
+    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 2), region_code] = 4
+    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 1), region_code] = 3
+    lower_caps = lower_caps.set_index(['adults', 'children'])
+
+    # convert the caps to DVector format at region level
+    lower_caps = data_processing.create_dvector_from_data(
+        dvector_data=lower_caps,
+        geographical_level='RGN2021',
+        input_segments=['adults', 'children'],
+        geography_subset=gor
+    )
+    # convert these percentiles to LSOA
+    lower_caps = lower_caps.translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = lower_caps / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    rebased_households = rebased_households / control_factors
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.3_{gor}',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+
+
+
+
+    # # --- Step 11 --- #
+    # LOGGER.info('--- Step 11 ---')
+    # LOGGER.info('Rebasing households to 2023')
+    #
+    # # get the 2023 addresses by dwelling type
+    # # TODO: the way the config is set up means this will be a list of one DVector so for now am just popping the first one out, although maybe we should be more explicit about this
+    # dwellings_rebase = household_adjustment[0]
+    #
+    # LOGGER.info(f'Adjusting addressbase buildings to reflect unoccupied dwellings')
+    # # apply factors of proportion of total households that are occupied by LSOA
+    # adjusted_hh_rebase = dwellings_rebase * base_data.non_empty_proportion
+    #
+    # # get proportions of households by segment and zone from the output of the
+    # # base year IPFed households
+    # hh_rebase = data_processing.apply_proportions(
+    #     source_dvector=base_data.households,
+    #     apply_to=adjusted_hh_rebase
+    # )
+    #
+    # # calculate unoccupied households
+    # occupied_households = hh_rebase.aggregate(['accom_h'])
+    #
+    # # calculate unoccupied households
+    # unoccupied_households = occupied_households * base_data.unoccupied_factor
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P11.1_{gor}',
+    #     dvector=hh_rebase,
+    #     dvector_dimension='households',
+    #     output_level=OutputLevel.FINAL
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P11.2_{gor}',
+    #     dvector=occupied_households,
+    #     dvector_dimension='households',
+    #     output_level=OutputLevel.INTERMEDIATE
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P11.3_{gor}',
+    #     dvector=unoccupied_households,
+    #     dvector_dimension='households',
+    #     output_level=OutputLevel.INTERMEDIATE
+    # )
+    #
+    # # clear data at the end of the loop
+    # data_processing.clear_dvectors(
+    #     dwellings_rebase, unoccupied_households
+    # )
+    #
+    # # --- Step 12 --- #
+    # LOGGER.info('--- Step 12 ---')
+    # LOGGER.info('Rebasing population to 2023')
+    # LOGGER.info(f'Applying average occupancy to households')
+    # # apply average occupancy by dwelling type
+    # pop_rebase = hh_rebase * final_base_occupancy
+    #
+    # # calculate expected population based in the addressbase "occupied" dwellings
+    # addressbase_rebase = adjusted_hh_rebase * base_data.average_occupancy
+    #
+    # # TODO: Review this. This step will correct the zone totals to match what's in our uplifted AddressBase. Is this going to give the correct number?
+    # # Rebalance the zone totals
+    # data_processing.rebalance_zone_totals(
+    #     input_dvector=pop_rebase,
+    #     desired_totals=addressbase_rebase
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P12.1_{gor}',
+    #     dvector=pop_rebase,
+    #     dvector_dimension='population',
+    #     output_level=OutputLevel.INTERMEDIATE
+    # )
+    #
+    # LOGGER.info(f'Applying population proportional splits to average occupancy')
+    # # apply average occupancy by dwelling type
+    # segmented_pop_rebase = data_processing.apply_proportions(
+    #     source_dvector=base_data.population,
+    #     apply_to=pop_rebase
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P12.2_{gor}',
+    #     dvector=segmented_pop_rebase,
+    #     dvector_dimension='population',
+    #     output_level=OutputLevel.INTERMEDIATE
+    # )
+    #
+    # # clear data at the end of the loop
+    # data_processing.clear_dvectors(
+    #     pop_rebase, addressbase_rebase
+    # )
+    #
+    # # --- Step 13 --- #
+    # LOGGER.info('--- Step 13 ---')
+    #
+    # # applying IPF (adjusting totals to match P9 outputs)
+    # LOGGER.info('Applying IPF for population rebase targets')
+    # rebased_pop, summary, differences = data_processing.apply_ipf(
+    #     seed_data=segmented_pop_rebase,
+    #     target_dvectors=population_adjustment_targets,
+    #     cache_folder=constants.CACHE_FOLDER,
+    #     # todo change
+    #     target_dvector=population_adjustment[0],
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P13_{gor}',
+    #     dvector=rebased_pop,
+    #     dvector_dimension='population',
+    #     detailed_logs=True,
+    #     output_level=OutputLevel.FINAL
+    # )
+    # (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+    # summary.to_csv(
+    #     OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P13_{gor}_VALIDATION.csv',
+    #     float_format='%.5f', index=False
+    # )
+    # data_processing.write_to_excel(
+    #     output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+    #     file=f'Output P13_{gor}_VALIDATION.xlsx',
+    #     dfs=differences
+    # )
+
+    return rebased_pop, rebased_households
 
 
 # TODO: expand on the documentation here
@@ -943,8 +1184,8 @@ else:
 LOGGER.info('Applying regional profiles to Scotland population data')
 area_type_agg = []
 for gor in config['scotland_donor_regions']:
-    LOGGER.debug(f'Re-reading P13 for {gor}')
-    final_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_{gor}.hdf')
+    LOGGER.debug(f'Re-reading P11 for {gor}')
+    final_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_{gor}.hdf')
     area_type_agg.append(
         final_pop.translate_zoning(constants.TFN_AT_AGG_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER)
     )
@@ -978,7 +1219,7 @@ scotland_hydrated = scotland_hydrated.aggregate(
 
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13_Scotland',
+    output_reference=f'Output P13.3_Scotland',
     dvector=scotland_hydrated,
     dvector_dimension='population',
     detailed_logs=True,
