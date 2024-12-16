@@ -126,6 +126,18 @@ def constrain_to_lad_totals_w_farmers_adj(
         msoa_dv:DVector, 
         lsoa_dv:DVector
     ) -> tuple[DVector, DVector]:
+    """Adjust the msoa and lsoa DVectors to have the same number of jobs as the lad DVector. In addition the farmer totals at lad are distributed to msoa and lsoa.
+    The adjustment is needed because of the masking applied means that the farmers numbers are not reported for geographies below LAD.
+
+    Args:
+        lad_dv (DVector): The lad DVector used as the constraint
+        msoa_dv (DVector): The msoa DVector to be constrained
+        lsoa_dv (DVector): The lsoa DVector to be constrained
+
+    Returns:
+        tuple[DVector, DVector]: The ajdusted lsoa and mosa dvectors
+    """
+        
     LOGGER.info(
         'parameters specify that we want to apply farmers adjustment (taking farmers numbers from lad and distributing to msoa/lsoa)'
     )
@@ -267,6 +279,16 @@ def constrain_to_lad_totals(
         msoa_dv:DVector, 
         lsoa_dv:DVector
     ) -> tuple[DVector, DVector]:
+    """Adjust the msoa and lsoa DVectors to have the same number of jobs as the lad DVector
+
+    Args:
+        lad_dv (DVector): The lad DVector used as the constraint
+        msoa_dv (DVector): The msoa DVector to be constrained
+        lsoa_dv (DVector): The lsoa DVector to be constrained
+
+    Returns:
+        tuple[DVector, DVector]: The ajdusted lsoa and mosa dvectors
+    """
     lad_2011_2_digit_sic = (
         msoa_dv.translate_zoning(
             new_zoning=constants.LAD_EWS_ZONING_SYSTEM,
