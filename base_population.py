@@ -1219,7 +1219,7 @@ scotland_hydrated = scotland_hydrated.aggregate(
 
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13.3_Scotland',
+    output_reference=f'Output P11_Scotland',
     dvector=scotland_hydrated,
     dvector_dimension='population',
     detailed_logs=True,
