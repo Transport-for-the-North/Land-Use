@@ -34,12 +34,12 @@ LOGGER = lu_logging.configure_logger(
 )
 
 # SCOTLAND-SPECIFIC PROCESSING
-LOGGER.info('Read in Scotland population data created in step 13 of population')
-scot_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P13_Scotland.hdf')
+LOGGER.info('Read in Scotland population data created in step 11 of population')
+scot_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_Scotland.hdf')
 
 # collapse segmentation to household-specific segmentations (i.e. remove population segmentation)
 aggregated_pop = scot_pop.aggregate(
-    segs=['accom_h', 'ns_sec', 'adults', 'children', 'car_availability']
+    segs=['accom_h', 'ns_sec', 'adults', 'children', 'car_availability', 'adult_nssec']
 )
 
 # Clear out the massive DVector for scotland (in case of memory issues)
@@ -126,7 +126,7 @@ england_occupancy_scotland_zoning = england_average_occupancy.translate_zoning(
 scotland_hydrated = aggregated_pop / england_occupancy_scotland_zoning
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
-    output_reference=f'Output P11.1_Scotland',
+    output_reference=f'Output P13.3_Scotland',
     dvector=scotland_hydrated,
     dvector_dimension='households',
     detailed_logs=True,
@@ -134,40 +134,40 @@ data_processing.save_output(
 )
 
 # calculate occupied households
-occupied_households = scotland_hydrated.aggregate(['accom_h'])
-
-# calculate unoccupied households
-empty_proportion = (england_unocc_totals / england_occ_totals)
-empty_proportion._data = empty_proportion._data.replace(np.inf, np.nan)
-# infill missing occupancies with average value of other properties in the zone
-# i.e. based on column
-empty_proportion._data = empty_proportion._data.fillna(
-    empty_proportion._data.mean(axis=0), axis=0
-)
-unoccupied_households = occupied_households * empty_proportion.translate_zoning(
-    constants.SCOTLAND_DZONE_ZONING_SYSTEM,
-    cache_path=constants.CACHE_FOLDER,
-    weighting=TranslationWeighting.NO_WEIGHT,
-    check_totals=False
-)
-
-# save outputs
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P11.2_Scotland',
-    dvector=occupied_households,
-    dvector_dimension='households',
-    detailed_logs=True,
-    output_level=OutputLevel.INTERMEDIATE
-)
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P11.3_Scotland',
-    dvector=unoccupied_households,
-    dvector_dimension='households',
-    detailed_logs=True,
-    output_level=OutputLevel.INTERMEDIATE
-)
+# occupied_households = scotland_hydrated.aggregate(['accom_h'])
+#
+# # calculate unoccupied households
+# empty_proportion = (england_unocc_totals / england_occ_totals)
+# empty_proportion._data = empty_proportion._data.replace(np.inf, np.nan)
+# # infill missing occupancies with average value of other properties in the zone
+# # i.e. based on column
+# empty_proportion._data = empty_proportion._data.fillna(
+#     empty_proportion._data.mean(axis=0), axis=0
+# )
+# unoccupied_households = occupied_households * empty_proportion.translate_zoning(
+#     constants.SCOTLAND_DZONE_ZONING_SYSTEM,
+#     cache_path=constants.CACHE_FOLDER,
+#     weighting=TranslationWeighting.NO_WEIGHT,
+#     check_totals=False
+# )
+#
+# # save outputs
+# data_processing.save_output(
+#     output_folder=OUTPUT_DIR,
+#     output_reference=f'Output P11.2_Scotland',
+#     dvector=occupied_households,
+#     dvector_dimension='households',
+#     detailed_logs=True,
+#     output_level=OutputLevel.INTERMEDIATE
+# )
+# data_processing.save_output(
+#     output_folder=OUTPUT_DIR,
+#     output_reference=f'Output P11.3_Scotland',
+#     dvector=unoccupied_households,
+#     dvector_dimension='households',
+#     detailed_logs=True,
+#     output_level=OutputLevel.INTERMEDIATE
+# )
 
 # checks on the output dvector
 # df = scotland_hydrated.data.copy()
