@@ -691,13 +691,6 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
 def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector]:
 
-    # # calculate average occupancy by all household variables from the base year
-    # # post-IPFed households and population
-    # final_base_occupancy = (
-    #     base_data.population.aggregate(list(base_data.households.segmentation.overlap(base_data.population.segmentation)))
-    #     / base_data.households
-    # )
-
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household rebase data from config file')
     household_growth = data_processing.read_dvector_from_config(
