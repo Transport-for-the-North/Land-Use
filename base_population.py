@@ -814,31 +814,57 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     rebase_household_target = census_hh_total * household_growth
 
     # derive household constraints from population data (required occupancies)
-    household_occupancy_1_target = rebased_pop.aggregate(['adults', 'children']).filter_segment_value(
-        segment_name='adults', segment_values=[1]
+    # adult population in 1 adult households with no children should match number of households with 1 adult and no children
+    household_adult_1_children_1_target = data_processing.filter_to_adults(
+        rebased_pop
     ).filter_segment_value(
         segment_name='children', segment_values=[1]
+    ).filter_segment_value(
+        segment_name='adults', segment_values=[1]
+    ).aggregate(['adults', 'children'])
+    household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
     )
-    household_occupancy_2_target = rebased_pop.aggregate(['adults', 'children']).filter_segment_value(
-        segment_name='adults', segment_values=[2]
-    ).filter_segment_value(
-        segment_name='children', segment_values=[1]
-    ) / 2
 
-    household_adult_1_target = rebased_pop.aggregate(['adults', 'age_9']).filter_segment_value(
-        segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
+    # adult population in 1 adult households with children should match number of households with 1 adult and children
+    household_adult_1_children_2_target = data_processing.filter_to_adults(
+        rebased_pop
+    ).filter_segment_value(
+        segment_name='children', segment_values=[2]
     ).filter_segment_value(
         segment_name='adults', segment_values=[1]
-    ).aggregate(['adults'])
-    household_adult_2_target = (rebased_pop.aggregate(['adults', 'age_9']).filter_segment_value(
-        segment_name='age_9', segment_values=[4, 5, 6, 7, 8, 9]
+    ).aggregate(['adults', 'children'])
+    household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with no children should be double number of households with 2 adult and no children
+    household_adult_2_children_1_target = (data_processing.filter_to_adults(
+        rebased_pop
+    ).filter_segment_value(
+        segment_name='children', segment_values=[1]
     ).filter_segment_value(
         segment_name='adults', segment_values=[2]
-    ) / 2).aggregate(['adults'])
+    ) / 2).aggregate(['adults', 'children'])
+    household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with children should be double number of households with 2 adult and children
+    household_adult_2_children_2_target = (data_processing.filter_to_adults(
+        rebased_pop
+    ).filter_segment_value(
+        segment_name='children', segment_values=[2]
+    ).filter_segment_value(
+        segment_name='adults', segment_values=[2]
+    ) / 2).aggregate(['adults', 'children'])
+    household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
 
     household_adjustment_targets = [
-        rebase_household_target, household_occupancy_1_target, household_occupancy_2_target,
-        household_adult_1_target, household_adult_2_target
+        household_adult_1_children_1_target, household_adult_1_children_2_target,
+        household_adult_2_children_1_target, household_adult_2_children_2_target, rebase_household_target
     ]
     rebased_households, summary, differences = data_processing.apply_ipf(
         seed_data=rebase_hh,
@@ -889,8 +915,10 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         f'{float(config["occupancy_cap_percentile"])}th percentile'
     )
     # get resulting occupancies by adults and children
-    resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(
-        ['adults', 'children'])
+    resulting_occupancies = (
+            rebased_pop.aggregate(['adults', 'children'])
+            / rebased_households.aggregate(['adults', 'children'])
+    )
 
     # get max_percentile cap by adult and children combination for all zones in the data
     region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
@@ -932,16 +960,18 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     LOGGER.info(f'Cap minimum occupancies based on the household type')
     # get resulting occupancies by adults and children
-    resulting_occupancies = rebased_pop.aggregate(['adults', 'children']) / rebased_households.aggregate(
-        ['adults', 'children'])
+    resulting_occupancies = (
+            data_processing.filter_to_adults(rebased_pop).aggregate(['adults', 'children'])
+            / rebased_households.aggregate(['adults', 'children'])
+    )
 
     # get lower caps by adult and children combinations
     region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
     lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame().reset_index()
     lower_caps[region_code] = 0
-    lower_caps.loc[(lower_caps['adults'] == 1) & (lower_caps['children'] == 2), region_code] = 2
-    lower_caps.loc[(lower_caps['adults'] == 2) & (lower_caps['children'] == 2), region_code] = 3
-    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 2), region_code] = 4
+    lower_caps.loc[(lower_caps['adults'] == 1) & (lower_caps['children'] == 2), region_code] = 1
+    lower_caps.loc[(lower_caps['adults'] == 2) & (lower_caps['children'] == 2), region_code] = 2
+    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 2), region_code] = 3
     lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 1), region_code] = 3
     lower_caps = lower_caps.set_index(['adults', 'children'])
 
@@ -1072,11 +1102,13 @@ scotland_hydrated = data_processing.apply_proportions(
     source_dvector=england_totals_scotland_zoning, apply_to=scotland_population
 )
 
+# get rid of any additional segmentations that aren't required
 LOGGER.debug('Removing any superfluous segments from Scotland data')
 scotland_hydrated = scotland_hydrated.aggregate(
     england_totals.segmentation
 )
 
+# save output to hdf
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
     output_reference=f'Output P11_Scotland',

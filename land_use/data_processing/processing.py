@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 import warnings
 import psutil
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Union, Optional, Tuple
 from functools import reduce
 
 from caf.base.data_structures import DVector, IpfTarget
@@ -920,3 +920,45 @@ def translate_and_combine_dvectors(
         del example_output
 
     return totals
+
+
+def filter_to_adults(
+        dvec: DVector,
+        age_segmentation: str = 'age_9',
+        adult_categories: Tuple[int] = (4, 5, 6, 7, 8, 9)
+) -> DVector:
+    """Filter a DVector to the adult age groups. This assumes that
+    age_segmentation (e.g. age_9) is in the current segmentation of the DVector,
+    otherwise this function will have no effect.
+
+    Parameters
+    ----------
+    dvec: DVector
+        Data to filter to only adult age groups. Assumed to have
+        `adult_segmentation` in the dvec.segmentation.names, otherwise this
+        function will return the original DVector.
+    age_segmentation: str, default 'age_9'
+        Segmentation name of the age category. Typically defined in SegmentsSuper.
+    adult_categories: Tuple[int], default (4, 5, 6, 7, 8, 9)
+        Values of the Segmentation that relate to the adult age groups of the
+        age_segmentation name. Again, see SegmentsSuper for definitions.
+
+    Returns
+    -------
+    DVector
+        dvec with only `age_segmentation` categories `adult_categories`, or dvec
+        if `age_segmentation` is not in dvec.segmentation.names.
+
+    """
+
+    # check if the segmentation is in the DVector
+    if not age_segmentation in dvec.segmentation.names:
+        LOGGER.warning(
+            f'{age_segmentation} is not in the provided DVector. This function '
+            f'will have no effect. Returning original DVector.'
+        )
+        return dvec
+
+    return dvec.filter_segment_value(
+        segment_name=age_segmentation, segment_values=list(adult_categories)
+    )
