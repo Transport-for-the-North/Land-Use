@@ -20,8 +20,6 @@ from land_use.data_processing import OutputLevel
 class BaseYearPopulationData:
     population: DVector
     households: DVector
-    average_occupancy: DVector
-    non_empty_proportion: DVector
     unoccupied_factor: DVector
 
     @classmethod
@@ -32,8 +30,6 @@ class BaseYearPopulationData:
         return BaseYearPopulationData(
             population=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P10{identifier}.hdf', cut_read=True),
             households=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P4.3{identifier}.hdf', cut_read=True),
-            average_occupancy=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.3{identifier}.hdf', cut_read=True),
-            non_empty_proportion=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.4{identifier}.hdf', cut_read=True),
             unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
         )
 
@@ -688,7 +684,6 @@ def process_base(
 
     return BaseYearPopulationData(
         population=ipfed_pop, households=rebalanced_hh,
-        average_occupancy=average_occupancy, non_empty_proportion=non_empty_proportion,
         unoccupied_factor=unoccupied_factor
     )
 
@@ -1010,6 +1005,29 @@ def rebase(
         output_folder=OUTPUT_DIR,
         output_reference=f'Output P13.3_{geography_subset}',
         dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+
+    # --- Step 14 --- #
+    LOGGER.info('--- Step 14 ---')
+    LOGGER.info('Getting occupied and unoccupied dwellings')
+
+    occupied_households = rebased_households.aggregate(['accom_h'])
+    unoccupied_households = occupied_households * base_year_data.unoccupied_factor
+
+    # save outputs to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P14.1_{geography_subset}',
+        dvector=occupied_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P14.2_{geography_subset}',
+        dvector=unoccupied_households,
         dvector_dimension='households',
         output_level=OutputLevel.FINAL
     )
