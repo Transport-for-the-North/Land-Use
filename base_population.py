@@ -967,13 +967,19 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     # get lower caps by adult and children combinations
     region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
-    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame().reset_index()
+    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
     lower_caps[region_code] = 0
-    lower_caps.loc[(lower_caps['adults'] == 1) & (lower_caps['children'] == 2), region_code] = 1
-    lower_caps.loc[(lower_caps['adults'] == 2) & (lower_caps['children'] == 2), region_code] = 2
-    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 2), region_code] = 3
-    lower_caps.loc[(lower_caps['adults'] == 3) & (lower_caps['children'] == 1), region_code] = 3
-    lower_caps = lower_caps.set_index(['adults', 'children'])
+    min_caps = {
+        (1, 2): 1,
+        (2, 2): 2,
+        (3, 1): 3,
+        (3, 2): 3
+    }
+    for (adults, children), min_cap in min_caps.items():
+        lower_caps[
+            (lower_caps.index.get_level_values('adults') == adults) &
+            (lower_caps.index.get_level_values('children') == children)
+        ] = min_cap
 
     # convert the caps to DVector format at region level
     lower_caps = data_processing.create_dvector_from_data(
