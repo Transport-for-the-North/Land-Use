@@ -37,100 +37,103 @@ class BaseYearPopulationData:
             unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
         )
 
-def process_base(config, gor: str) -> BaseYearPopulationData:
+def process_base(
+        configuration: dict,
+        geography_subset: str
+) -> BaseYearPopulationData:
     # --- Step 0 --- #
     # read in the base data from the config file
     block = 'base_data'
     LOGGER.info(f'Importing base data from config file ({block} block)')
     occupied_households = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='occupied_households',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     unoccupied_households = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='unoccupied_households',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ons_table_1 = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ons_table_1',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     addressbase_dwellings = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='addressbase_dwellings',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ons_table_2 = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ons_table_2',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ons_table_4 = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ons_table_4',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     hh_age_gender_2021 = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='hh_age_gender_2021',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ons_table_3 = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ons_table_3',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ce_uplift_factor = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ce_uplift_factor',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ce_pop_by_type = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ce_pop_by_type',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ce_pop_by_age_gender_soc = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ce_pop_by_age_gender_soc',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     ce_pop_by_age_gender_econ = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block=block,
         key='ce_pop_by_age_gender_econ',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
 
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household validation data from config file ({block} block)')
     household_adjustment = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block='household_adjustment_data',
         key='validation_data',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
 
     # read in the population adjustment data from the config file
     LOGGER.info(f'Importing population adjustment data from config file ({block} block)')
     population_adjustment = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block='population_adjustment_data',
         key='validation_data',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
 
     # --- Step 1 --- #
@@ -177,35 +180,35 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P1.1_{gor}',
+        output_reference=f'Output P1.1_{geography_subset}',
         dvector=occupied_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P1.2_{gor}',
+        output_reference=f'Output P1.2_{geography_subset}',
         dvector=unoccupied_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P1.3_{gor}',
+        output_reference=f'Output P1.3_{geography_subset}',
         dvector=average_occupancy,
         dvector_dimension='occupancy',
         output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P1.4_{gor}',
+        output_reference=f'Output P1.4_{geography_subset}',
         dvector=non_empty_proportion,
         dvector_dimension='factor',
         output_level=OutputLevel.INTERMEDIATE
     )
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P1.5_{gor}',
+        output_reference=f'Output P1.5_{geography_subset}',
         dvector=unoccupied_factor,
         dvector_dimension='factor',
         output_level=OutputLevel.INTERMEDIATE
@@ -226,7 +229,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P2_{gor}',
+        output_reference=f'Output P2_{geography_subset}',
         dvector=adjusted_addressbase_dwellings,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -249,7 +252,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P3_{gor}',
+        output_reference=f'Output P3_{geography_subset}',
         dvector=hh_by_nssec,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -266,7 +269,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     LOGGER.info('Converting ONS Table 2 to LSOA level (only to be used in proportions, totals will be wrong)')
     # expand these factors to LSOA level
     ons_table_2_lsoa = ons_table_2.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -287,7 +290,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P4.1_{gor}',
+        output_reference=f'Output P4.1_{geography_subset}',
         dvector=hh_by_nssec_hc_ha_car,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -309,18 +312,18 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P4.2_{gor}',
+        output_reference=f'Output P4.2_{geography_subset}',
         dvector=internal_rebalanced_hh,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.2_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.2_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
-        file=f'Output P4.2_{gor}_VALIDATION.xlsx',
+        file=f'Output P4.2_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -335,18 +338,18 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P4.3_{gor}',
+        output_reference=f'Output P4.3_{geography_subset}',
         dvector=rebalanced_hh,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.3_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P4.3_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
-        file=f'Output P4.3_{gor}_VALIDATION.xlsx',
+        file=f'Output P4.3_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -378,7 +381,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P5_{gor}',
+        output_reference=f'Output P5_{geography_subset}',
         dvector=pop_by_nssec_hc_ha_car,
         dvector_dimension='population',
         output_level=OutputLevel.INTERMEDIATE
@@ -395,7 +398,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
                 f'(only to be used in proportions, totals will be wrong)')
     # convert to LSOA
     hh_age_gender_2021_lsoa = hh_age_gender_2021.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -416,7 +419,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P6_{gor}',
+        output_reference=f'Output P6_{geography_subset}',
         dvector=pop_by_nssec_hc_ha_car_gender_age,
         dvector_dimension='population',
         output_level=OutputLevel.INTERMEDIATE
@@ -433,7 +436,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
                 '(only to be used in proportions, totals will be wrong)')
     # convert the factors back to LSOA
     ons_table_3_lsoa = ons_table_3.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -459,7 +462,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P7_{gor}',
+        output_reference=f'Output P7_{geography_subset}',
         dvector=pop_by_nssec_hc_ha_car_gender_age_econ_emp_soc,
         dvector_dimension='population',
         output_level=OutputLevel.INTERMEDIATE
@@ -490,7 +493,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     # translate the MSOA based CE-type splits to LSOA
     ce_type_splits_lsoa = ce_type_splits.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -505,7 +508,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     # translate the gor based splits to LSOA
     ce_econ_splits_lsoa = ce_econ_splits.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -520,7 +523,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
 
     # translate the gor based splits to LSOA
     ce_soc_splits_lsoa = ce_soc_splits.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -579,7 +582,7 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P8_{gor}',
+        output_reference=f'Output P8_{geography_subset}',
         dvector=adjusted_pop,
         dvector_dimension='population',
         detailed_logs=True,
@@ -620,19 +623,19 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P9_{gor}',
+        output_reference=f'Output P9_{geography_subset}',
         dvector=rebalanced_pop,
         dvector_dimension='population',
         detailed_logs=True,
         output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P9_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P9_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
-        file=f'Output P9_{gor}_VALIDATION.xlsx',
+        file=f'Output P9_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -662,19 +665,19 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P10_{gor}',
+        output_reference=f'Output P10_{geography_subset}',
         dvector=ipfed_pop,
         dvector_dimension='population',
         detailed_logs=True,
         output_level=OutputLevel.INTERMEDIATE
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P10_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P10_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
-        file=f'Output P10_{gor}_VALIDATION.xlsx',
+        file=f'Output P10_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -689,28 +692,32 @@ def process_base(config, gor: str) -> BaseYearPopulationData:
         unoccupied_factor=unoccupied_factor
     )
 
-def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector]:
+def rebase(
+        configuration: dict,
+        base_year_data: BaseYearPopulationData,
+        geography_subset: str
+) -> Tuple[DVector]:
 
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household rebase data from config file')
     household_growth = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block='household_adjustment_data',
         key='rebase_data',
-        geography_subset=gor
+        geography_subset=geography_subset
     )[0]
 
     # read in the population adjustment data from the config file
     LOGGER.info(f'Importing population rebase data from config file')
     population_adjustment = data_processing.read_dvector_from_config(
-        config=config,
+        config=configuration,
         data_block='population_adjustment_data',
         key='rebase_data',
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     # bring in segmentations to maintain from the 2021 build datasets
     # try looking for `rebase_segments_to_maintain` key and log if not provided
-    rebase_segments_to_maintain = config['population_adjustment_data'].get(
+    rebase_segments_to_maintain = configuration['population_adjustment_data'].get(
         'rebase_segments_to_maintain', []
     )
 
@@ -720,9 +727,9 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     added_targets = []
     for segmentation in rebase_segments_to_maintain:
         if isinstance(segmentation, list):
-            target = base_data.population.aggregate(segs=segmentation)
+            target = base_year_data.population.aggregate(segs=segmentation)
         else:
-            target = base_data.population.aggregate(segs=[segmentation])
+            target = base_year_data.population.aggregate(segs=[segmentation])
         added_targets.append(target)
 
     population_adjustment_targets = added_targets + population_adjustment
@@ -731,7 +738,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     LOGGER.info('--- Step 11 ---')
     LOGGER.info('Rebasing population to 2023')
     rebased_pop, summary, differences = data_processing.apply_ipf(
-        seed_data=base_data.population,
+        seed_data=base_year_data.population,
         target_dvectors=population_adjustment_targets,
         cache_folder=constants.CACHE_FOLDER,
         # todo change
@@ -741,19 +748,19 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11_{gor}',
+        output_reference=f'Output P11_{geography_subset}',
         dvector=rebased_pop,
         dvector_dimension='population',
         output_level=OutputLevel.FINAL
     )
     (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-        file=f'Output P11_{gor}_VALIDATION.xlsx',
+        file=f'Output P11_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -763,8 +770,8 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     # get 2021 average occupancies by zone
     census_occupancy = (
-            base_data.population.add_segments(['total']).aggregate(['total']) /
-            base_data.households.add_segments(['total']).aggregate(['total'])
+            base_year_data.population.add_segments(['total']).aggregate(['total']) /
+            base_year_data.households.add_segments(['total']).aggregate(['total'])
     )
 
     # use this to derive approximate 2023 households totals by LSOA
@@ -773,11 +780,11 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # calculate total growth in 2021 to 2023 households by district based on this
     # approximation
     rebased_hh_total = rebase_hh_approx.aggregate(["total"]).translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER
     )
-    census_hh_total = base_data.households.add_segments(['total']).aggregate(["total"]).translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{gor}'),
+    census_hh_total = base_year_data.households.add_segments(['total']).aggregate(["total"]).translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LAD2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER
     )
     derived_growth = rebased_hh_total / census_hh_total
@@ -787,7 +794,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     # translate the control factors back to LSOA
     control_factors_lsoa = control_factors.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -798,9 +805,9 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     # apply household type splits from the 2021 data
     rebase_hh = data_processing.apply_proportions(
-        source_dvector=base_data.households.add_segments(['total']),
+        source_dvector=base_year_data.households.add_segments(['total']),
         apply_to=rebase_hh
-    ).aggregate(base_data.households.segmentation.names)
+    ).aggregate(base_year_data.households.segmentation.names)
 
     # derive household total targets based on growth applied to 2021 households
     # at district level
@@ -868,19 +875,19 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf and csvs for checking
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P12_{gor}',
+        output_reference=f'Output P12_{geography_subset}',
         dvector=rebased_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
     )
     (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_{gor}_VALIDATION.csv',
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_{geography_subset}_VALIDATION.csv',
         float_format='%.5f', index=False
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-        file=f'Output P12_{gor}_VALIDATION.xlsx',
+        file=f'Output P12_{geography_subset}_VALIDATION.xlsx',
         dfs=differences
     )
 
@@ -897,7 +904,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P13.1_{gor}',
+        output_reference=f'Output P13.1_{geography_subset}',
         dvector=rebased_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -905,7 +912,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
 
     LOGGER.info(
         f'Cap maximum occupancies based on the '
-        f'{float(config["occupancy_cap_percentile"])}th percentile'
+        f'{float(configuration["occupancy_cap_percentile"])}th percentile'
     )
     # get resulting occupancies by adults and children
     resulting_occupancies = (
@@ -914,9 +921,9 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     )
 
     # get max_percentile cap by adult and children combination for all zones in the data
-    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
+    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{geography_subset}').zone_ids[0]
     percentiles = resulting_occupancies.data.quantile(
-        q=float(config['occupancy_cap_percentile']), axis=1
+        q=float(configuration['occupancy_cap_percentile']), axis=1
     ).rename(region_code).to_frame()
 
     # convert the caps to DVector format at region level
@@ -924,11 +931,11 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         dvector_data=percentiles,
         geographical_level='RGN2021',
         input_segments=['adults', 'children'],
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     # convert these percentiles to LSOA
     percentiles = percentiles.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -945,7 +952,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P13.2_{gor}',
+        output_reference=f'Output P13.2_{geography_subset}',
         dvector=rebased_households,
         dvector_dimension='households',
         output_level=OutputLevel.INTERMEDIATE
@@ -959,7 +966,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     )
 
     # get lower caps by adult and children combinations
-    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{gor}').zone_ids[0]
+    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{geography_subset}').zone_ids[0]
     lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
     lower_caps[region_code] = 0
     min_caps = {
@@ -979,11 +986,11 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         dvector_data=lower_caps,
         geographical_level='RGN2021',
         input_segments=['adults', 'children'],
-        geography_subset=gor
+        geography_subset=geography_subset
     )
     # convert these percentiles to LSOA
     lower_caps = lower_caps.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{gor}'),
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
         check_totals=False
@@ -1001,7 +1008,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
     # save output to hdf
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output P13.3_{gor}',
+        output_reference=f'Output P13.3_{geography_subset}',
         dvector=rebased_households,
         dvector_dimension='households',
         output_level=OutputLevel.FINAL
@@ -1053,9 +1060,9 @@ if not run_scotland_only:
         except (KeyError, FileNotFoundError) as e:
             if isinstance(e, FileNotFoundError):
                 LOGGER.warning('Base year data could not be found. Attempting to re-process')
-            base_data = process_base(config, gor=GOR)
+            base_data = process_base(config, geography_subset=GOR)
 
-        rebase(config, base_data, gor=GOR)
+        rebase(config, base_data, geography_subset=GOR)
 
         # trying to delete data to save memory to hopefully allow scotland
         # processing to run subsequently, currently crashes with memory error
