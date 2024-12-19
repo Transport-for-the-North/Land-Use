@@ -878,7 +878,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_reference=f'Output P12_{gor}',
         dvector=rebased_households,
         dvector_dimension='households',
-        output_level=OutputLevel.FINAL
+        output_level=OutputLevel.INTERMEDIATE
     )
     (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
     summary.to_csv(
@@ -907,7 +907,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_reference=f'Output P13.1_{gor}',
         dvector=rebased_households,
         dvector_dimension='households',
-        output_level=OutputLevel.FINAL
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     LOGGER.info(
@@ -955,7 +955,7 @@ def rebase(config, base_data: BaseYearPopulationData, gor: str) -> Tuple[DVector
         output_reference=f'Output P13.2_{gor}',
         dvector=rebased_households,
         dvector_dimension='households',
-        output_level=OutputLevel.FINAL
+        output_level=OutputLevel.INTERMEDIATE
     )
 
     LOGGER.info(f'Cap minimum occupancies based on the household type')
