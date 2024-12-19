@@ -2,6 +2,7 @@ from pathlib import Path
 from warnings import warn
 import logging
 from typing import Optional, Union
+from dataclasses import dataclass
 
 from caf.base.data_structures import DVector
 from caf.base.segmentation import Segmentation, SegmentationInput
@@ -9,8 +10,26 @@ import pandas as pd
 
 from land_use.constants import segments
 from land_use.constants.geographies import KNOWN_GEOGRAPHIES
+from land_use.data_processing.outputs import OutputLevel
 
 LOGGER = logging.getLogger(__name__)
+
+@dataclass
+class BaseYearPopulationData:
+    population: DVector
+    households: DVector
+    unoccupied_factor: DVector
+
+    @classmethod
+    def from_folder(cls, folder_path: Path, identifier: str = ''):
+        LOGGER.info(
+            f'Loading base year data from {folder_path}'
+        )
+        return BaseYearPopulationData(
+            population=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P10{identifier}.hdf', cut_read=True),
+            households=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P4.3{identifier}.hdf', cut_read=True),
+            unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
+        )
 
 
 def read_dvector_data(

@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from dataclasses import dataclass
 from functools import reduce
 from pathlib import Path
 from typing import Tuple
@@ -13,25 +12,8 @@ import numpy as np
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
-from land_use.data_processing import OutputLevel
+from land_use.data_processing import OutputLevel, BaseYearPopulationData
 
-
-@dataclass
-class BaseYearPopulationData:
-    population: DVector
-    households: DVector
-    unoccupied_factor: DVector
-
-    @classmethod
-    def from_folder(cls, folder_path: Path, identifier: str = ''):
-        LOGGER.info(
-            f'Loading base year data from {folder_path}'
-        )
-        return BaseYearPopulationData(
-            population=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P10{identifier}.hdf', cut_read=True),
-            households=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P4.3{identifier}.hdf', cut_read=True),
-            unoccupied_factor=DVector.load(folder_path  / OutputLevel.INTERMEDIATE/ f'Output P1.5{identifier}.hdf', cut_read=True),
-        )
 
 def process_base(
         configuration: dict,
