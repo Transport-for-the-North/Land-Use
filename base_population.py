@@ -714,32 +714,34 @@ def rebase(
     # --- Step 11 --- #
     LOGGER.info('--- Step 11 ---')
     LOGGER.info('Rebasing population to 2023')
-    rebased_pop, summary, differences = data_processing.apply_ipf(
-        seed_data=base_year_data.population,
-        target_dvectors=population_adjustment_targets,
-        cache_folder=constants.CACHE_FOLDER,
-        # todo change
-        target_dvector=population_adjustment[0],
-    )
+    # rebased_pop, summary, differences = data_processing.apply_ipf(
+    #     seed_data=base_year_data.population,
+    #     target_dvectors=population_adjustment_targets,
+    #     cache_folder=constants.CACHE_FOLDER,
+    #     # todo change
+    #     target_dvector=population_adjustment[0],
+    # )
+    #
+    # # save output to hdf and csvs for checking
+    # data_processing.save_output(
+    #     output_folder=OUTPUT_DIR,
+    #     output_reference=f'Output P11_{geography_subset}',
+    #     dvector=rebased_pop,
+    #     dvector_dimension='population',
+    #     output_level=OutputLevel.FINAL
+    # )
+    # (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+    # summary.to_csv(
+    #     OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{geography_subset}_VALIDATION.csv',
+    #     float_format='%.5f', index=False
+    # )
+    # data_processing.write_to_excel(
+    #     output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+    #     file=f'Output P11_{geography_subset}_VALIDATION.xlsx',
+    #     dfs=differences
+    # )
 
-    # save output to hdf and csvs for checking
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f'Output P11_{geography_subset}',
-        dvector=rebased_pop,
-        dvector_dimension='population',
-        output_level=OutputLevel.FINAL
-    )
-    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
-    summary.to_csv(
-        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{geography_subset}_VALIDATION.csv',
-        float_format='%.5f', index=False
-    )
-    data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-        file=f'Output P11_{geography_subset}_VALIDATION.xlsx',
-        dfs=differences
-    )
+    rebased_pop = DVector.load(rf"F:\Deliverables\Land-Use\241218_Population\02_Final Outputs\Output P11_{geography_subset}.hdf")
 
     # --- Step 12 --- #
     LOGGER.info('--- Step 12 ---')
@@ -798,7 +800,7 @@ def rebase(
         segment_name='children', segment_values=[1]
     ).filter_segment_value(
         segment_name='adults', segment_values=[1]
-    ).aggregate(['adults', 'children'])
+    ).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
         to_replace=0, value=0.000000000001
     )
@@ -810,7 +812,7 @@ def rebase(
         segment_name='children', segment_values=[2]
     ).filter_segment_value(
         segment_name='adults', segment_values=[1]
-    ).aggregate(['adults', 'children'])
+    ).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
         to_replace=0, value=0.000000000001
     )
@@ -822,7 +824,7 @@ def rebase(
         segment_name='children', segment_values=[1]
     ).filter_segment_value(
         segment_name='adults', segment_values=[2]
-    ) / 2).aggregate(['adults', 'children'])
+    ) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
         to_replace=0, value=0.000000000001
     )
@@ -834,7 +836,7 @@ def rebase(
         segment_name='children', segment_values=[2]
     ).filter_segment_value(
         segment_name='adults', segment_values=[2]
-    ) / 2).aggregate(['adults', 'children'])
+    ) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
         to_replace=0, value=0.000000000001
     )
@@ -938,8 +940,8 @@ def rebase(
     LOGGER.info(f'Cap minimum occupancies based on the household type')
     # get resulting occupancies by adults and children
     resulting_occupancies = (
-            data_processing.filter_to_adults(rebased_pop).aggregate(['adults', 'children'])
-            / rebased_households.aggregate(['adults', 'children'])
+            data_processing.filter_to_adults(rebased_pop).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+            / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     )
 
     # get lower caps by adult and children combinations
@@ -962,7 +964,7 @@ def rebase(
     lower_caps = data_processing.create_dvector_from_data(
         dvector_data=lower_caps,
         geographical_level='RGN2021',
-        input_segments=['adults', 'children'],
+        input_segments=['adults', 'children', 'ns_sec', 'accom_h'],
         geography_subset=geography_subset
     )
     # convert these percentiles to LSOA
@@ -1081,7 +1083,9 @@ LOGGER.info('Applying regional profiles to Scotland population data')
 area_type_agg = []
 for gor in config['scotland_donor_regions']:
     LOGGER.debug(f'Re-reading P11 for {gor}')
-    final_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_{gor}.hdf')
+    final_pop = DVector.load(
+        OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_{gor}.hdf'
+    )
     area_type_agg.append(
         final_pop.translate_zoning(constants.TFN_AT_AGG_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER)
     )
@@ -1121,5 +1125,294 @@ data_processing.save_output(
     dvector=scotland_hydrated,
     dvector_dimension='population',
     detailed_logs=True,
+    output_level=OutputLevel.FINAL
+)
+
+# collapse segmentation to household-specific segmentations (i.e. remove population segmentation)
+aggregated_pop = scotland_hydrated.aggregate(
+    segs=['accom_h', 'ns_sec', 'adults', 'children', 'car_availability', 'adult_nssec']
+)
+
+# # Clear out the massive DVector for scotland (in case of memory issues)
+# data_processing.clear_dvectors(scotland_hydrated)
+
+# read in the occupied and unoccupied households from the donor regions
+area_type_agg_ons = []
+area_type_agg_occ = []
+area_type_agg_unocc = []
+for gor in config['scotland_donor_regions']:
+    LOGGER.debug(f'Re-reading ONS table 1 for {gor}')
+    ons_table_1 = data_processing.read_dvector_from_config(
+        config=config,
+        data_block='base_data',
+        key='ons_table_1',
+        geography_subset=gor
+    )
+    area_type_agg_ons.append(
+        ons_table_1.translate_zoning(
+            constants.TFN_AT_AGG_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER
+        )
+    )
+    LOGGER.debug(f'Re-reading occupied households for {gor}')
+    # occupied_households = DVector.load(
+    #     OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P1.1_{gor}.hdf'
+    # )
+    occupied_households = data_processing.read_dvector_from_config(
+        config=config,
+        data_block='base_data',
+        key='occupied_households',
+        geography_subset=gor
+    )
+
+    area_type_agg_occ.append(
+        occupied_households.translate_zoning(
+            constants.TFN_AT_AGG_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER
+        )
+    )
+    LOGGER.debug(f'Re-reading unoccupied households for {gor}')
+    # unoccupied_households = DVector.load(
+    #     OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P1.2_{gor}.hdf'
+    # )
+    unoccupied_households = data_processing.read_dvector_from_config(
+        config=config,
+        data_block='base_data',
+        key='unoccupied_households',
+        geography_subset=gor
+    )
+
+    area_type_agg_unocc.append(
+        unoccupied_households.translate_zoning(
+            constants.TFN_AT_AGG_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER
+        )
+    )
+
+LOGGER.debug('Disaggregating area types to Scotland')
+# Accumulate England totals at area type
+england_ons_totals = reduce(lambda x, y: x+y, area_type_agg_ons)
+england_occ_totals = reduce(lambda x, y: x+y, area_type_agg_occ)
+england_unocc_totals = reduce(lambda x, y: x+y, area_type_agg_unocc)
+
+# Clear out the individual DVectors for England (in case of memory issues)
+data_processing.clear_dvectors(
+    *area_type_agg_ons, *area_type_agg_occ, *area_type_agg_unocc
+)
+
+# calculate average occupancy, as in base_population.py
+england_average_occupancy = (england_ons_totals / england_occ_totals)
+# replace infinities with nans for infilling
+# this is where the occupied_households value is zero for a dwelling type and zone,
+# but the ons_table_1 has non-zero population. E.g. LSOA E01007423 in GOR = 'YH'
+# caravans and mobile homes, the occupied households = 0 but ons_table_1 population = 4
+england_average_occupancy._data = england_average_occupancy._data.replace(np.inf, np.nan)
+# infill missing occupancies with average value of other properties in the zone
+# i.e. based on column
+england_average_occupancy._data = england_average_occupancy._data.fillna(
+    england_average_occupancy._data.mean(axis=0), axis=0
+)
+
+# convert occupancy factors to scotland zoning
+england_occupancy_scotland_zoning = england_average_occupancy.translate_zoning(
+    constants.SCOTLAND_DZONE_ZONING_SYSTEM,
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False
+)
+
+# divide scottish population by average occupancy to get households
+rebase_hh = aggregated_pop / england_occupancy_scotland_zoning
+
+# derive household constraints from population data (required occupancies)
+# adult population in 1 adult households with no children should match number of households with 1 adult and no children
+household_adult_1_children_1_target = data_processing.filter_to_adults(
+    scotland_hydrated
+).filter_segment_value(
+    segment_name='children', segment_values=[1]
+).filter_segment_value(
+    segment_name='adults', segment_values=[1]
+).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
+    to_replace=0, value=0.000000000001
+)
+
+# adult population in 1 adult households with children should match number of households with 1 adult and children
+household_adult_1_children_2_target = data_processing.filter_to_adults(
+    scotland_hydrated
+).filter_segment_value(
+    segment_name='children', segment_values=[2]
+).filter_segment_value(
+    segment_name='adults', segment_values=[1]
+).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
+    to_replace=0, value=0.000000000001
+)
+
+# adult population in 2 adult households with no children should be double number of households with 2 adult and no children
+household_adult_2_children_1_target = (data_processing.filter_to_adults(
+    scotland_hydrated
+).filter_segment_value(
+    segment_name='children', segment_values=[1]
+).filter_segment_value(
+    segment_name='adults', segment_values=[2]
+) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
+    to_replace=0, value=0.000000000001
+)
+
+# adult population in 2 adult households with children should be double number of households with 2 adult and children
+household_adult_2_children_2_target = (data_processing.filter_to_adults(
+    scotland_hydrated
+).filter_segment_value(
+    segment_name='children', segment_values=[2]
+).filter_segment_value(
+    segment_name='adults', segment_values=[2]
+) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
+    to_replace=0, value=0.000000000001
+)
+
+household_adjustment_targets = [
+    household_adult_1_children_1_target, household_adult_1_children_2_target,
+    household_adult_2_children_1_target, household_adult_2_children_2_target
+]
+rebased_households, summary, differences = data_processing.apply_ipf(
+    seed_data=rebase_hh,
+    target_dvectors=household_adjustment_targets,
+    cache_folder=constants.CACHE_FOLDER,
+)
+
+LOGGER.info('Set households to 0 where there is 0 population')
+# set households to zero where there is no population in a given ['adult', 'children'] segment and zone
+population_masking = scotland_hydrated.aggregate(['adults', 'children'])
+population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
+rebased_households = rebased_households * population_masking
+
+LOGGER.info(
+        f'Cap maximum occupancies based on the '
+        f'{float(config["occupancy_cap_percentile"])}th percentile'
+    )
+# get resulting occupancies by adults and children
+resulting_occupancies = (
+        scotland_hydrated.aggregate(['adults', 'children'])
+        / rebased_households.aggregate(['adults', 'children'])
+)
+
+# get max_percentile cap by adult and children combination for all zones in the data
+region_code = constants.KNOWN_GEOGRAPHIES.get(f'SCOTLANDRGN').zone_ids[0]
+percentiles = resulting_occupancies.data.quantile(
+    q=float(config['occupancy_cap_percentile']), axis=1
+).rename(region_code).to_frame()
+
+# convert the caps to DVector format at region level
+percentiles = data_processing.create_dvector_from_data(
+    dvector_data=percentiles,
+    geographical_level='SCOTLANDRGN',
+    input_segments=['adults', 'children']
+)
+# convert these percentiles to LSOA
+percentiles = percentiles.translate_zoning(
+    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'DZ2011'),
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False
+)
+# calculate adjustment factors for zones which have occupancy over the max_percentile
+control_factors = percentiles / resulting_occupancies
+control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
+
+# apply these factors back to the households, to increase the number of
+# households to decrease occupancy
+rebased_households = rebased_households / control_factors
+
+LOGGER.info(f'Cap minimum occupancies based on the household type')
+# get resulting occupancies by adults and children
+resulting_occupancies = (
+        data_processing.filter_to_adults(scotland_hydrated).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+        / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+)
+
+# get lower caps by adult and children combinations
+region_code = constants.KNOWN_GEOGRAPHIES.get(f'SCOTLANDRGN').zone_ids[0]
+lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
+lower_caps[region_code] = 0
+min_caps = {
+    (1, 2): 1,
+    (2, 2): 2,
+    (3, 1): 3,
+    (3, 2): 3
+}
+for (adults, children), min_cap in min_caps.items():
+    lower_caps[
+        (lower_caps.index.get_level_values('adults') == adults) &
+        (lower_caps.index.get_level_values('children') == children)
+    ] = min_cap
+
+# convert the caps to DVector format at region level
+lower_caps = data_processing.create_dvector_from_data(
+    dvector_data=lower_caps,
+    geographical_level='SCOTLANDRGN',
+    input_segments=['adults', 'children', 'ns_sec', 'accom_h']
+)
+# convert these percentiles to LSOA
+lower_caps = lower_caps.translate_zoning(
+    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'DZ2011'),
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False
+)
+
+# calculate adjustment factors for zones which have occupancy over the max_percentile
+control_factors = lower_caps / resulting_occupancies
+control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
+
+# apply these factors back to the households, to increase the number of
+# households to decrease occupancy
+rebased_households = rebased_households / control_factors
+
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P13.3_Scotland',
+    dvector=rebased_households,
+    dvector_dimension='households',
+    detailed_logs=True,
+    output_level=OutputLevel.FINAL
+)
+
+LOGGER.info('Getting occupied and unoccupied dwellings')
+
+occupied_households = rebased_households.aggregate(['accom_h'])
+
+# calculate unoccupied households
+empty_proportion = (england_unocc_totals / england_occ_totals)
+empty_proportion._data = empty_proportion._data.replace(np.inf, np.nan)
+# infill missing occupancies with average value of other properties in the zone
+# i.e. based on column
+empty_proportion._data = empty_proportion._data.fillna(
+    empty_proportion._data.mean(axis=0), axis=0
+)
+unoccupied_households = occupied_households * empty_proportion.translate_zoning(
+    constants.SCOTLAND_DZONE_ZONING_SYSTEM,
+    cache_path=constants.CACHE_FOLDER,
+    weighting=TranslationWeighting.NO_WEIGHT,
+    check_totals=False
+)
+
+# save outputs to hdf
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P14.1_Scotland',
+    dvector=occupied_households,
+    dvector_dimension='households',
+    output_level=OutputLevel.FINAL
+)
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P14.2_Scotland',
+    dvector=unoccupied_households,
+    dvector_dimension='households',
     output_level=OutputLevel.FINAL
 )
