@@ -895,8 +895,8 @@ def rebase(
     )
     # get resulting occupancies by adults and children
     resulting_occupancies = (
-            rebased_pop.aggregate(['adults', 'children'])
-            / rebased_households.aggregate(['adults', 'children'])
+            rebased_pop.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+            / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
     )
 
     # get max_percentile cap by adult and children combination for all zones in the data
@@ -909,7 +909,7 @@ def rebase(
     percentiles = data_processing.create_dvector_from_data(
         dvector_data=percentiles,
         geographical_level='RGN2021',
-        input_segments=['adults', 'children'],
+        input_segments=['adults', 'children', 'ns_sec', 'accom_h'],
         geography_subset=geography_subset
     )
     # convert these percentiles to LSOA
@@ -1285,7 +1285,7 @@ rebased_households, summary, differences = data_processing.apply_ipf(
 
 LOGGER.info('Set households to 0 where there is 0 population')
 # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
-population_masking = scotland_hydrated.aggregate(['adults', 'children'])
+population_masking = scotland_hydrated.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
 population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
 rebased_households = rebased_households * population_masking
 
@@ -1295,8 +1295,8 @@ LOGGER.info(
     )
 # get resulting occupancies by adults and children
 resulting_occupancies = (
-        scotland_hydrated.aggregate(['adults', 'children'])
-        / rebased_households.aggregate(['adults', 'children'])
+        scotland_hydrated.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+        / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
 )
 
 # get max_percentile cap by adult and children combination for all zones in the data
@@ -1309,7 +1309,7 @@ percentiles = resulting_occupancies.data.quantile(
 percentiles = data_processing.create_dvector_from_data(
     dvector_data=percentiles,
     geographical_level='SCOTLANDRGN',
-    input_segments=['adults', 'children']
+    input_segments=['adults', 'children', 'ns_sec', 'accom_h']
 )
 # convert these percentiles to LSOA
 percentiles = percentiles.translate_zoning(
