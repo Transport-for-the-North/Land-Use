@@ -714,34 +714,34 @@ def rebase(
     # --- Step 11 --- #
     LOGGER.info('--- Step 11 ---')
     LOGGER.info('Rebasing population to 2023')
-    # rebased_pop, summary, differences = data_processing.apply_ipf(
-    #     seed_data=base_year_data.population,
-    #     target_dvectors=population_adjustment_targets,
-    #     cache_folder=constants.CACHE_FOLDER,
-    #     # todo change
-    #     target_dvector=population_adjustment[0],
-    # )
-    #
-    # # save output to hdf and csvs for checking
-    # data_processing.save_output(
-    #     output_folder=OUTPUT_DIR,
-    #     output_reference=f'Output P11_{geography_subset}',
-    #     dvector=rebased_pop,
-    #     dvector_dimension='population',
-    #     output_level=OutputLevel.FINAL
-    # )
-    # (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
-    # summary.to_csv(
-    #     OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{geography_subset}_VALIDATION.csv',
-    #     float_format='%.5f', index=False
-    # )
-    # data_processing.write_to_excel(
-    #     output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-    #     file=f'Output P11_{geography_subset}_VALIDATION.xlsx',
-    #     dfs=differences
-    # )
+    rebased_pop, summary, differences = data_processing.apply_ipf(
+        seed_data=base_year_data.population,
+        target_dvectors=population_adjustment_targets,
+        cache_folder=constants.CACHE_FOLDER,
+        # todo change
+        target_dvector=population_adjustment[0],
+    )
 
-    rebased_pop = DVector.load(rf"F:\Deliverables\Land-Use\241218_Population\02_Final Outputs\Output P11_{geography_subset}.hdf")
+    # save output to hdf and csvs for checking
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P11_{geography_subset}',
+        dvector=rebased_pop,
+        dvector_dimension='population',
+        output_level=OutputLevel.FINAL
+    )
+    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+    summary.to_csv(
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P11_{geography_subset}_VALIDATION.csv',
+        float_format='%.5f', index=False
+    )
+    data_processing.write_to_excel(
+        output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+        file=f'Output P11_{geography_subset}_VALIDATION.xlsx',
+        dfs=differences
+    )
+
+    # rebased_pop = DVector.load(rf"F:\Deliverables\Land-Use\241218_Population\02_Final Outputs\Output P11_{geography_subset}.hdf")
 
     # --- Step 12 --- #
     LOGGER.info('--- Step 12 ---')
@@ -1155,9 +1155,6 @@ for gor in config['scotland_donor_regions']:
         )
     )
     LOGGER.debug(f'Re-reading occupied households for {gor}')
-    # occupied_households = DVector.load(
-    #     OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P1.1_{gor}.hdf'
-    # )
     occupied_households = data_processing.read_dvector_from_config(
         config=config,
         data_block='base_data',
@@ -1172,9 +1169,6 @@ for gor in config['scotland_donor_regions']:
         )
     )
     LOGGER.debug(f'Re-reading unoccupied households for {gor}')
-    # unoccupied_households = DVector.load(
-    #     OUTPUT_DIR / OutputLevel.INTERMEDIATE / f'Output P1.2_{gor}.hdf'
-    # )
     unoccupied_households = data_processing.read_dvector_from_config(
         config=config,
         data_block='base_data',
