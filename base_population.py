@@ -1276,12 +1276,39 @@ rebased_households, summary, differences = data_processing.apply_ipf(
     target_dvectors=household_adjustment_targets,
     cache_folder=constants.CACHE_FOLDER,
 )
+# save output to hdf and csvs for checking
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P12_Scotland',
+    dvector=rebased_households,
+    dvector_dimension='households',
+    output_level=OutputLevel.INTERMEDIATE
+)
+(OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+summary.to_csv(
+    OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_Scotland_VALIDATION.csv',
+    float_format='%.5f', index=False
+)
+data_processing.write_to_excel(
+    output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+    file=f'Output P12_Scotland_VALIDATION.xlsx',
+    dfs=differences
+)
 
 LOGGER.info('Set households to 0 where there is 0 population')
 # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
 population_masking = scotland_hydrated.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
 population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
 rebased_households = rebased_households * population_masking
+
+# save output to hdf
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P13.1_Scotland',
+    dvector=rebased_households,
+    dvector_dimension='households',
+    output_level=OutputLevel.INTERMEDIATE
+)
 
 LOGGER.info(
         f'Cap maximum occupancies based on the '
@@ -1320,6 +1347,14 @@ control_factors._data = control_factors._data.where(control_factors._data < 1, 1
 # apply these factors back to the households, to increase the number of
 # households to decrease occupancy
 rebased_households = rebased_households / control_factors
+
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P13.2_Scotland',
+    dvector=rebased_households,
+    dvector_dimension='households',
+    output_level=OutputLevel.INTERMEDIATE
+)
 
 LOGGER.info(f'Cap minimum occupancies based on the household type')
 # get resulting occupancies by adults and children

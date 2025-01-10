@@ -1,11 +1,11 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
-output_directory: F:\Deliverables\Land-Use\241220_Populationv2
+output_directory: F:\Working\Land-Use\250107_Scotland occupancy check
 base_year_folder: F:\Deliverables\Land-Use\241213_Population
 output_intermediate_outputs: False
 scotland_donor_regions: [NE, NW, YH]
-run_scotland_only: False
+run_scotland_only: True
 occupancy_cap_percentile: 0.95
 
 base_data:
