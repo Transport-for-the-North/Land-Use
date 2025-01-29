@@ -421,3 +421,79 @@ SIC_2_DIGIT_TO_SIC_1_DIGIT_AGGREGATIONS = {
     98: 20,
     99: 21,
 }
+
+# --- NorCOM --- #
+INCOME_MAPPING = {
+    -1: -1,
+    500: 1,
+    1500: 1,
+    2500: 1,
+    3500: 1,
+    4500: 1,
+    5500: 1,
+    6500: 1,
+    7500: 1,
+    8500: 1,
+    9500: 1,
+    11250: 2,
+    13750: 2,
+    16250: 2,
+    18750: 2,
+    22500: 2,
+    27500: 2,
+    32500: 3,
+    37500: 3,
+    45000: 4,
+    55000: 5,
+    65000: 5,
+    72500: 5,
+    87500: 6,
+    112500: 7,
+    137500: 7,
+    150000: 7
+}
+
+NUMCAR_MAPPING = {
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 2,
+    4: 2,
+    5: 2,
+    6: 2,
+    7: 2,
+    8: 2,
+    9: 2
+}
+
+HH_ADULTS_MAPPING = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 3,
+    5: 3,
+    6: 3,
+    7: 3,
+    8: 3,
+    9: 3,
+    10: 3
+}
+
+HH_CHILDREN_MAPPING = {
+    0: 1,
+    1: 2,
+    2: 2,
+    3: 2,
+    4: 2,
+    5: 2,
+    6: 2,
+    7: 2,
+    8: 2
+}
+
+NORCOM_MAPPINGS = {
+    'hh_income': INCOME_MAPPING,
+    'numcarvan': NUMCAR_MAPPING,
+    'hholdnumadults': HH_ADULTS_MAPPING,
+    'hholdnumchildren': HH_CHILDREN_MAPPING
+}
