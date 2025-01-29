@@ -1005,3 +1005,53 @@ def read_mype_control(
     df.columns = df.columns.get_level_values(zoning)
 
     return df
+
+
+def reduce_classified_build(
+        trip_data: pd.DataFrame,
+        hh_id_column: str = 'householdid'
+) -> pd.DataFrame:
+    """Convert a trip-level NTS classified build to a household level dataset.
+
+    This will identify all columns (NTS variables) in the trip-level data set
+    that are consistent across trips. E.g. NTS data looks something like
+    nts = {
+        'householdid': [1, 1, 1, 2, 2, 3, 3, 3, 3, 3],
+        'individualid': [1, 1, 2, 1, 1, 1, 2, 2, 2, 3],
+        'tripid': [1, 2, 1, 1, 2, 1, 1, 2, 3, 1],
+        'hh_cars': [2, 2, 2, 1, 1, 0, 0, 0, 0, 0],
+        ...
+    }
+    so any household attribute (e.g. hh_cars) should be the same for all trips
+    made by individuals in a given household.
+
+    This will identify which columns in the trip-level dataset are consistent
+    across hh_id_column and then subset the data to these columns and remove
+    duplicates from them.
+
+    Parameters
+    ----------
+    trip_data: pd.DataFrame
+        Trip level database from a TfN standard classified build
+    hh_id_column: str, default 'householdid'
+        Name of the column that represents unique households in the NTS data
+
+    Returns
+    -------
+    pd.DataFrame
+        trip_data with reduced columns based on where the columns have
+        consistent entries for all trips.
+
+    """
+
+    # group the data across the hh_id_column and check which columns have
+    # unique values
+    by_hh = trip_data.groupby(hh_id_column).nunique()
+    grouped = pd.DataFrame(by_hh.eq(1).all(axis=0), columns=['household_var'])
+
+    # get list of column names that *are* unique across hh_id_column
+    household_variables = list(grouped[grouped['household_var'].eq(1)].index)
+
+    # subset the data to these unique columns and remove duplicates
+    return trip_data[household_variables + [hh_id_column]].drop_duplicates()
+
