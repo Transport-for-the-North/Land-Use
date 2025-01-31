@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from land_use.constants import geographies, segments
 from land_use.preprocessing import reduce_classified_build, NORCOM_MAPPINGS
 
 
@@ -23,9 +22,10 @@ data = reduce_classified_build(
 )
 
 # --- define new columns based on aggregations of other columns --- #
-for col, mapping in NORCOM_MAPPINGS.items():
-    data[f'{col}_agg'] = data[col].map(mapping)
-    print(data[f'{col}_agg'].value_counts())
+for new_col, mapping in NORCOM_MAPPINGS.items():
+    for original_col, mapper in mapping.items():
+        data[new_col] = data[original_col].map(mapper)
+        print(data[new_col].value_counts())
 
 # write household data to working folder
 data.to_csv(output_folder/ 'nts_hh_data.csv', index=False)

@@ -453,8 +453,21 @@ INCOME_MAPPING = {
     150000: 7
 }
 
-NUMCAR_MAPPING = {
+NUMCAR_MAPPING_ONE = {
     0: 0,
+    1: 1,
+    2: 1,
+    3: 1,
+    4: 1,
+    5: 1,
+    6: 1,
+    7: 1,
+    8: 1,
+    9: 1
+}
+
+NUMCAR_MAPPING_TWO = {
+    0: -1,
     1: 1,
     2: 2,
     3: 2,
@@ -492,8 +505,19 @@ HH_CHILDREN_MAPPING = {
 }
 
 NORCOM_MAPPINGS = {
-    'hh_income': INCOME_MAPPING,
-    'numcarvan': NUMCAR_MAPPING,
-    'hholdnumadults': HH_ADULTS_MAPPING,
-    'hholdnumchildren': HH_CHILDREN_MAPPING
+    'hh_income_banded': {
+        'hh_income': INCOME_MAPPING
+    },
+    '0v1_car': {
+        'numcarvan': NUMCAR_MAPPING_ONE
+    },
+    '1v2+_car': {
+        'numcarvan': NUMCAR_MAPPING_TWO
+    },
+    'hh_adults_seg': {
+        'hholdnumadults': HH_ADULTS_MAPPING
+    },
+    'hh_children_seg': {
+        'hholdnumchildren': HH_CHILDREN_MAPPING
+    }
 }
