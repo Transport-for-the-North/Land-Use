@@ -962,3 +962,120 @@ def filter_to_adults(
     return dvec.filter_segment_value(
         segment_name=age_segmentation, segment_values=list(adult_categories)
     )
+
+
+def derive_household_occupancy_targets(
+        population_dvector: DVector,
+        household_segments: tuple = ('adults', 'children', 'ns_sec', 'accom_h'),
+        children_segment_name: str = SegmentsSuper.CHILDREN,
+        adult_segment_name: str = SegmentsSuper.ADULTS,
+        no_children_hh_index: int = 1,
+        yes_children_hh_index: int = 2,
+        one_adult_hh_index: int = 1,
+        two_adult_hh_index: int = 2
+) -> list:
+    """Derivation of household based targets for the IPF based on logical
+    population and household linkages.
+
+    This will derive IPF targets to ensure:
+    - adult population in 1 adult households with no children should match
+    number of households with 1 adult and no children
+    - adult population in 1 adult households with children should match
+    number of households with 1 adult and children
+    - adult population in 2 adult households with no children should be
+    double number of households with 2 adult and no children
+    - adult population in 2 adult households with children should be
+    double number of households with 2 adult and children
+
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Must have segmentation of *at least* household_segments. Represents
+        total population.
+    household_segments: tuple, default ('adults', 'children', 'ns_sec', 'accom_h')
+        Names of household segments to aggregate the population based targets to
+    children_segment_name: str = SegmentsSuper.CHILDREN
+        Name of the segmentation in population_dvector that represents the
+        number of children in a household
+    adult_segment_name: str = SegmentsSuper.ADULTS
+        Name of the segmentation in population_dvector that represents the
+        number of adults in a household
+    no_children_hh_index: int = 1
+        Segment value in children_segment_name that represents no children in
+        the household
+    yes_children_hh_index: int = 2
+        Segment value in children_segment_name that represents yes children in
+        the household
+    one_adult_hh_index: int = 1
+        Segment value in adult_segment_name that represents 1 adult in
+        the household
+    two_adult_hh_index: int = 2
+        Segment value in adult_segment_name that represents 2 adults in
+        the household
+
+    Returns
+    -------
+    list
+        Four DVectors that can be used as input targets to the IPF
+    """
+    targets = []
+
+    # adult population in 1 adult households with no children should match
+    # number of households with 1 adult and no children
+    household_adult_1_children_1_target = filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 1 adult households with children should match
+    # number of households with 1 adult and children
+    household_adult_1_children_2_target = filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with no children should be
+    # double number of households with 2 adult and no children
+    household_adult_2_children_1_target = (filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with children should be
+    # double number of households with 2 adult and children
+    household_adult_2_children_2_target = (filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    return [
+        household_adult_1_children_1_target, household_adult_1_children_2_target,
+        household_adult_2_children_1_target, household_adult_2_children_2_target
+        ]
+
+

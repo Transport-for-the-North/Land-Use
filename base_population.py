@@ -793,61 +793,12 @@ def rebase(
     rebase_household_target = census_hh_total * household_growth
 
     # derive household constraints from population data (required occupancies)
-    # adult population in 1 adult households with no children should match number of households with 1 adult and no children
-    household_adult_1_children_1_target = data_processing.filter_to_adults(
-        rebased_pop
-    ).filter_segment_value(
-        segment_name='children', segment_values=[1]
-    ).filter_segment_value(
-        segment_name='adults', segment_values=[1]
-    ).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-    household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
-        to_replace=0, value=0.000000000001
+    household_adjustment_targets = data_processing.derive_household_occupancy_targets(
+        population_dvector=rebased_pop
     )
-
-    # adult population in 1 adult households with children should match number of households with 1 adult and children
-    household_adult_1_children_2_target = data_processing.filter_to_adults(
-        rebased_pop
-    ).filter_segment_value(
-        segment_name='children', segment_values=[2]
-    ).filter_segment_value(
-        segment_name='adults', segment_values=[1]
-    ).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-    household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
-        to_replace=0, value=0.000000000001
-    )
-
-    # adult population in 2 adult households with no children should be double number of households with 2 adult and no children
-    household_adult_2_children_1_target = (data_processing.filter_to_adults(
-        rebased_pop
-    ).filter_segment_value(
-        segment_name='children', segment_values=[1]
-    ).filter_segment_value(
-        segment_name='adults', segment_values=[2]
-    ) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-    household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
-        to_replace=0, value=0.000000000001
-    )
-
-    # adult population in 2 adult households with children should be double number of households with 2 adult and children
-    household_adult_2_children_2_target = (data_processing.filter_to_adults(
-        rebased_pop
-    ).filter_segment_value(
-        segment_name='children', segment_values=[2]
-    ).filter_segment_value(
-        segment_name='adults', segment_values=[2]
-    ) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-    household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
-        to_replace=0, value=0.000000000001
-    )
-
-    household_adjustment_targets = [
-        household_adult_1_children_1_target, household_adult_1_children_2_target,
-        household_adult_2_children_1_target, household_adult_2_children_2_target, rebase_household_target
-    ]
     rebased_households, summary, differences = data_processing.apply_ipf(
         seed_data=rebase_hh,
-        target_dvectors=household_adjustment_targets,
+        target_dvectors=list(household_adjustment_targets),
         cache_folder=constants.CACHE_FOLDER,
     )
 
@@ -1219,61 +1170,12 @@ england_occupancy_scotland_zoning = england_average_occupancy.translate_zoning(
 rebase_hh = aggregated_pop / england_occupancy_scotland_zoning
 
 # derive household constraints from population data (required occupancies)
-# adult population in 1 adult households with no children should match number of households with 1 adult and no children
-household_adult_1_children_1_target = data_processing.filter_to_adults(
-    scotland_hydrated
-).filter_segment_value(
-    segment_name='children', segment_values=[1]
-).filter_segment_value(
-    segment_name='adults', segment_values=[1]
-).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
-    to_replace=0, value=0.000000000001
+household_adjustment_targets = data_processing.derive_household_occupancy_targets(
+    population_dvector=scotland_hydrated
 )
-
-# adult population in 1 adult households with children should match number of households with 1 adult and children
-household_adult_1_children_2_target = data_processing.filter_to_adults(
-    scotland_hydrated
-).filter_segment_value(
-    segment_name='children', segment_values=[2]
-).filter_segment_value(
-    segment_name='adults', segment_values=[1]
-).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
-    to_replace=0, value=0.000000000001
-)
-
-# adult population in 2 adult households with no children should be double number of households with 2 adult and no children
-household_adult_2_children_1_target = (data_processing.filter_to_adults(
-    scotland_hydrated
-).filter_segment_value(
-    segment_name='children', segment_values=[1]
-).filter_segment_value(
-    segment_name='adults', segment_values=[2]
-) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
-    to_replace=0, value=0.000000000001
-)
-
-# adult population in 2 adult households with children should be double number of households with 2 adult and children
-household_adult_2_children_2_target = (data_processing.filter_to_adults(
-    scotland_hydrated
-).filter_segment_value(
-    segment_name='children', segment_values=[2]
-).filter_segment_value(
-    segment_name='adults', segment_values=[2]
-) / 2).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
-    to_replace=0, value=0.000000000001
-)
-
-household_adjustment_targets = [
-    household_adult_1_children_1_target, household_adult_1_children_2_target,
-    household_adult_2_children_1_target, household_adult_2_children_2_target
-]
 rebased_households, summary, differences = data_processing.apply_ipf(
     seed_data=rebase_hh,
-    target_dvectors=household_adjustment_targets,
+    target_dvectors=list(household_adjustment_targets),
     cache_folder=constants.CACHE_FOLDER,
 )
 # save output to hdf and csvs for checking
