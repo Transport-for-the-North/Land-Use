@@ -1208,3 +1208,101 @@ def cap_maximum_household_occupancy(
     # apply these factors back to the households, to increase the number of
     # households to decrease occupancy
     return household_dvector / control_factors
+
+
+def cap_minimum_household_occupancy(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        aggregate_zone_system_name: str,
+        current_zone_system_name: str,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
+                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+        ),
+        children_segment_name: str = SegmentsSuper.CHILDREN,
+        adult_segment_name: str = SegmentsSuper.ADULTS,
+        min_caps: dict = {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
+) -> DVector:
+    """Calculate the occupancy by household_segments and cap minimum household
+    occupancies at the current_zone_system_name level based on min_caps.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    aggregate_zone_system_name: str
+        Name of the zone system to provide the percentile-th occupancy.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN'.
+    current_zone_system_name: str
+        Name of the zone system to apply the percentile-th occupancy caps.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN' but we're applying it to
+        a DVector in zone system 'DZ2011', so current_zone_system_name = 'DZ2011'
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
+        SegmentsSuper.ACCOMODATION_TYPE_H
+        )
+        Names of household segments over which to calculate occupancies
+    children_segment_name: str, default SegmentsSuper.CHILDREN
+        Name of the segmentation in population_dvector that represents the
+        number of children in a household
+    adult_segment_name: str, default SegmentsSuper.ADULTS
+        Name of the segmentation in population_dvector that represents the
+        number of adults in a household
+    min_caps: dict, default {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
+        Dictionary of minimum caps that relate to minimum required adult occupancies
+        for the (adult_segment_name, children_segment_name) combinations.
+        E.g. {(1, 2): 1, ...} means for adult_segment_name value 1 (1 adult in
+        the household) and children_segment_name value 1 (no children in
+        the household), the minimum household occupancy requirement is 1.
+    Returns
+    -------
+    DVector
+        household_dvector with minimum occupancy caps applied.
+    """
+    # get resulting occupancies by adults and children
+    resulting_occupancies = (
+            filter_to_adults(population_dvector).aggregate(list(household_segments))
+            / household_dvector.aggregate(list(household_segments))
+    )
+
+    # get lower caps by adult and children combinations
+    region_code = KNOWN_GEOGRAPHIES.get(aggregate_zone_system_name).zone_ids[0]
+    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
+    lower_caps[region_code] = 0
+
+    for (adults, children), min_cap in min_caps.items():
+        lower_caps[
+            (lower_caps.index.get_level_values(adult_segment_name) == adults) &
+            (lower_caps.index.get_level_values(children_segment_name) == children)
+            ] = min_cap
+
+    # convert the caps to DVector format at region level
+    lower_caps = create_dvector_from_data(
+        dvector_data=lower_caps,
+        geographical_level=aggregate_zone_system_name,
+        input_segments=list(household_segments)
+    )
+    # convert these percentiles to LSOA
+    lower_caps = lower_caps.translate_zoning(
+        new_zoning=KNOWN_GEOGRAPHIES.get(current_zone_system_name),
+        cache_path=CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = lower_caps / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    return household_dvector / control_factors

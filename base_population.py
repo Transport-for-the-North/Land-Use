@@ -864,51 +864,13 @@ def rebase(
     )
 
     LOGGER.info(f'Cap minimum occupancies based on the household type')
-    # get resulting occupancies by adults and children
-    resulting_occupancies = (
-            data_processing.filter_to_adults(rebased_pop).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-            / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+    # apply minimum occupancy requirements for all zones in the data
+    rebased_households = data_processing.cap_minimum_household_occupancy(
+        population_dvector=rebased_pop,
+        household_dvector=rebased_households,
+        aggregate_zone_system_name=f'RGN2021-{geography_subset}',
+        current_zone_system_name=f'LSOA2021-{geography_subset}'
     )
-
-    # get lower caps by adult and children combinations
-    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{geography_subset}').zone_ids[0]
-    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
-    lower_caps[region_code] = 0
-    min_caps = {
-        (1, 2): 1,
-        (2, 2): 2,
-        (3, 1): 3,
-        (3, 2): 3
-    }
-    for (adults, children), min_cap in min_caps.items():
-        lower_caps[
-            (lower_caps.index.get_level_values('adults') == adults) &
-            (lower_caps.index.get_level_values('children') == children)
-        ] = min_cap
-
-    # convert the caps to DVector format at region level
-    lower_caps = data_processing.create_dvector_from_data(
-        dvector_data=lower_caps,
-        geographical_level='RGN2021',
-        input_segments=['adults', 'children', 'ns_sec', 'accom_h'],
-        geography_subset=geography_subset
-    )
-    # convert these percentiles to LSOA
-    lower_caps = lower_caps.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.NO_WEIGHT,
-        check_totals=False
-    )
-
-    # calculate adjustment factors for zones which have occupancy over the max_percentile
-    control_factors = lower_caps / resulting_occupancies
-    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
-    control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
-
-    # apply these factors back to the households, to increase the number of
-    # households to decrease occupancy
-    rebased_households = rebased_households / control_factors
 
     # save output to hdf
     data_processing.save_output(
@@ -1211,50 +1173,13 @@ data_processing.save_output(
 )
 
 LOGGER.info(f'Cap minimum occupancies based on the household type')
-# get resulting occupancies by adults and children
-resulting_occupancies = (
-        data_processing.filter_to_adults(scotland_hydrated).aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-        / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+# apply minimum occupancy requirements for all zones in the data
+rebased_households = data_processing.cap_minimum_household_occupancy(
+    population_dvector=scotland_hydrated,
+    household_dvector=rebased_households,
+    aggregate_zone_system_name='SCOTLANDRGN',
+    current_zone_system_name='DZ2011'
 )
-
-# get lower caps by adult and children combinations
-region_code = constants.KNOWN_GEOGRAPHIES.get(f'SCOTLANDRGN').zone_ids[0]
-lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
-lower_caps[region_code] = 0
-min_caps = {
-    (1, 2): 1,
-    (2, 2): 2,
-    (3, 1): 3,
-    (3, 2): 3
-}
-for (adults, children), min_cap in min_caps.items():
-    lower_caps[
-        (lower_caps.index.get_level_values('adults') == adults) &
-        (lower_caps.index.get_level_values('children') == children)
-    ] = min_cap
-
-# convert the caps to DVector format at region level
-lower_caps = data_processing.create_dvector_from_data(
-    dvector_data=lower_caps,
-    geographical_level='SCOTLANDRGN',
-    input_segments=['adults', 'children', 'ns_sec', 'accom_h']
-)
-# convert these percentiles to LSOA
-lower_caps = lower_caps.translate_zoning(
-    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'DZ2011'),
-    cache_path=constants.CACHE_FOLDER,
-    weighting=TranslationWeighting.NO_WEIGHT,
-    check_totals=False
-)
-
-# calculate adjustment factors for zones which have occupancy over the max_percentile
-control_factors = lower_caps / resulting_occupancies
-control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
-control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
-
-# apply these factors back to the households, to increase the number of
-# households to decrease occupancy
-rebased_households = rebased_households / control_factors
 
 data_processing.save_output(
     output_folder=OUTPUT_DIR,
