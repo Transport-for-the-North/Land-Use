@@ -827,9 +827,9 @@ def rebase(
 
     LOGGER.info('Set households to 0 where there is 0 population')
     # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
-    population_masking = rebased_pop.aggregate(['adults', 'children'])
-    population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
-    rebased_households = rebased_households * population_masking
+    rebased_households = data_processing.mask_zero_population(
+        population_dvector=rebased_pop, household_dvector=rebased_households
+    )
 
     # save output to hdf
     data_processing.save_output(
@@ -1199,9 +1199,10 @@ data_processing.write_to_excel(
 
 LOGGER.info('Set households to 0 where there is 0 population')
 # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
-population_masking = scotland_hydrated.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-population_masking._data = population_masking._data.where(population_masking._data == 0, 1)
-rebased_households = rebased_households * population_masking
+rebased_households = data_processing.mask_zero_population(
+    population_dvector=scotland_hydrated, household_dvector=rebased_households,
+    household_segments=('adults', 'children', 'ns_sec', 'accom_h')
+)
 
 # save output to hdf
 data_processing.save_output(

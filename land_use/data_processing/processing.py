@@ -10,6 +10,7 @@ from caf.base.zoning import ZoningSystem, TranslationWeighting, TranslationWarni
 from caf.base.segmentation import Segmentation, SegmentationInput, Segment, SegmentsSuper
 import pandas as pd
 import numpy as np
+from openpyxl.pivot.cache import ServerFormatList
 
 from land_use.constants import segments, split_input_segments, CUSTOM_SEGMENTS
 from land_use.constants.geographies import CACHE_FOLDER
@@ -966,7 +967,10 @@ def filter_to_adults(
 
 def derive_household_occupancy_targets(
         population_dvector: DVector,
-        household_segments: tuple = ('adults', 'children', 'ns_sec', 'accom_h'),
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
+                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+        ),
         children_segment_name: str = SegmentsSuper.CHILDREN,
         adult_segment_name: str = SegmentsSuper.ADULTS,
         no_children_hh_index: int = 1,
@@ -993,7 +997,10 @@ def derive_household_occupancy_targets(
     population_dvector: DVector
         Must have segmentation of *at least* household_segments. Represents
         total population.
-    household_segments: tuple, default ('adults', 'children', 'ns_sec', 'accom_h')
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
+        SegmentsSuper.ACCOMODATION_TYPE_H
+        )
         Names of household segments to aggregate the population based targets to
     children_segment_name: str = SegmentsSuper.CHILDREN
         Name of the segmentation in population_dvector that represents the
@@ -1079,3 +1086,42 @@ def derive_household_occupancy_targets(
         ]
 
 
+def mask_zero_population(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN
+        ),
+) -> DVector:
+    """Set households in household_dvector to zero where there is no
+    population in a zone, when population_dvector is aggregated to
+    household_segments.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    household_segments: tuple, default (SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN)
+        Segment names over which to aggregate population_dvector to check if
+        there is zero population in a given zone.
+
+
+    Returns
+    -------
+    DVector
+        household_dvector with some data replaced with 0 where the corresponding
+        cell in population_dvector is zero.
+    """
+    # aggregate population to required segmentation
+    population_masking = population_dvector.aggregate(list(household_segments))
+
+    # set masking dataframe to 0 where the aggregated population is zero, otherwise 1
+    population_masking._data = population_masking._data.where(
+        population_masking._data == 0, 1
+    )
+
+    # multiply the households by the masking matrix to set households to zero
+    # where there is no population
+    return household_dvector * population_masking
