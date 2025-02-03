@@ -844,40 +844,14 @@ def rebase(
         f'Cap maximum occupancies based on the '
         f'{float(configuration["occupancy_cap_percentile"])}th percentile'
     )
-    # get resulting occupancies by adults and children
-    resulting_occupancies = (
-            rebased_pop.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-            / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+    # get max_percentile cap by adult and children combination for all zones in the
+    # data and cap resulting occupancies
+    rebased_households = data_processing.cap_household_occupancies(
+        population_dvector=rebased_pop, household_dvector=rebased_households,
+        aggregate_zone_system_name=f'RGN2021-{geography_subset}',
+        current_zone_system_name=f'LSOA2021-{geography_subset}',
+        percentile=float(config["occupancy_cap_percentile"])
     )
-
-    # get max_percentile cap by adult and children combination for all zones in the data
-    region_code = constants.KNOWN_GEOGRAPHIES.get(f'RGN2021-{geography_subset}').zone_ids[0]
-    percentiles = resulting_occupancies.data.quantile(
-        q=float(configuration['occupancy_cap_percentile']), axis=1
-    ).rename(region_code).to_frame()
-
-    # convert the caps to DVector format at region level
-    percentiles = data_processing.create_dvector_from_data(
-        dvector_data=percentiles,
-        geographical_level='RGN2021',
-        input_segments=['adults', 'children', 'ns_sec', 'accom_h'],
-        geography_subset=geography_subset
-    )
-    # convert these percentiles to LSOA
-    percentiles = percentiles.translate_zoning(
-        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'LSOA2021-{geography_subset}'),
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.NO_WEIGHT,
-        check_totals=False
-    )
-    # calculate adjustment factors for zones which have occupancy over the max_percentile
-    control_factors = percentiles / resulting_occupancies
-    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
-    control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
-
-    # apply these factors back to the households, to increase the number of
-    # households to decrease occupancy
-    rebased_households = rebased_households / control_factors
 
     # save output to hdf
     data_processing.save_output(
@@ -1217,39 +1191,14 @@ LOGGER.info(
         f'Cap maximum occupancies based on the '
         f'{float(config["occupancy_cap_percentile"])}th percentile'
     )
-# get resulting occupancies by adults and children
-resulting_occupancies = (
-        scotland_hydrated.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
-        / rebased_households.aggregate(['adults', 'children', 'ns_sec', 'accom_h'])
+# get max_percentile cap by adult and children combination for all zones in the
+# data and cap resulting occupancies
+rebased_households = data_processing.cap_household_occupancies(
+    population_dvector=scotland_hydrated, household_dvector=rebased_households,
+    aggregate_zone_system_name='SCOTLANDRGN',
+    current_zone_system_name='DZ2011',
+    percentile=float(config["occupancy_cap_percentile"])
 )
-
-# get max_percentile cap by adult and children combination for all zones in the data
-region_code = constants.KNOWN_GEOGRAPHIES.get(f'SCOTLANDRGN').zone_ids[0]
-percentiles = resulting_occupancies.data.quantile(
-    q=float(config['occupancy_cap_percentile']), axis=1
-).rename(region_code).to_frame()
-
-# convert the caps to DVector format at region level
-percentiles = data_processing.create_dvector_from_data(
-    dvector_data=percentiles,
-    geographical_level='SCOTLANDRGN',
-    input_segments=['adults', 'children', 'ns_sec', 'accom_h']
-)
-# convert these percentiles to LSOA
-percentiles = percentiles.translate_zoning(
-    new_zoning=constants.KNOWN_GEOGRAPHIES.get(f'DZ2011'),
-    cache_path=constants.CACHE_FOLDER,
-    weighting=TranslationWeighting.NO_WEIGHT,
-    check_totals=False
-)
-# calculate adjustment factors for zones which have occupancy over the max_percentile
-control_factors = percentiles / resulting_occupancies
-control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
-control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
-
-# apply these factors back to the households, to increase the number of
-# households to decrease occupancy
-rebased_households = rebased_households / control_factors
 
 data_processing.save_output(
     output_folder=OUTPUT_DIR,

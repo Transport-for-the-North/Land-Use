@@ -10,10 +10,10 @@ from caf.base.zoning import ZoningSystem, TranslationWeighting, TranslationWarni
 from caf.base.segmentation import Segmentation, SegmentationInput, Segment, SegmentsSuper
 import pandas as pd
 import numpy as np
-from openpyxl.pivot.cache import ServerFormatList
 
 from land_use.constants import segments, split_input_segments, CUSTOM_SEGMENTS
-from land_use.constants.geographies import CACHE_FOLDER
+from land_use.constants.geographies import CACHE_FOLDER, KNOWN_GEOGRAPHIES
+from land_use.data_processing.inputs import create_dvector_from_data
 
 
 LOGGER = logging.getLogger(__name__)
@@ -1091,7 +1091,7 @@ def mask_zero_population(
         household_dvector: DVector,
         household_segments: tuple = (
                 SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN
-        ),
+        )
 ) -> DVector:
     """Set households in household_dvector to zero where there is no
     population in a zone, when population_dvector is aggregated to
@@ -1125,3 +1125,86 @@ def mask_zero_population(
     # multiply the households by the masking matrix to set households to zero
     # where there is no population
     return household_dvector * population_masking
+
+
+def cap_household_occupancies(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        aggregate_zone_system_name: str,
+        current_zone_system_name: str,
+        percentile: float,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
+                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+        )
+) -> DVector:
+    """Calculate the percentile-th occupancy by household_segments for the
+    aggregate_zone_system_name and cap household occupancies at the
+    current_zone_system_name level based on this.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    aggregate_zone_system_name: str
+        Name of the zone system to provide the percentile-th occupancy.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN'.
+    current_zone_system_name: str
+        Name of the zone system to apply the percentile-th occupancy caps.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN' but we're applying it to
+        a DVector in zone system 'DZ2011', so current_zone_system_name = 'DZ2011'
+    percentile: float
+        Percentile to provide occupancy cap. E.g. 95th percentile as the maximum
+        means percentile=0.95
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
+        SegmentsSuper.ACCOMODATION_TYPE_H
+        )
+        Names of household segments over which to calcualte occupancies
+
+    Returns
+    -------
+    DVector
+        household_dvector with maximum occupancy caps applied.
+    """
+    # get resulting occupancies by adults and children
+    resulting_occupancies = (
+            population_dvector.aggregate(list(household_segments))
+            / household_dvector.aggregate(list(household_segments))
+    )
+
+    # get max_percentile cap by adult and children combination for all zones in the data
+    region_code = KNOWN_GEOGRAPHIES.get(aggregate_zone_system_name).zone_ids[0]
+    percentiles = resulting_occupancies.data.quantile(
+        q=float(percentile), axis=1
+    ).rename(region_code).to_frame()
+
+    # convert the caps to DVector format at region level
+    percentiles = create_dvector_from_data(
+        dvector_data=percentiles,
+        geographical_level=aggregate_zone_system_name,
+        input_segments=list(household_segments)
+    )
+    # convert these percentiles to LSOA
+    percentiles = percentiles.translate_zoning(
+        new_zoning=KNOWN_GEOGRAPHIES.get(current_zone_system_name),
+        cache_path=CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = percentiles / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    return household_dvector / control_factors
