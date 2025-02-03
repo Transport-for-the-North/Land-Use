@@ -1127,7 +1127,7 @@ def mask_zero_population(
     return household_dvector * population_masking
 
 
-def cap_household_occupancies(
+def cap_maximum_household_occupancy(
         population_dvector: DVector,
         household_dvector: DVector,
         aggregate_zone_system_name: str,

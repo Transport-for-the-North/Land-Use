@@ -846,8 +846,9 @@ def rebase(
     )
     # get max_percentile cap by adult and children combination for all zones in the
     # data and cap resulting occupancies
-    rebased_households = data_processing.cap_household_occupancies(
-        population_dvector=rebased_pop, household_dvector=rebased_households,
+    rebased_households = data_processing.cap_maximum_household_occupancy(
+        population_dvector=rebased_pop,
+        household_dvector=rebased_households,
         aggregate_zone_system_name=f'RGN2021-{geography_subset}',
         current_zone_system_name=f'LSOA2021-{geography_subset}',
         percentile=float(config["occupancy_cap_percentile"])
@@ -1193,8 +1194,9 @@ LOGGER.info(
     )
 # get max_percentile cap by adult and children combination for all zones in the
 # data and cap resulting occupancies
-rebased_households = data_processing.cap_household_occupancies(
-    population_dvector=scotland_hydrated, household_dvector=rebased_households,
+rebased_households = data_processing.cap_maximum_household_occupancy(
+    population_dvector=scotland_hydrated,
+    household_dvector=rebased_households,
     aggregate_zone_system_name='SCOTLANDRGN',
     current_zone_system_name='DZ2011',
     percentile=float(config["occupancy_cap_percentile"])
