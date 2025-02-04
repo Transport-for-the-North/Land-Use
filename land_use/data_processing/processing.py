@@ -968,11 +968,11 @@ def filter_to_adults(
 def derive_household_occupancy_targets(
         population_dvector: DVector,
         household_segments: tuple = (
-                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
-                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         ),
-        children_segment_name: str = SegmentsSuper.CHILDREN,
-        adult_segment_name: str = SegmentsSuper.ADULTS,
+        children_segment_name: str = SegmentsSuper.CHILDREN.value,
+        adult_segment_name: str = SegmentsSuper.ADULTS.value,
         no_children_hh_index: int = 1,
         yes_children_hh_index: int = 2,
         one_adult_hh_index: int = 1,
@@ -998,14 +998,14 @@ def derive_household_occupancy_targets(
         Must have segmentation of *at least* household_segments. Represents
         total population.
     household_segments: tuple, default (
-        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
-        SegmentsSuper.ACCOMODATION_TYPE_H
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         )
         Names of household segments to aggregate the population based targets to
-    children_segment_name: str = SegmentsSuper.CHILDREN
+    children_segment_name: str = SegmentsSuper.CHILDREN.value
         Name of the segmentation in population_dvector that represents the
         number of children in a household
-    adult_segment_name: str = SegmentsSuper.ADULTS
+    adult_segment_name: str = SegmentsSuper.ADULTS.value
         Name of the segmentation in population_dvector that represents the
         number of adults in a household
     no_children_hh_index: int = 1
@@ -1090,7 +1090,7 @@ def mask_zero_population(
         population_dvector: DVector,
         household_dvector: DVector,
         household_segments: tuple = (
-                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value
         )
 ) -> DVector:
     """Set households in household_dvector to zero where there is no
@@ -1103,7 +1103,9 @@ def mask_zero_population(
         Population data with segmentation *at least* household_segments
     household_dvector: DVector
         Household data with segmentation *at least* household_segments
-    household_segments: tuple, default (SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN)
+    household_segments: tuple, default (
+    SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value
+    )
         Segment names over which to aggregate population_dvector to check if
         there is zero population in a given zone.
 
@@ -1134,8 +1136,8 @@ def cap_maximum_household_occupancy(
         current_zone_system_name: str,
         percentile: float,
         household_segments: tuple = (
-                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
-                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         )
 ) -> DVector:
     """Calculate the percentile-th occupancy by household_segments for the
@@ -1165,8 +1167,8 @@ def cap_maximum_household_occupancy(
         Percentile to provide occupancy cap. E.g. 95th percentile as the maximum
         means percentile=0.95
     household_segments: tuple, default (
-        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
-        SegmentsSuper.ACCOMODATION_TYPE_H
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         )
         Names of household segments over which to calcualte occupancies
 
@@ -1216,11 +1218,11 @@ def cap_minimum_household_occupancy(
         aggregate_zone_system_name: str,
         current_zone_system_name: str,
         household_segments: tuple = (
-                SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN,
-                SegmentsSuper.NS_SEC, SegmentsSuper.ACCOMODATION_TYPE_H
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         ),
-        children_segment_name: str = SegmentsSuper.CHILDREN,
-        adult_segment_name: str = SegmentsSuper.ADULTS,
+        children_segment_name: str = SegmentsSuper.CHILDREN.value,
+        adult_segment_name: str = SegmentsSuper.ADULTS.value,
         min_caps: dict = {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
 ) -> DVector:
     """Calculate the occupancy by household_segments and cap minimum household
@@ -1246,14 +1248,14 @@ def cap_minimum_household_occupancy(
         aggregate_zone_system_name = 'SCOTLANDRGN' but we're applying it to
         a DVector in zone system 'DZ2011', so current_zone_system_name = 'DZ2011'
     household_segments: tuple, default (
-        SegmentsSuper.ADULTS, SegmentsSuper.CHILDREN, SegmentsSuper.NS_SEC,
-        SegmentsSuper.ACCOMODATION_TYPE_H
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
         )
         Names of household segments over which to calculate occupancies
-    children_segment_name: str, default SegmentsSuper.CHILDREN
+    children_segment_name: str, default SegmentsSuper.CHILDREN.value
         Name of the segmentation in population_dvector that represents the
         number of children in a household
-    adult_segment_name: str, default SegmentsSuper.ADULTS
+    adult_segment_name: str, default SegmentsSuper.ADULTS.value
         Name of the segmentation in population_dvector that represents the
         number of adults in a household
     min_caps: dict, default {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
