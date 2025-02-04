@@ -741,8 +741,6 @@ def rebase(
         dfs=differences
     )
 
-    # rebased_pop = DVector.load(rf"F:\Deliverables\Land-Use\241218_Population\02_Final Outputs\Output P11_{geography_subset}.hdf")
-
     # --- Step 12 --- #
     LOGGER.info('--- Step 12 ---')
     LOGGER.info('Rebasing households to 2023')
@@ -793,12 +791,14 @@ def rebase(
     rebase_household_target = census_hh_total * household_growth
 
     # derive household constraints from population data (required occupancies)
-    household_adjustment_targets = data_processing.derive_household_occupancy_targets(
+    household_adjustment_targets = list(data_processing.derive_household_occupancy_targets(
         population_dvector=rebased_pop
-    )
+    ))
+    household_adjustment_targets.append(rebase_household_target)
+
     rebased_households, summary, differences = data_processing.apply_ipf(
         seed_data=rebase_hh,
-        target_dvectors=list(household_adjustment_targets),
+        target_dvectors=household_adjustment_targets,
         cache_folder=constants.CACHE_FOLDER,
     )
 
