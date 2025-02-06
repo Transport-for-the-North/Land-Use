@@ -41,7 +41,7 @@ for cf in args.config_file:
     file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
 
 # define zone systems to translate to. NOTE: the map zone system must aggregate to the chart zone system if the two are different
-MAP_ZONE_SYSTEM = 'LAD2023+SCOTLANDLAD'
+MAP_ZONE_SYSTEM = 'LAD2021+SCOTLANDLAD'
 CHART_ZONE_SYSTEM = 'RGN2021+SCOTLANDRGN'
 
 # Calculate all of our "total" dictionaries in one go
