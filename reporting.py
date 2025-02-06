@@ -113,6 +113,7 @@ for unit, map_total_dvector in data_dict.items():
         unit_index.write(
             templating.render_data_type_page(
                 data_type=unit,
+                files_used=file_dict[unit],
                 skipped_segments=all_segment_names
             )
         )

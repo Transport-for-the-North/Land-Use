@@ -1,4 +1,6 @@
 from datetime import datetime
+from os import PathLike
+from os.path import getmtime
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -20,9 +22,15 @@ for template in SCENARIO_TEMPLATE, DATA_TYPE_TEMPLATE, SEGMENT_TEMPLATE:
 def render_scenario_page(scenario_name: str) -> str:
     return SCENARIO_TEMPLATE.render(scenario_name=scenario_name)
 
-def render_data_type_page(data_type: str, skipped_segments: Optional[Iterable[str]]=None) -> str:
+def render_data_type_page(data_type: str, files_used: Iterable[PathLike], skipped_segments: Optional[Iterable[str]]=None) -> str:
+    file_info = []
+    for file_path in files_used:
+        modified_time = datetime.utcfromtimestamp(getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+        file_info.append(dict(path=repr(str(file_path)), modified=modified_time))
+
     return DATA_TYPE_TEMPLATE.render(
         data_type=data_type, 
+        file_info=file_info,
         skipped_segments=skipped_segments or []
     )
 

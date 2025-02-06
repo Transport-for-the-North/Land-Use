@@ -6,6 +6,18 @@ Information
 
 Generated on: {{ now() }}
 
+Sources
+-------
+
+.. list-table:: 
+   :header-rows: 1
+
+   * - File Path
+     - Last Modified
+{% for file in file_info %}
+   * - {{ file.path }}
+     - {{ file.modified }} {% endfor %}
+
 {% if skipped_segments is defined and skipped_segments|length > 0 %}
 
 Skipped Segments
