@@ -11,18 +11,18 @@ from land_use.data_processing import OutputLevel, translate_and_combine_dvectors
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
-# parser = ArgumentParser(description='Land-Use base population command line runner')
-# parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
-# parser.add_argument('config_file', type=Path, nargs='+')
-# args = parser.parse_args()
-#
-# scenario_name = args.scenario_name
+parser = ArgumentParser(description='Land-Use base population command line runner')
+parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
+parser.add_argument('config_file', type=Path, nargs='+')
+args = parser.parse_args()
 
-scenario_name = "2024-12 Iteration 5 Issued Results"
-config_files = [
-    r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_population_config.yml",
-    r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_employment_config.yml"
-]
+scenario_name = args.scenario_name
+
+# scenario_name = "2024-12 Iteration 5 Issued Results"
+# config_files = [
+#     r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_population_config.yml",
+#     r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_employment_config.yml"
+# ]
 
 # Set up the root results page
 docs_dir = Path(__file__).parent / 'docs' / 'Scenario Results' / scenario_name
@@ -33,8 +33,8 @@ if not docs_dir.is_dir():
 
 file_dict = defaultdict(list)
 
-# for cf in args.config_file:
-for cf in config_files:
+for cf in args.config_file:
+# for cf in config_files:
     # load configuration file
     with open(cf, 'r') as text_file:
         config = yaml.load(text_file, yaml.SafeLoader)
@@ -67,6 +67,7 @@ if 'Population' in data_dict.keys():
     data_dict['Working Age Population'] = data_dict['Population'].filter_segment_value(
         'age_9', [4, 5, 6, 7, 8]
     )
+    file_dict['Working Age Population'] = file_dict['Population']
 
 for unit, map_total_dvector in data_dict.items():
     # Set up the output directory for that unit category
