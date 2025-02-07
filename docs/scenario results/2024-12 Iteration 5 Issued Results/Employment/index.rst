@@ -4,7 +4,7 @@ Employment
 Information
 ===========
 
-Generated on: 2025-02-07 14:35:48.094773
+Generated on: 2025-02-07 15:21:17.750264
 
 Sources
 -------
@@ -24,9 +24,9 @@ Skipped Segments
 ----------------
 The following segments are present in the output data, but have been omitted from reporting due to the number of categories found:
 
-- ``sic_2_digit``
 - ``sic_4_digit``
 - ``sic_1_digit``
+- ``sic_2_digit``
 
 
 

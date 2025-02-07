@@ -1511,8 +1511,6 @@ Standard Segments
      - SOC4
 
 
-Custom Segments
-===============
 ``total``
 ---------
 
@@ -1522,6 +1520,6 @@ Custom Segments
    * - Value
      - Description
    * - 1
-     - all
+     - total
 
 

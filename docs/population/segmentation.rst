@@ -215,6 +215,18 @@ Standard Segments
      - Other
 
 
+``total``
+---------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Description
+   * - 1
+     - total
+
+
 Custom Segments
 ===============
 ``ce``
@@ -261,17 +273,5 @@ Custom Segments
      - 50 - 64
    * - 6
      - 65 and over
-
-
-``total``
----------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Value
-     - Description
-   * - 1
-     - all
 
 
