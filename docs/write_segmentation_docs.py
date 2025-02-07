@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, Tuple
 PROJECT_DIR = Path(Path(__file__).parent.parent)
 sys.path.append(str(PROJECT_DIR))
 
-from caf.core.segments import SegmentsSuper
+from caf.base.segments import SegmentsSuper
 import yaml
 
 from land_use.constants.segments import split_input_segments, _CUSTOM_SEGMENT_CATEGORIES
