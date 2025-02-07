@@ -11,12 +11,18 @@ from land_use.data_processing import OutputLevel, translate_and_combine_dvectors
 from land_use.reporting import templating
 
 # TODO: expand on the documentation here
-parser = ArgumentParser(description='Land-Use base population command line runner')
-parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
-parser.add_argument('config_file', type=Path, nargs='+')
-args = parser.parse_args()
+# parser = ArgumentParser(description='Land-Use base population command line runner')
+# parser.add_argument('scenario_name', type=str, help='Name to use in output folder creation')
+# parser.add_argument('config_file', type=Path, nargs='+')
+# args = parser.parse_args()
+#
+# scenario_name = args.scenario_name
 
-scenario_name = args.scenario_name
+scenario_name = "2024-12 Iteration 5 Issued Results"
+config_files = [
+    r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_population_config.yml",
+    r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_employment_config.yml"
+]
 
 # Set up the root results page
 docs_dir = Path(__file__).parent / 'docs' / 'Scenario Results' / scenario_name
@@ -27,7 +33,8 @@ if not docs_dir.is_dir():
 
 file_dict = defaultdict(list)
 
-for cf in args.config_file:
+# for cf in args.config_file:
+for cf in config_files:
     # load configuration file
     with open(cf, 'r') as text_file:
         config = yaml.load(text_file, yaml.SafeLoader)
@@ -36,9 +43,9 @@ for cf in args.config_file:
     OUTPUT_DIR = Path(config['output_directory']) / OutputLevel.FINAL
 
     # get files from existing output
-    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P11.1_*.hdf'))
-    file_dict['Population'].extend(OUTPUT_DIR.glob('Output P13_*.hdf'))
-    file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E4.hdf'))
+    file_dict['Households'].extend(OUTPUT_DIR.glob('Output P13.3_*.hdf'))
+    file_dict['Population'].extend(OUTPUT_DIR.glob('Output P11_*.hdf'))
+    file_dict['Employment'].extend(OUTPUT_DIR.glob('Output E6.hdf'))
 
 # define zone systems to translate to. NOTE: the map zone system must aggregate to the chart zone system if the two are different
 MAP_ZONE_SYSTEM = 'LAD2021+SCOTLANDLAD'
@@ -91,7 +98,18 @@ for unit, map_total_dvector in data_dict.items():
         map_paths = create_interactive_maps(
             map_total_dvector, output_folder=results_dir, 
             specific_segment=segment_plot.segment_identifiers[0],
-            filter_by={'RGN21CD': ['E12000001', 'E12000002', 'E12000003']},
+            # filter_by={'RGN21CD': ['E12000001', 'E12000002', 'E12000003']},
+            filter_by={'LAD21CD': [
+                'E08000009', 'E08000005', 'E08000037', 'E06000009', 'E08000017', 'E06000004','E08000015','E08000023',
+                'E06000008', 'E07000167', 'E06000003', 'E06000049', 'E08000032', 'E07000120', 'E06000047', 'E07000163',
+                'E08000012', 'E07000027', 'E08000006', 'E07000119', 'E06000007', 'E06000014', 'E08000008', 'E06000002',
+                'E07000030', 'E07000122', 'E06000013', 'E06000050', 'E06000005', 'E08000010', 'E07000031', 'E08000007',
+                'E08000022', 'E06000011', 'E07000126', 'E07000124', 'E07000026', 'E07000028', 'E07000164', 'E07000117',
+                'E07000168', 'E08000018', 'E06000057', 'E07000169', 'E08000016', 'E08000034', 'E07000127', 'E06000012',
+                'E08000003', 'E07000121', 'E08000013', 'E08000033', 'E07000029', 'E06000001', 'E07000128', 'E08000014',
+                'E07000165', 'E07000123', 'E07000118', 'E08000024', 'E08000011', 'E08000004', 'E06000006', 'E06000010',
+                'E07000125', 'E08000021', 'E08000036', 'E08000035', 'E07000166', 'E08000019', 'E08000002', 'E08000001'
+            ]},
             simplification=500
         )
 

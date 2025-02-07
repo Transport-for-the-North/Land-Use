@@ -37,7 +37,8 @@ def load_spatial_zoning(
 
     if filter_by:
         for column, values in filter_by.items():
-            spatial_zones = spatial_zones[spatial_zones[column].isin(values)]
+            # todo this was crashing because it assumed the column name was 'RGN21CD' whereas the shapefile has column 'zone_id' (from id_col above), and is at LAD21 level. Not sure how this was ran before
+            spatial_zones = spatial_zones[spatial_zones[id_col].isin(values)]
 
     spatial_zones = spatial_zones[[id_col, 'geometry']]
 
