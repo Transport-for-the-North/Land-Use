@@ -1,0 +1,11 @@
+# Configuration file specifying the segmentation and geographical level of the input data.
+# All files here are assumed to be in a format ready for DVectors.
+input_root_directory: I:\Data
+output_directory: F:\Working\Land-Use\FORECASTING_prep
+output_intermediate_outputs: False
+
+ntem_8:
+    working_age_2023:
+        file_path: NTEM\MG_NorCOM_review_121324\preprocessing\ntem_8.0_Core_planning_data_working_age_2023.hdf
+        geographical_level: MSOA2011+SCOTLAND-INT-ZONE
+        input_segments: [age_ntem]
