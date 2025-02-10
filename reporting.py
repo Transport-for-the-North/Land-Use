@@ -18,12 +18,6 @@ args = parser.parse_args()
 
 scenario_name = args.scenario_name
 
-# scenario_name = "2024-12 Iteration 5 Issued Results"
-# config_files = [
-#     r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_population_config.yml",
-#     r"C:\Projects\code\Land-Use\scenario_configurations\iteration_5\base_employment_config.yml"
-# ]
-
 # Set up the root results page
 docs_dir = Path(__file__).parent / 'docs' / 'Scenario Results' / scenario_name
 if not docs_dir.is_dir():
@@ -34,8 +28,6 @@ if not docs_dir.is_dir():
 file_dict = defaultdict(list)
 
 for cf in args.config_file:
-# for cf in config_files:
-    # load configuration file
     with open(cf, 'r') as text_file:
         config = yaml.load(text_file, yaml.SafeLoader)
 
