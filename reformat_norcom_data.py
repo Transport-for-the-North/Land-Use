@@ -49,6 +49,12 @@ data[f'hh_income_{_MODEL_PRICE_BASE}'] = (
     data['hh_income'] * factor
 ) * data['hh_income'].ne(-1) - data['hh_income'].eq(-1)
 
+
+# attach running and purchase costs to NTS data
+data = pd.merge(
+    data, car_cost, on='surveyyear', how='left'
+)
+
 # --- define new columns based on aggregations of other columns --- #
 for new_col, mapping in NORCOM_MAPPINGS.items():
     for original_col, mapper in mapping.items():
