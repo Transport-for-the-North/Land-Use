@@ -528,3 +528,39 @@ def reformat_hse_lad_4_digit(
 
     df = df.set_index("sic_4_digit")
     return df
+
+
+def convert_price_base(
+        data: pd.DataFrame,
+        deflator: pd.DataFrame,
+        index_column: str,
+        year_column: str = 'surveyyear',
+        income_column: str = 'hh_income'
+) -> pd.DataFrame:
+    """
+
+    Parameters
+    ----------
+    data: pd.DataFrame
+        Output of reduce_classified_build(), a semi-default version
+        of TfN's NTS processing. Must contain columns `year_column` and
+        `income_column`
+    deflator: pd.DataFrame
+        Price deflating data with *at least* `year_column` and
+        `index_column`.
+    index_column: str
+        Column name in `deflator` that represents the year-specific adjustment
+        indices that will rebase prices to a given year
+    year_column: str, default 'surveyyear'
+        Column name in `deflator` *and* `data` that represents the year
+    income_column: str, default 'hh_income'
+        Column name in `data` that represents the annual household income
+        (or some other price data to convert)
+
+    Returns
+    -------
+    pd.DataFrame
+        `data` with an additional column of f'{income_column}_rebased`
+
+    """
+    pass
