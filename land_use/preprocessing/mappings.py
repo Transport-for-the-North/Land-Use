@@ -534,6 +534,29 @@ HH_CHILDREN_MAPPING = {
     8: 2
 }
 
+AREA_TYPE_MAPPING_ONE = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 3,
+    5: 4,
+    6: 4,
+    7: 4,
+    8: 5,
+    9: 6,
+    10: 6,
+    11: 6,
+    12: 6,
+    13: 5,
+    14: 5,
+    15: 5,
+    16: 7,
+    17: 7,
+    18: 8,
+    19: 8,
+    20: 5
+}
+
 NORCOM_MAPPINGS = {
     'hh_income_banded_v1': {
         'hh_income': INCOME_MAPPING_ONE
@@ -552,5 +575,8 @@ NORCOM_MAPPINGS = {
     },
     'hh_children_seg': {
         'hholdnumchildren': HH_CHILDREN_MAPPING
+    },
+    'tfn_at_v1': {
+        'tfn_at': AREA_TYPE_MAPPING_ONE
     }
 }
