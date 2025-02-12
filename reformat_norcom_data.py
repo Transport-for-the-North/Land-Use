@@ -9,14 +9,20 @@ from land_use.constants import (
     _MODEL_PRICE_BASE, _NTS_PRICE_BASE
 )
 
+# define path of main working directory to provide inputs to running norcom
+working_dir = Path(r'I:\NorMITs NorCOM\Import')
 
 # define folder of main NTS based inputs to NorCOM
-output_folder = Path(r'I:\NorMITs NorCOM\Import\NTS')
+nts_folder = working_dir / 'NTS'
 
 # define folder of price deflation inputs to convert NTS price data from
 # 2002 to 2023
-price_deflator = Path(r'I:\NorMITs NorCOM\Import\RPI\rpi.csv')
+price_deflator = working_dir / 'RPI' / 'rpi.csv'
 price_deflator = pd.read_csv(price_deflator)
+
+# define folder of car cost inputs
+car_cost = working_dir / 'Car Cost' / 'car_cost.csv'
+car_cost = pd.read_csv(car_cost)
 
 # --- collapse the classified build to unique household attributes only --- #
 # define path to classified build, its assumed this is a standard output of
@@ -50,4 +56,4 @@ for new_col, mapping in NORCOM_MAPPINGS.items():
         print(data[new_col].value_counts())
 
 # write household data to working folder
-data.to_csv(output_folder/ 'nts_hh_data.csv', index=False)
+data.to_csv(nts_folder/ 'nts_hh_data.csv', index=False)
