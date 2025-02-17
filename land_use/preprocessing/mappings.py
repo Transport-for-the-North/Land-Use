@@ -423,7 +423,7 @@ SIC_2_DIGIT_TO_SIC_1_DIGIT_AGGREGATIONS = {
 }
 
 # --- NorCOM --- #
-INCOME_MAPPING = {
+INCOME_MAPPING_ONE = {
     -1: -1,
     500: 1,
     1500: 1,
@@ -448,6 +448,36 @@ INCOME_MAPPING = {
     65000: 5,
     72500: 5,
     87500: 6,
+    112500: 7,
+    137500: 7,
+    150000: 7
+}
+
+INCOME_MAPPING_TWO = {
+    -1: -1,
+    500: 1,
+    1500: 1,
+    2500: 1,
+    3500: 1,
+    4500: 1,
+    5500: 1,
+    6500: 1,
+    7500: 1,
+    8500: 1,
+    9500: 1,
+    11250: 2,
+    13750: 2,
+    16250: 3,
+    18750: 3,
+    22500: 3,
+    27500: 4,
+    32500: 4,
+    37500: 5,
+    45000: 5,
+    55000: 6,
+    65000: 6,
+    72500: 6,
+    87500: 7,
     112500: 7,
     137500: 7,
     150000: 7
@@ -504,9 +534,35 @@ HH_CHILDREN_MAPPING = {
     8: 2
 }
 
+AREA_TYPE_MAPPING_ONE = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 3,
+    5: 4,
+    6: 4,
+    7: 4,
+    8: 5,
+    9: 6,
+    10: 6,
+    11: 6,
+    12: 6,
+    13: 5,
+    14: 5,
+    15: 5,
+    16: 7,
+    17: 7,
+    18: 8,
+    19: 8,
+    20: 5
+}
+
 NORCOM_MAPPINGS = {
-    'hh_income_banded': {
-        'hh_income': INCOME_MAPPING
+    'hh_income_banded_v1': {
+        'hh_income': INCOME_MAPPING_ONE
+    },
+    'hh_income_banded_v2': {
+        'hh_income': INCOME_MAPPING_TWO
     },
     '0v1_car': {
         'numcarvan': NUMCAR_MAPPING_ONE
@@ -519,5 +575,8 @@ NORCOM_MAPPINGS = {
     },
     'hh_children_seg': {
         'hholdnumchildren': HH_CHILDREN_MAPPING
+    },
+    'tfn_at_v1': {
+        'tfn_at': AREA_TYPE_MAPPING_ONE
     }
 }
