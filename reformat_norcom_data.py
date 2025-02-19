@@ -3,10 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from land_use.preprocessing import (
-    reduce_classified_build, convert_price_base, NORCOM_MAPPINGS
-)
-from land_use.constants import (
-    _MODEL_PRICE_BASE, _NTS_PRICE_BASE
+    reduce_classified_build, convert_price_base, NORCOM_MAPPINGS, NORCOM_BANDINGS
 )
 
 # define path of main working directory to provide inputs to running norcom
@@ -37,18 +34,10 @@ data = reduce_classified_build(
     trip_data=data
 )
 
-# TODO is this needed?
-# calculate rpi based adjustment factor to convert prices between 2002 and 2023
-factor = (
-    price_deflator[price_deflator['surveyyear'].eq(_MODEL_PRICE_BASE)].agg({'rpi': 'sum'}) /
-    price_deflator[price_deflator['surveyyear'].eq(_NTS_PRICE_BASE)].agg({'rpi': 'sum'})
-).sum()
-
-# convert hh income to 2023 price base year
-data[f'hh_income_{_MODEL_PRICE_BASE}'] = (
-    data['hh_income'] * factor
-) * data['hh_income'].ne(-1) - data['hh_income'].eq(-1)
-
+# apply rpi based adjustment factor to convert NTS nominal prices to 2023
+data = convert_price_base(
+    data=data, deflator=price_deflator, index_column='2023_deflator'
+)
 
 # attach running and purchase costs to NTS data
 data = pd.merge(
@@ -56,9 +45,18 @@ data = pd.merge(
 )
 
 # --- define new columns based on aggregations of other columns --- #
+# mappings are 1 to 1 lookup dictionary mappings
 for new_col, mapping in NORCOM_MAPPINGS.items():
     for original_col, mapper in mapping.items():
         data[new_col] = data[original_col].map(mapper)
+        print(data[new_col].value_counts())
+
+# bandings are pd.cut bandings
+for new_col, banding in NORCOM_BANDINGS.items():
+    for original_col, bander in banding.items():
+        data[new_col] = pd.cut(
+            data[original_col], bander[0], labels=bander[1], right=False
+        )
         print(data[new_col].value_counts())
 
 # write household data to working folder

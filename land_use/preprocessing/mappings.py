@@ -580,3 +580,17 @@ NORCOM_MAPPINGS = {
         'tfn_at': AREA_TYPE_MAPPING_ONE
     }
 }
+
+
+INCOME_BANDINGS = [
+    -99999, 0, 15000, 25000, 35000, 50000, 75000, 100000, 999999999
+]
+INCOME_LABELS = [
+    -1, 1, 2, 3, 4, 5, 6, 7
+]
+
+NORCOM_BANDINGS = {
+    'hh_income_banded_v3': {
+        'hh_income_2023': (INCOME_BANDINGS, INCOME_LABELS)
+    }
+}

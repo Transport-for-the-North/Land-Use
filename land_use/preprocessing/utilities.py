@@ -6,6 +6,8 @@ from warnings import warn
 
 import pandas as pd
 
+from land_use.constants import _MODEL_PRICE_BASE
+
 
 def find_header_line(
         file_path: PathLike, 
@@ -563,4 +565,17 @@ def convert_price_base(
         `data` with an additional column of f'{income_column}_rebased`
 
     """
-    pass
+    # combine NTS data with price deflator data based on survey year
+    data = pd.merge(data, deflator, on=year_column, how='left')
+
+    # convert the nominal prices in NTS to the model base year of 2023 prices
+    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = (
+        data[income_column] / data[index_column]
+    )
+
+    # replace negative values with -1 (this is a missing NTS value)
+    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = (
+        data[f'{income_column}_{_MODEL_PRICE_BASE}'].where(data[income_column] > 0, -1)
+    )
+
+    return data
