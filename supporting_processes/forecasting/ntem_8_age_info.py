@@ -44,7 +44,7 @@ def create_dv(year:int):
 
     df["age_ntem"] = df["population"].map(age_to_segment)
 
-    dv = pp.pivot_to_dvector(
+    df_in_dvec_format = pp.pivot_to_dvector(
         data=df,
         zoning_column="msoa_zone_id",
         index_cols=["age_ntem"],
@@ -52,7 +52,9 @@ def create_dv(year:int):
     )
 
     pp.save_preprocessed_hdf(
-        source_file_path=filepath, df=dv, multiple_output_ref=f"age_ntem_{year}"
+        source_file_path=filepath, 
+        df=df_in_dvec_format, 
+        multiple_output_ref=f"age_ntem_{year}"
     )
 
 
