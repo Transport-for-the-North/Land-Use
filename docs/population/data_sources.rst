@@ -37,7 +37,7 @@ ONS Table 1
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS custom/ct210212census2021.xlsx
    * - Access
-     - Purchased, not open access
+     - Purchased, available under OGL via ONS
 
 ONS Table 2
 -----------
@@ -58,7 +58,7 @@ ONS Table 2
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS custom/ct210213census2021.xlsx
    * - Access
-     - Purchased, not open access
+     - Purchased, available under OGL via ONS
 
 ONS Table 3
 -----------
@@ -79,7 +79,7 @@ ONS Table 3
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS custom/ct210214census2021.xlsx
    * - Access
-     - Purchased, not open access
+     - Purchased, available under OGL via ONS
 
 ONS Table 4
 -----------
@@ -100,7 +100,7 @@ ONS Table 4
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS custom/ct210215census2021.xlsx
    * - Access
-     - Purchased, not open access
+     - Purchased, available under OGL via ONS
 
 Occupied Households
 -------------------
@@ -121,7 +121,7 @@ Occupied Households
    * - File Location
      - I:/NorMITs Land Use/2023/import/RM002 accom type by household size/2672385425907310 all.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Unoccupied Households
 ---------------------
@@ -142,7 +142,7 @@ Unoccupied Households
    * - File Location
      - I:/NorMITs Land Use/2023/import/RM002 accom type by household size/2072764328175065 zero.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Age and Gender
 --------------
@@ -163,7 +163,7 @@ Age and Gender
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS/population_age11_gender_MSOA.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Communal Establishments (CE)
 ----------------------------
@@ -184,7 +184,7 @@ Communal Establishments (CE)
    * - File Location
      - I:/NorMITs Land Use/2023/import/TS001 pop_hh_ce/1226171533660024.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 CE Types
 --------
@@ -205,7 +205,7 @@ CE Types
    * - File Location
      - I:/NorMITs Land Use/2023/import/TS048  CERs by type/2741727163807526.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 CE SOC
 ------
@@ -226,7 +226,7 @@ CE SOC
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS/ONS 2021 CERs/CERs_GOR_age11_gender_occupation.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 CE Economic Status
 ------------------
@@ -247,7 +247,7 @@ CE Economic Status
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS/ONS 2021 CERs/CERs_GOR_age11_gender_economicstatus.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 2022 Scotland Census Data
 =========================
@@ -271,7 +271,7 @@ Scotland Population
    * - File Location
      - I:/NorMITs Land Use/2023/import/Census Scotland/Population_age6_gender_DZ2011.csv
    * - Access
-     - Freely available to download
+     - Available under OGL
 
 Office for National Statistics
 ==============================
@@ -295,7 +295,7 @@ Office for National Statistics
    * - File Location
      - I:/NorMITs Land Use/2023/import/MYPE/sapelsoasyoatablefinal.xlsx
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 2023 MYPE
 ---------
@@ -316,52 +316,7 @@ Office for National Statistics
    * - File Location
      - I:/NorMITs Land Use/2023/import/MYPE/myebtablesenglandwales20112023.xlsx
    * - Access
-     - Freely available to download
-
-AddressBase
-===========
-
-2021 AddressBase Dwellings
---------------------------
-
-.. list-table::
-   :header-rows: 0
-   :widths: 1 2
-   :stub-columns: 1
-
-   * - Unit
-     - Dwellings
-   * - Geography
-     - LSOA 2021
-   * - Segmentation
-     - Accommodation type
-   * - Source
-     - https://www.ordnancesurvey.co.uk/products/addressbase-premium#get
-   * - File Location
-     - I:/NorMITs Land Use/2023/import/ABP/ABP2021/output_results_all_2021(no red).xlsx
-   * - Access
-     - Licensed through TfN, not open access
-
-2023 AddressBase Dwellings
---------------------------
-
-.. list-table::
-   :header-rows: 0
-   :widths: 1 2
-   :stub-columns: 1
-
-   * - Unit
-     - Dwellings
-   * - Geography
-     - LSOA 2021
-   * - Segmentation
-     - Accommodation type
-   * - Source
-     - https://www.ordnancesurvey.co.uk/products/addressbase-premium#get
-   * - File Location
-     - I:/NorMITs Land Use/2023/import/ABP/ABP2023/output_results_all_2023(no red).xlsx
-   * - Access
-     - Licensed through TfN, not open access
+     - Available under OGL via ONS
 
 Annual Population Survey
 ========================
@@ -385,7 +340,7 @@ T01 (16-64)
    * - File Location
      - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/T01_targets_291024_analysis_revamp.xlsx
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 T01 (65+)
 -----------
@@ -406,7 +361,7 @@ T01 (65+)
    * - File Location
      - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/T01_targets_291024_analysis_revamp.xlsx
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 T08
 ---
@@ -427,7 +382,7 @@ T08
    * - File Location
      - I:/NorMITs Land Use/2023/import/APS 2023 for IPF/Regional-based-targets/APS-24-regional-based-targets_revamp_v3.xlsx
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Validation Data
 ***************
@@ -454,7 +409,7 @@ Dataset 1
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_cars_lsoa_3.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 2
 ---------
@@ -475,7 +430,7 @@ Dataset 2
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_adults_children_lsoa.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 3
 ---------
@@ -496,7 +451,7 @@ Dataset 3
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_nssec_adults_children_lad.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 4
 ---------
@@ -517,7 +472,7 @@ Dataset 4
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_nssec_car_lad.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 5
 ---------
@@ -538,7 +493,7 @@ Dataset 5
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_nssec_car_lad.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 6
 ---------
@@ -559,7 +514,7 @@ Dataset 6
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/households_nssec_lsoa.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Population Data
 ===============
@@ -583,7 +538,7 @@ Dataset 1
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_soc9_lsoa.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 2
 ---------
@@ -604,7 +559,7 @@ Dataset 2
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_status_lsoa.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 3
 ---------
@@ -625,7 +580,7 @@ Dataset 3
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_age11_gender_occupation_lad.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 4
 ---------
@@ -646,7 +601,7 @@ Dataset 4
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_age11_gender_economicstatus_region.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 5
 ---------
@@ -667,7 +622,7 @@ Dataset 5
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_adults_children_status_region.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 6
 ---------
@@ -688,7 +643,7 @@ Dataset 6
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_adults_children_occupation_lad.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 7
 ---------
@@ -709,7 +664,7 @@ Dataset 7
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_adults_children_age_gender_MSOA.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
 
 Dataset 8
 ---------
@@ -730,4 +685,4 @@ Dataset 8
    * - File Location
      - I:/NorMITs Land Use/2023/import/ONS-validation/population_age_gender_car_msoa.csv
    * - Access
-     - Freely available to download
+     - Available under OGL via ONS
