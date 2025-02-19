@@ -7,8 +7,6 @@ import land_use.preprocessing as pp
 
 
 FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048]
-BASE_YEAR = 2023
-
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 
 
@@ -21,18 +19,17 @@ def main():
 # %%
 def process_2018_projections() -> None:
     # Note this is for england only
-    england_2018_forecast_path = (
+    forecast_filepath = (
         POPULATION_DIR / "2018_based_england_regions_pop_projections.xlsx"
     )
-    male_df = process_sheet(
-        path_in=england_2018_forecast_path, sheet_name="Males", sex="male"
+    male_df = convert_rgn_forecasts_to_segmentations(
+        path_in=forecast_filepath, sheet_name="Males"
     )
-    female_df = process_sheet(
-        path_in=england_2018_forecast_path, sheet_name="Females", sex="female"
+    female_df = convert_rgn_forecasts_to_segmentations(
+        path_in=forecast_filepath, sheet_name="Females"
     )
 
     df = pd.concat([male_df, female_df])
-
     df = df.reset_index()
 
     output_years = [year for year in FORECAST_YEARS if year in df]
@@ -48,27 +45,39 @@ def process_2018_projections() -> None:
         )
 
 
-def process_sheet(path_in: Path, sheet_name: str, sex: str) -> pd.DataFrame:
+def convert_rgn_forecasts_to_segmentations(
+    path_in: Path, sheet_name: str
+) -> pd.DataFrame:
 
     df = pd.read_excel(path_in, sheet_name=sheet_name, skiprows=6)
-
-    region_correspondence = fetch_region_correspondence()
-
-    region_codes = region_correspondence["RGN21CD"]
-
     df = df.rename(columns={"CODE": "GOR"})
 
+    region_correspondence = fetch_region_correspondence()
+    region_codes = region_correspondence["RGN21CD"]
     df = df[df["GOR"].isin(region_codes)]
 
     # have to limit forecast years to those available
     available_years = [year for year in FORECAST_YEARS if year in df.columns]
-
     keep_cols: list[int | str] = ["GOR", "AGE GROUP"]
     keep_cols.extend(available_years)
-
     df = df[keep_cols]
 
     # get lowest age
+    df = allocate_ntem_age(df, available_years)
+
+    df = df.groupby(["GOR", "ntem_age"]).sum()
+
+    if sheet_name == "Males":
+        df["g"] = 1
+    elif sheet_name == "Females":
+        df["g"] = 2
+    else:
+        raise ValueError(f"unable to allocate g segment for {sheet_name}")
+
+    return df
+
+
+def allocate_ntem_age(df, available_years):
     df["from_age"] = df["AGE GROUP"].str.split("-").str[0]
 
     # fix 15-19 issue mapping to two categories in ratio 1:4
@@ -93,15 +102,6 @@ def process_sheet(path_in: Path, sheet_name: str, sex: str) -> pd.DataFrame:
     df = find_age_ntem_enum(df=df, age_col="from_age")
 
     df = df.drop(columns=["AGE GROUP", "from_age"])
-
-    df = df.groupby(["GOR", "ntem_age"]).sum()
-
-    if sex == "male":
-        df["g"] = 1
-    elif sex == "female":
-        df["g"] = 2
-    else:
-        raise ValueError(f"unable to allocate g segment for {sex}")
 
     return df
 
@@ -181,12 +181,9 @@ def process_to_segmentations(path_in: Path) -> pd.DataFrame:
     df = df[keep_cols]
     df = df.copy()
 
-    df.loc[df["Age"] < 16, "ntem_age"] = 1  # aged 15 years and under
-    df.loc[(df["Age"] >= 16) & (df["Age"] <= 74), "ntem_age"] = 2  # aged 16 to 74 years
-    df.loc[df["Age"] >= 75, "ntem_age"] = 3  # aged 75 and over
-    df["ntem_age"] = df["ntem_age"].astype(int)
+    df = find_age_ntem_enum(df=df, age_col="Age")
 
-    # and now gender
+    # and now allocate g segment
     df.loc[df["Sex"] == "Males", "g"] = 1
     df.loc[df["Sex"] == "Females", "g"] = 2
     df["g"] = df["g"].astype(int)
@@ -242,6 +239,7 @@ def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
         pp.save_preprocessed_hdf(
             source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_wide
         )
+
 
 # %%
 if __name__ == "__main__":
