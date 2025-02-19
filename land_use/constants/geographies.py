@@ -215,21 +215,21 @@ TFN_AT_AGG_ZONING_SYSTEM = generate_zoning_system(
 SCOTLAND_RGN_ZONING_NAME = "SCOTLANDRGN"
 SCOTLAND_RGN_ZONING_SYSTEM = generate_zoning_system(
     name=SCOTLAND_RGN_ZONING_NAME,
-    shapefile_path=Path(r"F:\Working\Land-Use\SHAPEFILES\SCOTLAND RGN\SCOTLAND_RGN.shp"),
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SCOTLAND RGN' / 'SCOTLAND_RGN.shp',
     id_col="RGN21CD",
     desc_col="RGN21NM",
 )
 SCOTLAND_LAD_NAME = "SCOTLANDLAD"
 SCOTLAND_LAD_ZONING_SYSTEM = generate_zoning_system(
     name=SCOTLAND_LAD_NAME,
-    shapefile_path=Path(r"F:\Working\Land-Use\SHAPEFILES\SCOTLAND LAD (2011)\SCOTLAND LAD (2011).shp"),
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SCOTLAND LAD (2011)' / 'SCOTLAND LAD (2011).shp',
     id_col="LAD21CD",
     desc_col="LAD21NM",
 )
 SCOTLAND_INTZONE_NAME = "SCOTLAND-INT-ZONE"
 SCOTLAND_INTZONE_ZONING_SYSTEM = generate_zoning_system(
     name=SCOTLAND_INTZONE_NAME,
-    shapefile_path=Path(r"F:\Working\Land-Use\SHAPEFILES\SG_IntermediateZoneBdry_2011\SG_IntermediateZone_Bdry_2011.shp"),
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SG_IntermediateZoneBdry_2011' / 'SG_IntermediateZone_Bdry_2011.shp',
     id_col="InterZone",
     desc_col="Name",
 )
