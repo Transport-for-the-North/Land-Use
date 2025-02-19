@@ -36,7 +36,7 @@ def process_2018_projections() -> None:
 
     for year in output_years:
 
-        df_wide = pd.pivot(df, index=["ntem_age", "g"], columns=["GOR"], values=year)
+        df_wide = pd.pivot(df, index=["age_ntem", "g"], columns=["GOR"], values=year)
 
         filestem = f"2018_based_english_regions_pop_projections_{year}"
 
@@ -63,9 +63,9 @@ def convert_rgn_forecasts_to_segmentations(
     df = df[keep_cols]
 
     # get lowest age
-    df = allocate_ntem_age(df, available_years)
+    df = allocate_age_ntem(df, available_years)
 
-    df = df.groupby(["GOR", "ntem_age"]).sum()
+    df = df.groupby(["GOR", "age_ntem"]).sum()
 
     if sheet_name == "Males":
         df["g"] = 1
@@ -77,7 +77,7 @@ def convert_rgn_forecasts_to_segmentations(
     return df
 
 
-def allocate_ntem_age(df, available_years):
+def allocate_age_ntem(df, available_years):
     df["from_age"] = df["AGE GROUP"].str.split("-").str[0]
 
     # fix 15-19 issue mapping to two categories in ratio 1:4
@@ -108,12 +108,12 @@ def allocate_ntem_age(df, available_years):
 
 # %%
 def find_age_ntem_enum(df: pd.DataFrame, age_col: str = "age") -> pd.DataFrame:
-    df.loc[df[age_col] < 16, "ntem_age"] = 1  # aged 15 years and under
-    df.loc[(df[age_col] >= 16) & (df[age_col] <= 74), "ntem_age"] = (
+    df.loc[df[age_col] < 16, "age_ntem"] = 1  # aged 15 years and under
+    df.loc[(df[age_col] >= 16) & (df[age_col] <= 74), "age_ntem"] = (
         2  # aged 16 to 74 years
     )
-    df.loc[df[age_col] >= 75, "ntem_age"] = 3  # aged 75 and over
-    df["ntem_age"] = df["ntem_age"].astype(int)
+    df.loc[df[age_col] >= 75, "age_ntem"] = 3  # aged 75 and over
+    df["age_ntem"] = df["age_ntem"].astype(int)
     return df
 
 
@@ -190,7 +190,7 @@ def process_to_segmentations(path_in: Path) -> pd.DataFrame:
 
     df = df.drop(columns=["Sex", "Age"])
 
-    df = df.groupby(["ntem_age", "g"]).sum()
+    df = df.groupby(["age_ntem", "g"]).sum()
     return df.reset_index()
 
 
@@ -230,7 +230,7 @@ def create_2022_regions_df(
 def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
     for year in FORECAST_YEARS:
         df_wide = pd.pivot(
-            regions_df, index=["ntem_age", "g"], columns=["rgn_cd"], values=year
+            regions_df, index=["age_ntem", "g"], columns=["rgn_cd"], values=year
         )
 
         filestem = f"2021_22_based_ews_pop_projections_{year}"
