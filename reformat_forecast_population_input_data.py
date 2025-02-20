@@ -12,13 +12,14 @@ POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_proj
 
 # %%
 def main():
-    process_2018_projections()
-    process_2021_22_projections()
+    process_gor_projections()
+    process_country_projections()
 
 
 # %%
-def process_2018_projections() -> None:
-    # Note this is for england only
+def process_gor_projections() -> None:
+    # Note only England has projections by sub areas
+    # however both Scotland and Wales are themselves regions
     forecast_filepath = (
         POPULATION_DIR / "2018_based_england_regions_pop_projections.xlsx"
     )
@@ -29,16 +30,26 @@ def process_2018_projections() -> None:
         path_in=forecast_filepath, sheet_name="Females"
     )
 
-    df = pd.concat([male_df, female_df])
-    df = df.reset_index()
+    scotland_forecast = POPULATION_DIR / "2022_based_scotland_pop_projections.xlsx"
+    df_age_g_scotland = process_to_segmentations(path_in=scotland_forecast)
+    df_age_g_scotland["RGN2021"] = "S92000003"
+
+    wales_forecast = POPULATION_DIR / "2021_based_interim_wales_pop_projections.xlsx"
+    df_age_g_wales = process_to_segmentations(path_in=wales_forecast)
+    df_age_g_wales["RGN2021"] = "W92000004"
+
+    male_df = male_df.reset_index()
+    female_df = female_df.reset_index()
+
+    df = pd.concat([male_df, female_df, df_age_g_scotland, df_age_g_wales])
 
     output_years = [year for year in FORECAST_YEARS if year in df]
 
     for year in output_years:
 
-        df_wide = pd.pivot(df, index=["age_ntem", "g"], columns=["GOR"], values=year)
+        df_wide = pd.pivot(df, index=["age_ntem", "g"], columns=["RGN2021"], values=year)
 
-        filestem = f"2018_based_english_regions_pop_projections_{year}"
+        filestem = f"2018_20_21_regions_pop_projections_{year}"
 
         pp.save_preprocessed_hdf(
             source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_wide
@@ -50,22 +61,22 @@ def convert_rgn_forecasts_to_segmentations(
 ) -> pd.DataFrame:
 
     df = pd.read_excel(path_in, sheet_name=sheet_name, skiprows=6)
-    df = df.rename(columns={"CODE": "GOR"})
+    df = df.rename(columns={"CODE": "RGN2021"})
 
     region_correspondence = fetch_region_correspondence()
     region_codes = region_correspondence["RGN21CD"]
-    df = df[df["GOR"].isin(region_codes)]
+    df = df[df["RGN2021"].isin(region_codes)]
 
     # have to limit forecast years to those available
     available_years = [year for year in FORECAST_YEARS if year in df.columns]
-    keep_cols: list[int | str] = ["GOR", "AGE GROUP"]
+    keep_cols: list[int | str] = ["RGN2021", "AGE GROUP"]
     keep_cols.extend(available_years)
     df = df[keep_cols]
 
     # get lowest age
     df = allocate_age_ntem(df, available_years)
 
-    df = df.groupby(["GOR", "age_ntem"]).sum()
+    df = df.groupby(["RGN2021", "age_ntem"]).sum()
 
     if sheet_name == "Males":
         df["g"] = 1
@@ -77,27 +88,29 @@ def convert_rgn_forecasts_to_segmentations(
     return df
 
 
-def allocate_age_ntem(df, available_years):
+def allocate_age_ntem(df:pd.DataFrame, available_years:list[int]) -> pd.DataFrame:
     df["from_age"] = df["AGE GROUP"].str.split("-").str[0]
 
     # fix 15-19 issue mapping to two categories in ratio 1:4
     df_exc_15 = df[df["from_age"] != "15"].copy()
-    df_15 = df[df["from_age"] == "15"].copy()
-
-    df_16 = df[df["from_age"] == "15"].copy()
-
-    df_15[available_years] = df_15[available_years] / 0.2
-    df_16[available_years] = df_16[available_years] / 0.8
-
-    df = pd.concat([df_exc_15, df_15, df_16])
-
     # don't forget about 90+
-    df["from_age"] = df["from_age"].str.replace("+", "")
+    df_exc_15["from_age"] = df_exc_15["from_age"].str.replace("+", "")
 
     # drop All Ages
-    df = df[df["from_age"] != "All ages"]
+    df_exc_15 = df_exc_15[df_exc_15["from_age"] != "All ages"]
+    # convert to int
+    df_exc_15["from_age"] = df_exc_15["from_age"].astype(int)
+    
+    df_15 = df[df["from_age"] == "15"].copy()
+    df_15["from_age"] = 15
+    df_15[available_years] = df_15[available_years] * 0.2
 
-    df["from_age"] = df["from_age"].astype(int)
+    df_16 = df[df["from_age"] == "15"].copy()
+    df_16["from_age"] = 16
+    df_16[available_years] = df_16[available_years] * 0.8
+
+    # and combine
+    df = pd.concat([df_exc_15, df_15, df_16])
 
     df = find_age_ntem_enum(df=df, age_col="from_age")
 
@@ -128,7 +141,7 @@ def fetch_region_correspondence() -> pd.DataFrame:
 
 
 # %%
-def process_2021_22_projections() -> None:
+def process_country_projections() -> None:
 
     country_forecasts = {}
 
@@ -218,7 +231,7 @@ def create_2022_regions_df(
             raise ValueError(f"Unable to process {region_code}")
 
         region_df = current_df.copy()
-        region_df["rgn_cd"] = region_code
+        region_df["RGN2021"] = region_code
         region_list.append(region_df)
 
     regions_df = pd.concat(region_list)
@@ -230,7 +243,7 @@ def create_2022_regions_df(
 def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
     for year in FORECAST_YEARS:
         df_wide = pd.pivot(
-            regions_df, index=["age_ntem", "g"], columns=["rgn_cd"], values=year
+            regions_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
         )
 
         filestem = f"2021_22_based_ews_pop_projections_{year}"
