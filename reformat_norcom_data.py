@@ -21,6 +21,10 @@ price_deflator = pd.read_csv(price_deflator)
 car_cost = working_dir / 'Car Cost' / 'car_cost.csv'
 car_cost = pd.read_csv(car_cost)
 
+# define folder of GDP inputs
+gdp = working_dir / 'GDP' / 'nts_to_gdp_correspondence.csv'
+gdp = pd.read_csv(gdp)
+
 # --- collapse the classified build to unique household attributes only --- #
 # define path to classified build, its assumed this is a standard output of
 # tfns internal processes. This is assumed to be a trip level dataset.
@@ -44,6 +48,26 @@ data = pd.merge(
     data, car_cost, on='surveyyear', how='left'
 )
 
+# melt the gdp data to long format to merge with nts
+gdp = pd.melt(
+    gdp, id_vars=['hholdoslaua_b01id'], var_name='surveyyear', value_name='gdp_pc'
+)
+gdp['surveyyear'] = gdp['surveyyear'].astype(int)
+
+# calculate gdp deflator in 2023 base to apply to car cost columns
+_2023 = gdp[gdp['surveyyear'] == 2023].rename(columns={'gdp_pc': 'gdp_2023'})
+gdp = gdp.merge(_2023[['hholdoslaua_b01id', 'gdp_2023']], on='hholdoslaua_b01id', how='left')
+gdp['gdp_deflator'] = gdp['gdp_pc'] / gdp['gdp_2023']
+
+# merge with nts
+data = pd.merge(
+    data, gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
+)
+
+# apply gdp deflator to car cost columns
+for col in [col for col in data.columns if col.endswith('_cost')]:
+    data[f'deflated_{col}'] = data[col] * data['gdp_deflator']
+
 # --- define new columns based on aggregations of other columns --- #
 # mappings are 1 to 1 lookup dictionary mappings
 for new_col, mapping in NORCOM_MAPPINGS.items():
@@ -60,4 +84,4 @@ for new_col, banding in NORCOM_BANDINGS.items():
         print(data[new_col].value_counts())
 
 # write household data to working folder
-data.to_csv(nts_folder/ 'nts_hh_data.csv', index=False)
+data.to_csv(nts_folder/ 'nts_hh_data_v2.csv', index=False)
