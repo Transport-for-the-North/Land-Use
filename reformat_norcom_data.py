@@ -25,24 +25,24 @@ gdp = pd.read_csv(working_dir / 'GDP' / 'nts_to_gdp_correspondence.csv')
 # --- collapse the classified build to unique household attributes only --- #
 # define path to classified build, its assumed this is a standard output of
 # tfns internal processes. This is assumed to be a trip level dataset.
-classified_build = Path(r'I:\NTS\classified builds\cb_tfn_v2023.1.csv')
+input_classified_build = Path(r'I:\NTS\classified builds\cb_tfn_v2023.1.csv')
 
 # read in the data
-data = pd.read_csv(classified_build)
+classified_build = pd.read_csv(input_classified_build)
 
 # drop duplicates over the trip level data on household attributes
-data = reduce_classified_build(
-    trip_data=data
+nts_hh_data = reduce_classified_build(
+    trip_data=classified_build
 )
 
 # apply rpi based adjustment factor to convert NTS nominal prices to 2023
-data = convert_price_base(
-    data=data, deflator=price_deflator, index_column='2023_deflator'
+nts_hh_data = convert_price_base(
+    data=nts_hh_data, deflator=price_deflator, index_column='2023_deflator'
 )
 
 # attach running and purchase costs to NTS data
-data = pd.merge(
-    data, car_cost, on='surveyyear', how='left'
+nts_hh_data = pd.merge(
+    nts_hh_data, car_cost, on='surveyyear', how='left'
 )
 
 # melt the gdp data to long format to merge with nts
@@ -57,28 +57,28 @@ gdp = gdp.merge(_2023[['hholdoslaua_b01id', 'gdp_2023']], on='hholdoslaua_b01id'
 gdp['gdp_deflator'] = gdp['gdp_pc'] / gdp['gdp_2023']
 
 # merge with nts
-data = pd.merge(
-    data, gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
+nts_hh_data = pd.merge(
+    nts_hh_data, gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
 )
 
 # apply gdp deflator to car cost columns
-for col in [col for col in data.columns if col.endswith('_cost')]:
-    data[f'deflated_{col}'] = data[col] * data['gdp_deflator']
+for col in [col for col in nts_hh_data.columns if col.endswith('_cost')]:
+    nts_hh_data[f'deflated_{col}'] = nts_hh_data[col] * nts_hh_data['gdp_deflator']
 
 # --- define new columns based on aggregations of other columns --- #
 # mappings are 1 to 1 lookup dictionary mappings
 for new_col, mapping in NORCOM_MAPPINGS.items():
     for original_col, mapper in mapping.items():
-        data[new_col] = data[original_col].map(mapper)
-        print(data[new_col].value_counts())
+        nts_hh_data[new_col] = nts_hh_data[original_col].map(mapper)
+        print(nts_hh_data[new_col].value_counts())
 
 # bandings are pd.cut bandings
 for new_col, banding in NORCOM_BANDINGS.items():
     for original_col, bander in banding.items():
-        data[new_col] = pd.cut(
-            data[original_col], bander[0], labels=bander[1], right=False
+        nts_hh_data[new_col] = pd.cut(
+            nts_hh_data[original_col], bander[0], labels=bander[1], right=False
         )
-        print(data[new_col].value_counts())
+        print(nts_hh_data[new_col].value_counts())
 
 # write household data to working folder
-data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
+nts_hh_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
