@@ -14,16 +14,13 @@ nts_folder = working_dir / 'NTS'
 
 # define folder of price deflation inputs to convert NTS price data from
 # 2002 to 2023
-price_deflator = working_dir / 'RPI' / 'rpi.csv'
-price_deflator = pd.read_csv(price_deflator)
+price_deflator = pd.read_csv(working_dir / 'RPI' / 'rpi.csv')
 
 # define folder of car cost inputs
-car_cost = working_dir / 'Car Cost' / 'car_cost.csv'
-car_cost = pd.read_csv(car_cost)
+car_cost = pd.read_csv(working_dir / 'Car Cost' / 'car_cost.csv')
 
 # define folder of GDP inputs
-gdp = working_dir / 'GDP' / 'nts_to_gdp_correspondence.csv'
-gdp = pd.read_csv(gdp)
+gdp = pd.read_csv(working_dir / 'GDP' / 'nts_to_gdp_correspondence.csv')
 
 # --- collapse the classified build to unique household attributes only --- #
 # define path to classified build, its assumed this is a standard output of
