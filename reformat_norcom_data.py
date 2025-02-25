@@ -40,11 +40,6 @@ nts_hh_data = convert_price_base(
     data=nts_hh_data, deflator=price_deflator, index_column='2023_deflator'
 )
 
-# attach running and purchase costs to NTS data
-nts_hh_data = pd.merge(
-    nts_hh_data, car_cost, on='surveyyear', how='left'
-)
-
 # melt the gdp data to long format to merge with nts
 gdp = pd.melt(
     gdp, id_vars=['hholdoslaua_b01id'], var_name='surveyyear', value_name='gdp_pc'
@@ -56,9 +51,11 @@ _2023 = gdp[gdp['surveyyear'] == 2023].rename(columns={'gdp_pc': 'gdp_2023'})
 gdp = gdp.merge(_2023[['hholdoslaua_b01id', 'gdp_2023']], on='hholdoslaua_b01id', how='left')
 gdp['gdp_deflator'] = gdp['gdp_pc'] / gdp['gdp_2023']
 
-# merge with nts
-nts_hh_data = pd.merge(
-    nts_hh_data, gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
+# merge the running and purchase costs, and gdp information to NTS data
+nts_hh_data = nts_hh_data.merge(
+    car_cost, on='surveyyear', how='left'
+).merge(
+    gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
 )
 
 # apply gdp deflator to car cost columns
