@@ -59,23 +59,23 @@ merged_data = nts_hh_data.merge(
 )
 
 # apply gdp deflator to car cost columns
-for col in [col for col in nts_hh_data.columns if col.endswith('_cost')]:
-    nts_hh_data[f'deflated_{col}'] = nts_hh_data[col] * nts_hh_data['gdp_deflator']
+for col in [col for col in merged_data.columns if col.endswith('_cost')]:
+    merged_data[f'deflated_{col}'] = merged_data[col] * merged_data['gdp_deflator']
 
 # --- define new columns based on aggregations of other columns --- #
 # mappings are 1 to 1 lookup dictionary mappings
 for new_col, mapping in NORCOM_MAPPINGS.items():
     for original_col, mapper in mapping.items():
-        nts_hh_data[new_col] = nts_hh_data[original_col].map(mapper)
-        print(nts_hh_data[new_col].value_counts())
+        merged_data[new_col] = merged_data[original_col].map(mapper)
+        print(merged_data[new_col].value_counts())
 
 # bandings are pd.cut bandings
 for new_col, banding in NORCOM_BANDINGS.items():
     for original_col, bander in banding.items():
-        nts_hh_data[new_col] = pd.cut(
-            nts_hh_data[original_col], bander[0], labels=bander[1], right=False
+        merged_data[new_col] = pd.cut(
+            merged_data[original_col], bander[0], labels=bander[1], right=False
         )
-        print(nts_hh_data[new_col].value_counts())
+        print(merged_data[new_col].value_counts())
 
 # write household data to working folder
-nts_hh_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
+merged_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
