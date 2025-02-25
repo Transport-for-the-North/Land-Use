@@ -59,8 +59,9 @@ merged_data = nts_hh_data.merge(
 )
 
 # apply gdp deflator to car cost columns
-for col in [col for col in merged_data.columns if col.endswith('_cost')]:
-    merged_data[f'deflated_{col}'] = merged_data[col] * merged_data['gdp_deflator']
+for col in merged_data.columns:
+    if col.endwith('_cost'):
+        merged_data[f'deflated_{col}'] = merged_data[col] * merged_data['gdp_deflator']
 
 # --- define new columns based on aggregations of other columns --- #
 # mappings are 1 to 1 lookup dictionary mappings
