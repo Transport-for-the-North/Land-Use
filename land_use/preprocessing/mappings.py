@@ -569,6 +569,29 @@ AREA_TYPE_MAPPING_ONE = {
     20: 5
 }
 
+AREA_TYPE_MAPPING_TWO = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 3,
+    5: 3,
+    6: 3,
+    7: 3,
+    8: 4,
+    9: 4,
+    10: 4,
+    11: 4,
+    12: 4,
+    13: 4,
+    14: 4,
+    15: 4,
+    16: 5,
+    17: 5,
+    18: 6,
+    19: 6,
+    20: 4
+}
+
 NORCOM_MAPPINGS = {
     'hh_income_banded_v1': {
         'hh_income': INCOME_MAPPING_ONE
@@ -590,6 +613,9 @@ NORCOM_MAPPINGS = {
     },
     'tfn_at_v1': {
         'tfn_at': AREA_TYPE_MAPPING_ONE
+    },
+    'tfn_at_v2': {
+        'tfn_at': AREA_TYPE_MAPPING_TWO
     }
 }
 
