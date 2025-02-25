@@ -52,7 +52,7 @@ gdp = gdp.merge(_2023[['hholdoslaua_b01id', 'gdp_2023']], on='hholdoslaua_b01id'
 gdp['gdp_deflator'] = gdp['gdp_pc'] / gdp['gdp_2023']
 
 # merge the running and purchase costs, and gdp information to NTS data
-nts_hh_data = nts_hh_data.merge(
+merged_data = nts_hh_data.merge(
     car_cost, on='surveyyear', how='left'
 ).merge(
     gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
