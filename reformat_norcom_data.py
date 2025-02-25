@@ -60,7 +60,7 @@ merged_data = nts_hh_data.merge(
 
 # apply gdp deflator to car cost columns
 for col in merged_data.columns:
-    if col.endwith('_cost'):
+    if col.endswith('_cost'):
         merged_data[f'deflated_{col}'] = merged_data[col] * merged_data['gdp_deflator']
 
 # --- define new columns based on aggregations of other columns --- #
@@ -74,7 +74,7 @@ for new_col, mapping in NORCOM_MAPPINGS.items():
 for new_col, banding in NORCOM_BANDINGS.items():
     for original_col, bander in banding.items():
         merged_data[new_col] = pd.cut(
-            merged_data[original_col], bander[0], labels=bander[1], right=False
+            merged_data[original_col], bander.cut_off_values, labels=bander.labels, right=False
         )
         print(merged_data[new_col].value_counts())
 
