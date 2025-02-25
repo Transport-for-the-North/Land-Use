@@ -9,8 +9,8 @@ from land_use.preprocessing import (
 # define path of main working directory to provide inputs to running norcom
 working_dir = Path(r'I:\NorMITs NorCOM\Import')
 
-# define folder of main NTS based inputs to NorCOM
-nts_folder = working_dir / 'NTS'
+# define folder to write main NTS based inputs for use in NorCOM
+output_folder = working_dir / 'NTS'
 
 # define folder of price deflation inputs to convert NTS price data from
 # 2002 to 2023
@@ -81,4 +81,4 @@ for new_col, banding in NORCOM_BANDINGS.items():
         print(data[new_col].value_counts())
 
 # write household data to working folder
-data.to_csv(nts_folder/ 'nts_hh_data_v2.csv', index=False)
+data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
