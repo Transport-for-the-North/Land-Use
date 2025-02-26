@@ -8,6 +8,7 @@ import land_use.preprocessing as pp
 
 FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048]
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
+ENGLAND_CODE = "E92000001"
 
 
 # %%
@@ -20,15 +21,19 @@ def main():
 def process_gor_projections() -> None:
     # Note only England has projections by sub areas
     # however both Scotland and Wales are themselves regions
-    forecast_filepath = (
+    regional_forecast_filepath = (
         POPULATION_DIR / "2018_based_england_regions_pop_projections.xlsx"
     )
-    male_df = convert_rgn_forecasts_to_segmentations(
-        path_in=forecast_filepath, sheet_name="Males"
-    )
-    female_df = convert_rgn_forecasts_to_segmentations(
-        path_in=forecast_filepath, sheet_name="Females"
-    )
+
+    gor_df = pd.read_excel(regional_forecast_filepath, sheet_name="Males", skiprows=6)
+    male_df = convert_rgn_forecasts_to_segmentations(df=gor_df, g_seg=1)
+    male_df_rgn = male_df[male_df["RGN2021"] != "E92000001"]
+    male_df_country = create_english_totals_from_regional(df=male_df)
+
+    gor_df = pd.read_excel(regional_forecast_filepath, sheet_name="Females", skiprows=6)
+    female_df = convert_rgn_forecasts_to_segmentations(df=gor_df, g_seg=2)
+    female_df_rgn = female_df[female_df["RGN2021"] != "E92000001"]
+    female_df_country = create_english_totals_from_regional(df=female_df)
 
     scotland_forecast = POPULATION_DIR / "2022_based_scotland_pop_projections.xlsx"
     df_age_g_scotland = process_to_segmentations(path_in=scotland_forecast)
@@ -38,34 +43,59 @@ def process_gor_projections() -> None:
     df_age_g_wales = process_to_segmentations(path_in=wales_forecast)
     df_age_g_wales["RGN2021"] = "W92000004"
 
-    male_df = male_df.reset_index()
-    female_df = female_df.reset_index()
+    gor_df = pd.concat([male_df_rgn, female_df_rgn, df_age_g_scotland, df_age_g_wales])
+    country_df = pd.concat(
+        [male_df_country, female_df_country, df_age_g_scotland, df_age_g_wales]
+    )
 
-    df = pd.concat([male_df, female_df, df_age_g_scotland, df_age_g_wales])
-
-    output_years = [year for year in FORECAST_YEARS if year in df]
+    output_years = [year for year in FORECAST_YEARS if year in gor_df]
 
     for year in output_years:
 
-        df_wide = pd.pivot(df, index=["age_ntem", "g"], columns=["RGN2021"], values=year)
+        df_gor_wide = pd.pivot(
+            gor_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
+        )
 
         filestem = f"2018_20_21_regions_pop_projections_{year}"
 
         pp.save_preprocessed_hdf(
-            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_wide
+            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_gor_wide
+        )
+
+        df_country_wide = pd.pivot(
+            country_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
+        )
+
+        filestem = f"2018_20_21_country_pop_projections_{year}"
+
+        pp.save_preprocessed_hdf(
+            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_country_wide
         )
 
 
+def create_english_totals_from_regional(df: pd.DataFrame) -> pd.DataFrame:
+
+    # find regions mentioned
+    eng_regions_list = df["RGN2021"].unique().tolist()
+
+    # remove england from the list
+    eng_regions_list.remove(ENGLAND_CODE)
+    eng_values = df[df["RGN2021"] == ENGLAND_CODE]
+
+    regional_dfs = []
+    for eng_region in eng_regions_list:
+        df_current = eng_values.copy()
+        df_current["RGN2021"] = eng_region
+        regional_dfs.append(df_current)
+
+    return pd.concat(regional_dfs)
+
+
 def convert_rgn_forecasts_to_segmentations(
-    path_in: Path, sheet_name: str
+    df: pd.DataFrame, g_seg: int
 ) -> pd.DataFrame:
 
-    df = pd.read_excel(path_in, sheet_name=sheet_name, skiprows=6)
     df = df.rename(columns={"CODE": "RGN2021"})
-
-    region_correspondence = fetch_region_correspondence()
-    region_codes = region_correspondence["RGN21CD"]
-    df = df[df["RGN2021"].isin(region_codes)]
 
     # have to limit forecast years to those available
     available_years = [year for year in FORECAST_YEARS if year in df.columns]
@@ -77,18 +107,13 @@ def convert_rgn_forecasts_to_segmentations(
     df = allocate_age_ntem(df, available_years)
 
     df = df.groupby(["RGN2021", "age_ntem"]).sum()
+    df["g"] = g_seg
 
-    if sheet_name == "Males":
-        df["g"] = 1
-    elif sheet_name == "Females":
-        df["g"] = 2
-    else:
-        raise ValueError(f"unable to allocate g segment for {sheet_name}")
-
+    df = df.reset_index()
     return df
 
 
-def allocate_age_ntem(df:pd.DataFrame, available_years:list[int]) -> pd.DataFrame:
+def allocate_age_ntem(df: pd.DataFrame, available_years: list[int]) -> pd.DataFrame:
     df["from_age"] = df["AGE GROUP"].str.split("-").str[0]
 
     # fix 15-19 issue mapping to two categories in ratio 1:4
@@ -100,7 +125,7 @@ def allocate_age_ntem(df:pd.DataFrame, available_years:list[int]) -> pd.DataFram
     df_exc_15 = df_exc_15[df_exc_15["from_age"] != "All ages"]
     # convert to int
     df_exc_15["from_age"] = df_exc_15["from_age"].astype(int)
-    
+
     df_15 = df[df["from_age"] == "15"].copy()
     df_15["from_age"] = 15
     df_15[available_years] = df_15[available_years] * 0.2
