@@ -1,0 +1,2 @@
+CALL python estimate_norcom.py scenario_configurations\iteration_5\norcom_0v1+_config.yaml
+CALL python estimate_norcom.py scenario_configurations\iteration_5\norcom_1v2+_config.yaml

@@ -1,4 +1,16 @@
+from typing import Any, Iterable
+
 from caf.base.segments import SegmentsSuper
+
+class CategoryBins:
+    def __init__(self, cut_off_values: Iterable[float], labels: Iterable[Any]):
+        if len(labels) != (len(cut_off_values) - 1):
+            raise RuntimeError(
+                f'Incorrect number of labels - expected {len(cut_off_values) - 1}, got {len(labels)}'
+            )
+
+        self.cut_off_values = cut_off_values
+        self.labels = labels
 
 
 # TODO: This is very similar to "h". Could we standardise?
@@ -557,6 +569,29 @@ AREA_TYPE_MAPPING_ONE = {
     20: 5
 }
 
+AREA_TYPE_MAPPING_TWO = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 3,
+    5: 3,
+    6: 3,
+    7: 3,
+    8: 4,
+    9: 4,
+    10: 4,
+    11: 4,
+    12: 4,
+    13: 4,
+    14: 4,
+    15: 4,
+    16: 5,
+    17: 5,
+    18: 6,
+    19: 6,
+    20: 4
+}
+
 NORCOM_MAPPINGS = {
     'hh_income_banded_v1': {
         'hh_income': INCOME_MAPPING_ONE
@@ -578,19 +613,20 @@ NORCOM_MAPPINGS = {
     },
     'tfn_at_v1': {
         'tfn_at': AREA_TYPE_MAPPING_ONE
+    },
+    'tfn_at_v2': {
+        'tfn_at': AREA_TYPE_MAPPING_TWO
     }
 }
 
 
-INCOME_BANDINGS = [
-    -99999, 0, 15000, 25000, 35000, 50000, 75000, 100000, 999999999
-]
-INCOME_LABELS = [
-    -1, 1, 2, 3, 4, 5, 6, 7
-]
+INCOME_BANDINGS_V1 = CategoryBins(
+    cut_off_values=[-99999, 0, 15000, 25000, 35000, 50000, 75000, 100000, 999999999],
+    labels=[-1, 1, 2, 3, 4, 5, 6, 7]
+)
 
 NORCOM_BANDINGS = {
     'hh_income_banded_v3': {
-        'hh_income_2023': (INCOME_BANDINGS, INCOME_LABELS)
+        'hh_income_2023': INCOME_BANDINGS_V1
     }
 }
