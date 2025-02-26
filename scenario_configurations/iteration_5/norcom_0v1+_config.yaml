@@ -1,0 +1,52 @@
+file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v2.csv
+folder_path: null
+output_path: I:\NorMITs NorCOM\AECOM working\v12\0v1
+validation_path: null
+
+target_column: "0v1_car"
+custom_index:
+  - "psuid"
+  - "householdid"
+  - "surveyyear"
+  - "hholdua_b01id"
+column_name_to_drop_rows:
+#  - "tfn_at"
+  - "walkrail_b01id"
+  - "hh_income_banded_v3"
+value_in_row:
+#  - "20"
+  - "-10"
+  - "-1"
+
+categorical_features:
+  - "tfn_at_v2"
+  - "hh_children_seg"
+  - "ns"
+  - "hh_adults_seg"
+  - "hh_income_banded_v3"
+  - "walkrail_b01id"
+  - "descta_b01id"
+# I *think* only one of sample_size_encode and select_encode_values should be True
+sample_size_encode: True
+select_encode_values: False
+# if select_encode_values is true then this should not be null
+encode_values_to_drop: null
+numerical_features:
+#  - purchase_cost
+#  - maintenance_cost
+#  - fuel_cost
+#  - insurance_cost
+#  - total_cost
+#  - deflated_fuel_cost
+#  - gdp_pc
+weight_column: "w2"
+classification_prediction: [0, 1]
+split_by_value: null
+split_size: 0.2
+is_time_series: True
+
+model_choice: LOGIT_REGRESSION_ELASTICNET
+full_transformations: False
+cv: "kfold"
+skip_feature_selection: True
+intensive_feature_selection: False
