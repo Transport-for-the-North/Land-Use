@@ -11,7 +11,7 @@ custom_index:
   - "hholdua_b01id"
 column_name_to_drop_rows:
 #  - "tfn_at"
-  - "walkrail_combined"
+  - "walkrail_b01id"
   - "hh_income_banded_v3"
 value_in_row:
 #  - "20"
@@ -24,8 +24,8 @@ categorical_features:
   - "ns"
   - "hh_adults_seg"
   - "hh_income_banded_v3"
-  - "walkrail_combined"
-#  - "descta_b01id"
+  - "walkrail_b01id"
+  - "descta_b01id"
 # I *think* only one of sample_size_encode and select_encode_values should be True
 sample_size_encode: True
 select_encode_values: False
