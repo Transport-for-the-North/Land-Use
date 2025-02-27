@@ -162,11 +162,14 @@ def read_in_files(gor: str):
         output_level=OutputLevel.INTERMEDIATE
     )
 
-# takes a while to run
-for gor in constants.GORS:
-    print(gor)
-    process_region(gor=gor)
+# # takes a while to run. So suggest this is run only when needed
+# for gor in constants.GORS:
+#     print(gor)
+#     process_region(gor=gor)
 
-# and Scotland
-print("scotland")
-process_region(gor="Scotland")
+# # and Scotland
+# print("scotland")
+# process_region(gor="Scotland")
+
+# testing NW as quicker than looping through all regions
+process_region(gor="NW")
