@@ -1,4 +1,5 @@
 from pathlib import Path
+from itertools import product
 
 import pandas as pd
 
@@ -77,6 +78,19 @@ for new_col, banding in NORCOM_BANDINGS.items():
             merged_data[original_col], bander.cut_off_values, labels=bander.labels, right=False
         )
         print(merged_data[new_col].value_counts())
+
+# TODO: automate this a bit, just doing something quick to test interaction terms
+for i, j in product(range(1, 6), range(1, 4)):
+    pt_mapping = {
+        (i, j): 1
+    }
+    merged_data[f'walkrail{i}_desc{j}'] = (
+            merged_data['walkrail_b01id'].eq(i) * merged_data['descta_b01id'].eq(j)
+    ).fillna(0).astype(int)
+    merged_data[f'walkrail{i}_desc{j}'] = merged_data[f'walkrail{i}_desc{j}'].where(
+        merged_data['walkrail_b01id'].ne(-10), -10
+    )
+
 
 # write household data to working folder
 merged_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
