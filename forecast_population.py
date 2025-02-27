@@ -149,14 +149,14 @@ def read_in_files(gor: str):
     pop_targets = p11_age_ntem_g_gor * adj_growth_factor
 
     rebalanced_p11, summary, differences = data_processing.apply_ipf(
-        seed_data=p11_age_ntem_g,
+        seed_data=p11,
         target_dvectors=[pop_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f'Output Pop_age_g_{gor}',
+        output_reference=f'Output p11_ge_g_{gor}',
         dvector=rebalanced_p11,
         dvector_dimension='people',
         output_level=OutputLevel.INTERMEDIATE
