@@ -79,17 +79,5 @@ for new_col, banding in NORCOM_BANDINGS.items():
         )
         print(merged_data[new_col].value_counts())
 
-# TODO: automate this a bit, just doing something quick to test interaction terms
-pt_mapping = pd.DataFrame({
-    'walkrail_b01id': [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5],
-    'descta_b01id': [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3],
-    'walkrail_combined': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-})
-
-merged_data = merged_data.merge(
-    pt_mapping, on=['walkrail_b01id', 'descta_b01id'], how='left'
-).fillna({'walkrail_combined': -10})
-
-
 # write household data to working folder
 merged_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
