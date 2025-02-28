@@ -123,8 +123,20 @@ def read_in_files(gor: str):
     p11 = DVector.load(filepath)
 
     # --- Step 1 --- #
-    # Calculate the population growth factors
+    # Prepare base files into forecasting segmentations
     LOGGER.info('--- Step 1 ---')
+    LOGGER.info('Prepare base files into forecasting segmentations')
+
+    # switch p11's age segmentation from age_9 to age_ntem
+    p11_ntem_age = p11.add_segments(new_segs=["age_ntem"])
+
+    p11_ntem_age = p11_ntem_age.aggregate(
+        segs=[seg for seg in p11_ntem_age.data.index.names if seg != 'age_9']
+    )
+
+    # --- Step 2 --- #
+    # Calculate the population growth factors
+    LOGGER.info('--- Step 2 ---')
     LOGGER.info('Calculate the population growth factors')
 
     # forecast corrections
@@ -137,8 +149,7 @@ def read_in_files(gor: str):
 
     adj_growth_factor = adj_future_year / adj_base_year
 
-    p11 = p11.add_segments(new_segs=["age_ntem"])
-    p11_age_ntem_g = p11.aggregate(segs=["age_ntem", "g"])
+    p11_age_ntem_g = p11_ntem_age.aggregate(segs=["age_ntem", "g"])
 
     p11_age_ntem_g_gor = p11_age_ntem_g.translate_zoning(
         new_zoning=adj_growth_factor.zoning_system,  # fix zoning system to match growth factors
@@ -149,7 +160,7 @@ def read_in_files(gor: str):
     pop_targets = p11_age_ntem_g_gor * adj_growth_factor
 
     rebalanced_p11, summary, differences = data_processing.apply_ipf(
-        seed_data=p11,
+        seed_data=p11_ntem_age,
         target_dvectors=[pop_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
