@@ -5,9 +5,10 @@ import pandas as pd
 
 import land_use.preprocessing as pp
 
-
-FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048]
+# Include the base year in here as we are pivoting from it
+YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048]
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
+HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
 ENGLAND_CODE = "E92000001"
 
 
@@ -48,7 +49,7 @@ def process_gor_projections() -> None:
         [male_df_country, female_df_country, df_age_g_scotland, df_age_g_wales]
     )
 
-    output_years = [year for year in FORECAST_YEARS if year in gor_df]
+    output_years = [year for year in YEARS_TO_CALCULATE if year in gor_df]
 
     for year in output_years:
 
@@ -98,7 +99,7 @@ def convert_rgn_forecasts_to_segmentations(
     df = df.rename(columns={"CODE": "RGN2021"})
 
     # have to limit forecast years to those available
-    available_years = [year for year in FORECAST_YEARS if year in df.columns]
+    available_years = [year for year in YEARS_TO_CALCULATE if year in df.columns]
     keep_cols: list[int | str] = ["RGN2021", "AGE GROUP"]
     keep_cols.extend(available_years)
     df = df[keep_cols]
@@ -214,7 +215,7 @@ def process_to_segmentations(path_in: Path) -> pd.DataFrame:
 
     keep_cols: list[int | str] = ["Sex", "Age"]
 
-    keep_cols.extend(FORECAST_YEARS)
+    keep_cols.extend(YEARS_TO_CALCULATE)
 
     df = df[keep_cols]
     df = df.copy()
@@ -266,7 +267,7 @@ def create_2022_regions_df(
 
 # %%
 def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
-    for year in FORECAST_YEARS:
+    for year in YEARS_TO_CALCULATE:
         df_wide = pd.pivot(
             regions_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
         )
@@ -282,3 +283,197 @@ def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
 # %%
 if __name__ == "__main__":
     main()
+
+
+def process_and_save_hh_projections() -> None:
+    """
+    Function to read in and pre-process the 2018-based ONS households
+    projections (up to 2043)
+    Outputs the totals household projections by GOR for each year, as hdfs
+
+    Can substitute other sources of data for this input (e.g. NTEM) if required
+    """
+    rgn_corr = fetch_region_correspondence()
+
+    # ENGLAND
+    hh_eng = pd.read_excel(
+        HOUSEHOLDS_DIR / "england_LAs_2018_based_hh_projections.xlsx",
+        sheet_name="406",
+        header=4,
+    ).rename(columns={"Area code": "region"})
+    # Filter to the defined region and relevant years (2018-based ONS data is available up to 2043)
+    hh_eng = hh_eng[hh_eng["Area name"].isin(rgn_corr["RGN21NM"].tolist())]
+    hh_eng = hh_eng[["region"] + YEARS_TO_CALCULATE[0:5]]
+
+    # SCOTLAND
+    hh_scot = pd.read_excel(
+        HOUSEHOLDS_DIR / "scotland_2018-based_hh_projections.xlsx",
+        sheet_name="Table 1",
+        header=3,
+        nrows=1,
+    )
+    hh_scot = hh_scot.iloc[:, 1:27]
+    hh_scot.columns = hh_scot.columns.astype(int)
+    # Define region code and filter to relevant years
+    hh_scot["region"] = "S92000003"
+    hh_scot = hh_scot[["region"] + YEARS_TO_CALCULATE[0:5]]
+
+    # WALES
+    hh_wales = pd.read_csv(
+        HOUSEHOLDS_DIR / "wales_2018_based_hh_projections.csv", header=5, nrows=1
+    )
+    hh_wales = hh_wales.drop(hh_wales.columns[0:2], axis=1)
+    hh_wales.columns = hh_wales.columns.str.strip().astype(int)
+    # Define region code and filter to relevant years
+    hh_wales["region"] = "W92000004"
+    hh_wales = hh_wales[["region"] + YEARS_TO_CALCULATE[0:5]]
+
+    # Join together England regions, Scotland and Wales 2018-based household data
+    hh_projs = pd.concat([hh_eng, hh_scot, hh_wales])
+
+    for year in YEARS_TO_CALCULATE[0:5]:
+        hh_by_year = hh_projs.copy()
+        hh_by_year = hh_by_year[["region", year]]
+
+        # Create column to use as segmentation totals
+        hh_by_year["total"] = 1
+
+        df_wide = pd.pivot(hh_by_year, index=["total"], columns=["region"], values=year)
+
+        pp.save_preprocessed_hdf(
+            source_file_path=HOUSEHOLDS_DIR / "hh_totals.hdf",
+            df=df_wide,
+            multiple_output_ref=str(year),
+        )
+
+
+def process_and_save_hh_projections_children() -> None:
+    """
+    Function to read in and pre-process the 2018-based ONS households
+    projections (up to 2043)
+    Outputs the children household projections by England GOR for each year, as hdfs
+    1: Household with no children or all children non-dependent
+    2: Household with one or more dependent children
+
+    Can substitute other sources of data for this input (e.g. NTEM) if required
+
+    """
+    rgn_corr = fetch_region_correspondence()
+    years_str = list(map(str, YEARS_TO_CALCULATE))
+
+    # Household projections 2023 to 2043 (all years)
+    # ENGLAND
+    hh_eng = pd.read_excel(
+        HOUSEHOLDS_DIR / "eng_2018_based_Stage 2 projected households - Principal.xlsx",
+        sheet_name="Households by type",
+    )
+
+    # Filter to the regions, "all ages" and relevant years
+    hh_eng = hh_eng[hh_eng["AREA NAME"].isin(rgn_corr["RGN21NM"].tolist())]
+    hh_eng = hh_eng.loc[hh_eng["AGE GROUP"] == "All ages"]
+    hh_eng = hh_eng.loc[hh_eng["HOUSEHOLD TYPE"] != "Total"]
+    hh_eng = hh_eng[["CODE", "HOUSEHOLD TYPE"] + YEARS_TO_CALCULATE[0:5]]
+
+    # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
+    children_map_eng = {
+        "One person households: Male": 1,
+        "One person households: Female": 1,
+        "Households with one dependent child": 2,
+        "Households with two dependent children": 2,
+        "Households with three or more dependent children": 2,
+        "Other households with two or more adults": 1,
+    }
+    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(children_map_eng).astype(int)
+    hh_eng = hh_eng.groupby(by=["CODE", "segment"], as_index=False)[
+        YEARS_TO_CALCULATE[0:5]
+    ].sum()
+    hh_eng.columns = hh_eng.columns.astype(str)
+
+    # SCOTLAND
+    hh_scot = pd.read_excel(
+        HOUSEHOLDS_DIR / "scotland_2018-based_hh_projections.xlsx",
+        sheet_name="Table 2",
+        header=3,
+        nrows=7,
+    )
+    hh_scot = hh_scot.iloc[:, 1:28]
+
+    # Define region code and filter to relevant years
+    hh_scot["CODE"] = "S92000003"
+    hh_scot = hh_scot[["CODE", "Household type"] + years_str[0:5]]
+
+    # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
+    children_map_scot = {
+        "1 adult female": 1,
+        "1 adult male": 1,
+        "2 adults": 1,
+        "1 adult, 1 child": 2,
+        "1 adult, 2+ children": 2,
+        "2+ adult 1+ children": 2,
+        "3+ person all adult": 1,
+    }
+    hh_scot["segment"] = hh_scot["Household type"].map(children_map_scot).astype(int)
+    hh_scot = hh_scot.groupby(by=["CODE", "segment"], as_index=False)[
+        years_str[0:5]
+    ].sum()
+
+    # WALES
+    hh_wales = pd.read_csv(
+        HOUSEHOLDS_DIR / "wales_2018_based_hh_projections.csv", header=5, nrows=13
+    )
+    hh_wales = (
+        hh_wales.drop(hh_wales.columns[0], axis=1)
+        .drop(hh_wales.index[0], axis=0)
+        .rename(columns={hh_wales.columns[1]: "Household type"})
+    )
+    hh_wales.columns = hh_wales.columns.str.strip()
+    hh_wales["Household type"] = hh_wales["Household type"].str.rstrip()
+
+    # Define region code
+    hh_wales["CODE"] = "W92000004"
+    # Filter to relevant years
+    columns_to_keep = ["CODE", "Household type"] + years_str[0:5]
+    hh_wales = hh_wales[columns_to_keep]
+
+    # Map to Land Use children segmentation
+    # (hh with no children / hh with 1+ children)
+    children_map_wales = {
+        "1 person": 1,
+        "2 person (No children)": 1,
+        "2 person (1 adult, 1 child)": 2,
+        "3 person (No children)": 1,
+        "3 person (2 adults, 1 child)": 2,
+        "3 person (1 adult, 2 children)": 2,
+        "4 person (No children)": 1,
+        "4 person (2+ adults, 1+ children)": 2,
+        "4 person (1 adult, 3 children)": 2,
+        "5+ person (No children)": 1,
+        "5+ person (2+ adults, 1+ children)": 2,
+        "5+ person (1 adult, 4+ children)": 2,
+    }
+    hh_wales["segment"] = hh_wales["Household type"].map(children_map_wales).astype(int)
+    hh_wales = hh_wales.groupby(by=["CODE", "segment"], as_index=False)[
+        years_str[0:5]
+    ].sum()
+    hh_wales.columns = hh_eng.columns.astype(str)
+
+    # Join together England regions, Scotland and Wales 2018-based household data
+    hh_projs = pd.concat([hh_eng, hh_scot, hh_wales])
+
+    for year in YEARS_TO_CALCULATE[0:5]:
+        year = str(year)
+        hh_year = hh_projs.copy()
+        hh_year = hh_year[["CODE", "segment", year]]
+
+        # Into a wide format for DVector
+        hh_year = pp.pivot_to_dvector(
+            data=hh_year,
+            zoning_column="CODE",
+            index_cols=["segment"],
+            value_column=year,
+        )
+        pp.save_preprocessed_hdf(
+            source_file_path=HOUSEHOLDS_DIR / "hh_children.hdf",
+            df=hh_year,
+            multiple_output_ref=year,
+        )

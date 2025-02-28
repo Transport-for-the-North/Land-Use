@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 import land_use.preprocessing as pp
-import land_use.employment_redistribution.pre_processing_voa_inputs as pre_processing_voa_inputs
+import land_use.preprocessing.pre_processing_voa_inputs as pre_processing_voa_inputs
 
 INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
 
