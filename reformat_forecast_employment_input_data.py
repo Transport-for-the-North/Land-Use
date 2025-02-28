@@ -131,50 +131,62 @@ def pre_process_lms_soc():
     soc_rgns = pd.merge(
         soc_rgns,
         lms_soc_corr,
-        left_on="Levels (000s)",
-        right_on="Occupation",
+        left_on=["Levels (000s)"],
+        right_on=["Occupation"],
         how="left",
     ).dropna()
-    # TODO question, 2025 to 2035 or 2015 to 2035?
-    soc_rgns = (
-        soc_rgns[["SOC", "region", "2025", "2035"]]
-        .groupby(by=["SOC", "region"], as_index=False)[["2025", "2035"]]
-        .sum()
-    )
+
+    # Find years in df
+    years = [int(yr) for yr in soc_rgns.columns if yr.isnumeric()]
+
+    # convert years columns names into integers
+    column_mapper = {}
+    for y in years:
+        column_mapper[str(y)] = int(y)
+
+    soc_rgns = soc_rgns.rename(columns=column_mapper)
 
     # Get jobs into 1000s
-    soc_rgns["2025"] = soc_rgns["2025"] * 1000
-    soc_rgns["2035"] = soc_rgns["2035"] * 1000
+    soc_rgns[years] = soc_rgns[years] * 1000
 
-    # Calculate % growth for 1 year
-    soc_rgns["%_growth_1yr"] = (
-        (soc_rgns["2035"] - soc_rgns["2025"]) / soc_rgns["2025"]
-    ) / 10
-    soc_rgns = soc_rgns[["SOC", "region", "%_growth_1yr"]]
+    # now need to work on interpolating for the years we want
+    max_year = max(years)
+    min_year = min(years)
 
-    # Add rows for SOC level 4
-    rgns = pd.DataFrame(soc_rgns["region"].drop_duplicates())
-    df = rgns.copy()
-    df["SOC"] = 4
-    df["%_growth_1yr"] = 0
-    soc_rgns = pd.concat([soc_rgns, df])
+    for year in YEARS_TO_CALCULATE:
+        print(year)
+        if year in soc_rgns.columns:
+            # column already exists so nothing to do
+            pass
+        elif year > max_year:
+            # beyond year end so for soc we just take the last year as using it for proportions
+            soc_rgns[year] = soc_rgns[max_year]
+        elif year < min_year:
+            # before first year, raise error for now
+            raise ValueError(f"Unable to extrpolate for {year}, earliest year is {min_year}")
+        else:
+            year_a = max([y for y in years if y < year])
+            year_b = min([y for y in years if y > year])
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            soc_rgns[year] = perc_of_a * soc_rgns[year_a] + perc_of_b * soc_rgns[year_b]
+
+    # prepare for export
+    soc_rgns = soc_rgns.astype({"SOC": "int"}).rename(
+        columns={"SOC": "soc"}
+    )
+    # Remap region back to codes
+    soc_rgns["region"] = soc_rgns["region"].map(
+        dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
+    )
+
+    soc_rgns = soc_rgns.groupby(["soc", "region"]).sum().reset_index()
 
     # Output as hdf, ready to be read in as DVector
-    f_years = {"2028": 5, "2033": 10, "2038": 15, "2043": 20, "2048": 25}
-    for year in f_years.keys():
-        f_year_control = soc_rgns.copy()
-        f_year_control[year] = 1 + f_year_control["%_growth_1yr"] * f_years.get(year)
-        f_year_control = f_year_control[["SOC", "region", year]]
-        f_year_control = f_year_control.astype({"SOC": "int"}).rename(
-            columns={"SOC": "soc"}
-        )
-        # Remap region back to codes
-        f_year_control["region"] = f_year_control["region"].map(
-            dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
-        )
-
+    for year in YEARS_TO_CALCULATE:
         # Check for negatives
-        count = f_year_control[year].lt(0).sum()
+        count = soc_rgns[year].lt(0).sum()
         if count > 0:
             LOGGER.error(
                 f"Extrapolating the LM&S growth to {year} results in negative values"
@@ -182,7 +194,7 @@ def pre_process_lms_soc():
 
         # Into a wide format for DVector
         df_wide = pp.pivot_to_dvector(
-            data=f_year_control,
+            data=soc_rgns,
             zoning_column="region",
             index_cols=["soc"],
             value_column=year,
