@@ -4,12 +4,13 @@ import logging
 
 import land_use.preprocessing as pp
 
+
+# Include the base year in here as we are pivoting from it
+YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048]
+
 LOGGER = logging.getLogger(__name__)
 
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
-BASE_EMP_OUTPUTS_DIR = Path(
-    r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs"
-)
 
 region_corr = pd.read_csv(
     Path(
