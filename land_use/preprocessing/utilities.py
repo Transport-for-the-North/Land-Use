@@ -578,4 +578,6 @@ def convert_price_base(
         data[f'{income_column}_{_MODEL_PRICE_BASE}'].where(data[income_column] > 0, -1)
     )
 
+    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = data[f'{income_column}_{_MODEL_PRICE_BASE}'].astype(int)
+
     return data

@@ -26,7 +26,7 @@ gdp = pd.read_csv(working_dir / 'GDP' / 'nts_to_gdp_correspondence.csv')
 # --- collapse the classified build to unique household attributes only --- #
 # define path to classified build, its assumed this is a standard output of
 # tfns internal processes. This is assumed to be a trip level dataset.
-input_classified_build = Path(r'I:\NTS\classified builds\cb_tfn_v2023.1.csv')
+input_classified_build = Path(r'I:\NTS\classified builds\cb_tfn_v2023.2.csv')
 
 # read in the data
 classified_build = pd.read_csv(input_classified_build)
@@ -80,4 +80,4 @@ for new_col, banding in NORCOM_BANDINGS.items():
         print(merged_data[new_col].value_counts())
 
 # write household data to working folder
-merged_data.to_csv(output_folder / 'nts_hh_data_v2.csv', index=False)
+merged_data.to_csv(output_folder / 'nts_hh_data_v3.csv', index=False)

@@ -591,6 +591,28 @@ AREA_TYPE_MAPPING_TWO = {
     19: 6,
     20: 4
 }
+"""
+1	House / bungalow (detached)
+2	House / bungalow (semi-detached)
+3	House / bungalow (terrace / end terrace)
+4	House / bungalow (type unknown)
+5	Flat / maisonette (purpose built)
+6	Flat / maisonette (non-purpose built)
+7	Flat / maisonette (type unknown)
+8	Other accomodation type
+"""
+ACCOM_TYPE_MAPPING = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: -1,
+    5: 4,
+    6: 4,
+    7: 4,
+    8: 5,
+    -8: -1,
+    -9: -1
+}
 
 NORCOM_MAPPINGS = {
     'hh_income_banded_v1': {
@@ -616,6 +638,9 @@ NORCOM_MAPPINGS = {
     },
     'tfn_at_v2': {
         'tfn_at': AREA_TYPE_MAPPING_TWO
+    },
+    'accom_h': {
+        'addresstype_b01id': ACCOM_TYPE_MAPPING
     }
 }
 
