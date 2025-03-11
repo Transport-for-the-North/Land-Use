@@ -1,46 +1,44 @@
-file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v2.csv
+file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v5.csv
 folder_path: null
-output_path: I:\NorMITs NorCOM\AECOM working\v15\1v2+
+output_path: I:\NorMITs NorCOM\AECOM working\v33\1v2+
 validation_path: null
 
-target_column: "1v2+_car"
+target_column: "car_availability"
 custom_index:
-  - "psuid"
-  - "householdid"
-  - "surveyyear"
-  - "hholdua_b01id"
+  - "psuid_SOURCE"
+  - "householdid_SOURCE"
+  - "surveyyear_SOURCE"
+  - "hholdua_b01id_SOURCE"
 column_name_to_drop_rows:
-#  - "tfn_at"
-  - "walkrail_b01id"
-  - "hh_income_banded_v3"
-  - "1v2+_car"
+  - "walkrail_b01id_SOURCE"
+  - "hh_income_2023"
+  - "accom_h"
 value_in_row:
-#  - "20"
   - "-10"
   - "-1"
   - "-1"
-
 categorical_features:
   - "tfn_at_v2"
-  - "hh_children_seg"
-  - "ns"
-  - "hh_adults_seg"
-  - "hh_income_banded_v3"
-  - "walkrail_b01id"
+  - "children"
+  - "ns_sec"
+  - "adults"
+  - "walkrail_b01id_SOURCE"
+  - "accom_h"
 # I *think* only one of sample_size_encode and select_encode_values should be True
 sample_size_encode: True
 select_encode_values: False
 # if select_encode_values is true then this should not be null
 encode_values_to_drop: null
 numerical_features:
+  - "hh_income_2023"
 #  - purchase_cost
 #  - maintenance_cost
 #  - fuel_cost
 #  - insurance_cost
 #  - total_cost
-#  - deflated_fuel_cost
+#  - deflated_total_cost
 #  - gdp_pc
-weight_column: "w2"
+weight_column: "w2_SOURCE"
 classification_prediction: [1, 2]
 split_by_value: null
 split_size: 0.2
