@@ -20,10 +20,10 @@ region_corr = pd.read_csv(
 )
 
 
-def pre_process_lms_sic():
+def pre_process_lms_sic() -> None:
     """
     Function to read in and pre-process the Labour Market & Skills dataset for SIC Industry Table 2
-    Outputs growth factors for each forecast year, as hdfs
+    Outputs totals for each year, based on LM&S growths
     """
     sic = []
     # Read in and format the LM&S data for each region
@@ -39,10 +39,8 @@ def pre_process_lms_sic():
     sic_rgns = pd.concat(sic)
 
     # Map LM&S industries to our segmentation
-    lms_sic_corr = pd.read_csv(
-        LMS_INPUT_DIR / r"LMS_SIC_Ind2\LMS_SIC_1_digit_corr.csv",
-        dtype={"LU_SIC_1_digit": int},
-    )
+    lms_sic_corr = pd.read_csv(LMS_INPUT_DIR / r"LMS_SIC_Ind2\LMS_SIC_1_digit_corr.csv",
+                               dtype={"LU_SIC_1_digit": int})
     sic_rgns = pd.merge(
         sic_rgns,
         lms_sic_corr,
@@ -50,58 +48,84 @@ def pre_process_lms_sic():
         right_on="Labour Market & Skills",
         how="left",
     ).dropna()
-    # TODO question, 2025 to 2035 or 2015 to 2035?
+
+    # Find years in df
+    years = [int(yr) for yr in sic_rgns.columns if yr.isnumeric()]
+
+    # Convert years columns names into integers
+    column_mapper = {}
+    for y in years:
+        column_mapper[str(y)] = int(y)
+    sic_rgns = sic_rgns.rename(columns=column_mapper)
+
     # Get jobs into 1000s and aggregate any SIC values with multiple LM&S definitions, e.g. SIC 3
-    sic_rgns = (
-        sic_rgns[["LU_SIC_1_digit", "region", "2025", "2035"]]
-        .groupby(by=["LU_SIC_1_digit", "region"], as_index=False)[["2025", "2035"]]
-        .sum()
-    )
-    sic_rgns["2025"] = sic_rgns["2025"] * 1000
-    sic_rgns["2035"] = sic_rgns["2035"] * 1000
+    sic_rgns[years] = sic_rgns[years] * 1000
+    sic_rgns = sic_rgns[["LU_SIC_1_digit", "region"] + years].groupby(
+        by=["LU_SIC_1_digit", "region"],
+        as_index=False
+    )[years].sum()
     # TODO numbers under 10,000?
 
-    # Calculate % growth for 1 year
-    sic_rgns["%_growth_1yr"] = (
-        (sic_rgns["2035"] - sic_rgns["2025"]) / sic_rgns["2025"]
-    ) / 10
-    sic_rgns = sic_rgns[["LU_SIC_1_digit", "region", "%_growth_1yr"]]
+    # Interpolate for the years we want
+    max_year = max(years)
+    min_year = min(years)
 
-    # Add rows for SIC levels -1, 20, 21
-    rgns = pd.DataFrame(sic_rgns["region"].drop_duplicates())
-    lvls = []
-    for lvl in [-1, 20, 21]:
-        df = rgns.copy()
-        df["LU_SIC_1_digit"] = lvl
-        lvls.append(df)
-    lvls_static = pd.concat(lvls)
-    lvls_static["%_growth_1yr"] = 0
-    sic_rgns = pd.concat([sic_rgns, lvls_static]).sort_values("LU_SIC_1_digit")
+    for year in YEARS_TO_CALCULATE:
+        print(year)
+        if year in sic_rgns.columns:
+            # column already exists so nothing to do
+            pass
+        elif year < min_year:
+            # before first year, raise error for now
+            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+        elif year > max_year:
+            # As 2035 is the maximum LM&S year, continue the 2025 to 2035 trend
+            year_a = 2025
+            year_b = 2035
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            sic_rgns[year] = perc_of_a * sic_rgns[year_a] + perc_of_b * sic_rgns[year_b]
+        else:
+            year_a = max([y for y in years if y < year])
+            year_b = min([y for y in years if y > year])
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            sic_rgns[year] = perc_of_a * sic_rgns[year_a] + perc_of_b * sic_rgns[year_b]
+
+    # Prepare for export
+    sic_rgns = sic_rgns.rename(columns={"LU_SIC_1_digit": "sic_1_digit"}).astype({"sic_1_digit": int})
+
+    # Remap region back to codes
+    sic_rgns["region"] = sic_rgns["region"].map(
+        dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
+    )
 
     # Output as hdf, ready to be read in as DVector
-    f_years = {"2028": 5, "2033": 10, "2038": 15, "2043": 20, "2048": 25}
-    for year in f_years.keys():
-        f_year_control = sic_rgns.copy()
-        f_year_control[year] = 1 + f_year_control["%_growth_1yr"] * f_years.get(year)
-        f_year_control = f_year_control[["LU_SIC_1_digit", "region", year]].rename(
-            columns={"LU_SIC_1_digit": "sic_1_digit"}
-        )
-        f_year_control = f_year_control.astype({"sic_1_digit": "int"})
-        # Remap region back to codes
-        f_year_control["region"] = f_year_control["region"].map(
-            dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
-        )
-
+    for year in YEARS_TO_CALCULATE:
+        sic_output = sic_rgns[["sic_1_digit", "region", year]]
         # Check for negatives
-        count = f_year_control[year].lt(0).sum()
+        count = sic_output[year].lt(0).sum()
         if count > 0:
             LOGGER.error(
                 f"Extrapolating the LM&S growth to {year} results in negative values"
             )
 
+        # Add rows for SIC levels -1, 20, 21
+        rgns = pd.DataFrame(sic_rgns["region"].drop_duplicates())
+        lvls = []
+        for lvl in [-1, 20, 21]:
+            df = rgns.copy()
+            df["sic_1_digit"] = lvl
+            lvls.append(df)
+        lvls_static = pd.concat(lvls)
+        lvls_static[year] = 0
+        sic_output = pd.concat([sic_output, lvls_static]).sort_values("sic_1_digit")
+
         # Into a wide format for DVector
         df_wide = pp.pivot_to_dvector(
-            data=f_year_control,
+            data=sic_output,
             zoning_column="region",
             index_cols=["sic_1_digit"],
             value_column=year,
@@ -113,7 +137,7 @@ def pre_process_lms_sic():
         )
 
 
-def pre_process_lms_soc():
+def pre_process_lms_soc() -> None:
     soc = []
     # Read in and format the LM&S data for each region
     for region in region_corr["RGN21NM"]:
@@ -163,7 +187,7 @@ def pre_process_lms_soc():
             soc_rgns[year] = soc_rgns[max_year]
         elif year < min_year:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrpolate for {year}, earliest year is {min_year}")
+            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
         else:
             year_a = max([y for y in years if y < year])
             year_b = min([y for y in years if y > year])
