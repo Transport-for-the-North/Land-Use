@@ -79,5 +79,8 @@ for new_col, banding in NORCOM_BANDINGS.items():
         )
         print(merged_data[new_col].value_counts())
 
+# drop 2020 data to avoid blip in data due to covid
+merged_data = merged_data[~merged_data['surveyyear'].eq(2020)]
+
 # write household data to working folder
-merged_data.to_csv(output_folder / 'nts_hh_data_v3.csv', index=False)
+merged_data.to_csv(output_folder / 'nts_hh_data_v4.csv', index=False)
