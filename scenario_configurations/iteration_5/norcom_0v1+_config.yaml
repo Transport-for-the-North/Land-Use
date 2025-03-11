@@ -14,7 +14,7 @@ column_name_to_drop_rows:
   - "hh_income_2023"
   - "accom_h"
 value_in_row:
-#  - "-10"
+  - "-10"
   - "-1"
   - "-1"
 categorical_features:
