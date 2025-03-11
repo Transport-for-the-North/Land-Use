@@ -536,8 +536,8 @@ def convert_price_base(
         data: pd.DataFrame,
         deflator: pd.DataFrame,
         index_column: str,
-        year_column: str = 'surveyyear',
-        income_column: str = 'hh_income'
+        year_column: str = 'surveyyear_SOURCE',
+        income_column: str = 'hh_income_SOURCE'
 ) -> pd.DataFrame:
     """
 
@@ -553,31 +553,33 @@ def convert_price_base(
     index_column: str
         Column name in `deflator` that represents the year-specific adjustment
         indices that will rebase prices to a given year
-    year_column: str, default 'surveyyear'
+    year_column: str, default 'surveyyear_SOURCE'
         Column name in `deflator` *and* `data` that represents the year
-    income_column: str, default 'hh_income'
+    income_column: str, default 'hh_income_SOURCE'
         Column name in `data` that represents the annual household income
         (or some other price data to convert)
 
     Returns
     -------
     pd.DataFrame
-        `data` with an additional column of f'{income_column}_rebased`
+        `data` with an additional column of
+        f'{income_column.replace('_SOURCE', '')}_rebased`
 
     """
     # combine NTS data with price deflator data based on survey year
     data = pd.merge(data, deflator, on=year_column, how='left')
 
+    new_column = income_column.replace('_SOURCE', '')
     # convert the nominal prices in NTS to the model base year of 2023 prices
-    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = (
+    data[f'{new_column}_{_MODEL_PRICE_BASE}'] = (
         data[income_column] / data[index_column]
     )
 
     # replace negative values with -1 (this is a missing NTS value)
-    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = (
-        data[f'{income_column}_{_MODEL_PRICE_BASE}'].where(data[income_column] > 0, -1)
+    data[f'{new_column}_{_MODEL_PRICE_BASE}'] = (
+        data[f'{new_column}_{_MODEL_PRICE_BASE}'].where(data[income_column] > 0, -1)
     )
 
-    data[f'{income_column}_{_MODEL_PRICE_BASE}'] = data[f'{income_column}_{_MODEL_PRICE_BASE}'].astype(int)
+    data[f'{new_column}_{_MODEL_PRICE_BASE}'] = data[f'{new_column}_{_MODEL_PRICE_BASE}'].astype(int)
 
     return data

@@ -1,5 +1,4 @@
 from pathlib import Path
-from itertools import product
 
 import pandas as pd
 
@@ -43,20 +42,20 @@ nts_hh_data = convert_price_base(
 
 # melt the gdp data to long format to merge with nts
 gdp = pd.melt(
-    gdp, id_vars=['hholdoslaua_b01id'], var_name='surveyyear', value_name='gdp_pc'
+    gdp, id_vars=['hholdoslaua_b01id_SOURCE'], var_name='surveyyear_SOURCE', value_name='gdp_pc'
 )
-gdp['surveyyear'] = gdp['surveyyear'].astype(int)
+gdp['surveyyear_SOURCE'] = gdp['surveyyear_SOURCE'].astype(int)
 
 # calculate gdp deflator in 2023 base to apply to car cost columns
-_2023 = gdp[gdp['surveyyear'] == 2023].rename(columns={'gdp_pc': 'gdp_2023'})
-gdp = gdp.merge(_2023[['hholdoslaua_b01id', 'gdp_2023']], on='hholdoslaua_b01id', how='left')
+_2023 = gdp[gdp['surveyyear_SOURCE'] == 2023].rename(columns={'gdp_pc': 'gdp_2023'})
+gdp = gdp.merge(_2023[['hholdoslaua_b01id_SOURCE', 'gdp_2023']], on='hholdoslaua_b01id_SOURCE', how='left')
 gdp['gdp_deflator'] = gdp['gdp_pc'] / gdp['gdp_2023']
 
 # merge the running and purchase costs, and gdp information to NTS data
 merged_data = nts_hh_data.merge(
-    car_cost, on='surveyyear', how='left'
+    car_cost, on='surveyyear_SOURCE', how='left'
 ).merge(
-    gdp, on=['hholdoslaua_b01id', 'surveyyear'], how='left'
+    gdp, on=['hholdoslaua_b01id_SOURCE', 'surveyyear_SOURCE'], how='left'
 )
 
 # apply gdp deflator to car cost columns
@@ -80,7 +79,7 @@ for new_col, banding in NORCOM_BANDINGS.items():
         print(merged_data[new_col].value_counts())
 
 # drop 2020 data to avoid blip in data due to covid
-merged_data = merged_data[~merged_data['surveyyear'].eq(2020)]
+merged_data = merged_data[~merged_data['surveyyear_SOURCE'].eq(2020)]
 
 # write household data to working folder
-merged_data.to_csv(output_folder / 'nts_hh_data_v4.csv', index=False)
+merged_data.to_csv(output_folder / 'nts_hh_data_v5.csv', index=False)

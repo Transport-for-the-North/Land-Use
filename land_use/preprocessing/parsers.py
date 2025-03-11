@@ -1053,5 +1053,11 @@ def reduce_classified_build(
     household_variables = list(grouped[grouped['household_var'].eq(1)].index)
 
     # subset the data to these unique columns and remove duplicates
-    return trip_data[household_variables + [hh_id_column]].drop_duplicates()
+    hh_data = trip_data[household_variables + [hh_id_column]].drop_duplicates()
+
+    # rename all columns to have _SOURCE at the end so that we can rename
+    # columns as we need to be consistent with the caf.base.segmentation names
+    hh_data.columns = list(map(lambda c: f'{c}_SOURCE', hh_data.columns))
+
+    return hh_data
 
