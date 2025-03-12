@@ -35,10 +35,10 @@ OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_population")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
-generate_summary_outputs = True  # bool(config["output_intermediate_outputs"])
+# generate_summary_outputs = True  # bool(config["output_intermediate_outputs"])
 
 LOGGER = lu_logging.configure_logger(
-    OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="employment"
+    OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="population"
 )
 
 
@@ -124,18 +124,18 @@ def process_region(gor: str):
 
     soc_base = data_processing.read_dvector_data(
         file_path=soc_base_path,
-        geographical_level="RGN2021",
+        geographical_level=geographical_level,
         input_segments=["soc"],
-        geography_subset=gor,
+        geography_subset=geographical_subset,
     )
 
     soc_forecast_path = soc_dir / f"LMS_SOC_Occ_T1_{forecast_year}.hdf"
 
     soc_forecast = data_processing.read_dvector_data(
         file_path=soc_forecast_path,
-        geographical_level="RGN2021",
+        geographical_level=geographical_level,
         input_segments=["soc"],
-        geography_subset=gor,
+        geography_subset=geographical_subset,
     )
 
     filepath = base_emp_dir / f"Output P11_{gor}.hdf"
@@ -180,6 +180,7 @@ def process_region(gor: str):
 
     # --- Step 3 --- #
     # Apply the IPF to targets based on age and gender
+    LOGGER.info("--- Step 3 ---")
 
     rebalanced_p11, summary, differences = data_processing.apply_ipf(
         seed_data=p11_ntem_age,
@@ -189,7 +190,7 @@ def process_region(gor: str):
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_ge_g_{gor}",
+        output_reference=f"Output p11_age_g_{gor}",
         dvector=rebalanced_p11,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
@@ -197,6 +198,7 @@ def process_region(gor: str):
 
     # --- Step 4 --- #
     # Calculate population numbers (post initial IPF) excluding soc 4
+    LOGGER.info("--- Step 4 ---")
 
     rebalanced_p11_gor = rebalanced_p11.translate_zoning(soc_base.zoning_system)
 
@@ -218,6 +220,7 @@ def process_region(gor: str):
 
     # --- Step 5 --- #
     # Calculate the new SOC splits
+    LOGGER.info("--- Step 5 ---")
 
     # soc 4 is excluded throughout as do not have a forecast for this segment
     soc_base_totals = (
@@ -234,7 +237,7 @@ def process_region(gor: str):
         .filter_segment_value("soc", [1, 2, 3])
     )
 
-    # calcate the soc splits from the forecast data
+    # calculate the soc splits from the forecast data
     soc_base_perc = soc_base / soc_base_totals
     soc_forecast_perc = soc_forecast / soc_forecast_totals
 
@@ -253,9 +256,10 @@ def process_region(gor: str):
 
     soc_p11_perc = p11_gor_soc / p11_soc_totals
 
-    # work out the new targets splits 
-    # TODO: add in check to make sure this isn't negative, and if so need to do something about it.
+    # work out the new targets splits
     soc_target_perc = soc_p11_perc + soc_splits_change
+    # check for negative splits
+    check_negatives(input_df=soc_target_perc.data)
 
     # the totals here should be the pop_targets without soc 4
     soc_targets = (soc_target_perc * rebalanced_p11_soc_totals_exc_4_totals).aggregate(
@@ -264,6 +268,7 @@ def process_region(gor: str):
 
     # --- Step 6 --- #
     # Apply the IPF to targets based on age, gender and soc
+    LOGGER.info("--- Step 6 ---")
 
     rebalanced_age_g_soc_p11, summary, differences = data_processing.apply_ipf(
         seed_data=p11_ntem_age,
@@ -280,14 +285,17 @@ def process_region(gor: str):
     )
 
 
+def check_negatives(input_df: pd.DataFrame):
+    if (input_df < 0).any().any():
+        raise ValueError(f"New SOC target splits calculated contain negatives")
+    else:
+        pass
+
+
 # # takes a while to run. So suggest this is run only when needed
-# for gor in constants.GORS:
+# for gor in constants.GORS + ["Scotland"]:
 #     print(gor)
 #     process_region(gor=gor)
 
-# # and Scotland
-# print("scotland")
-# process_region(gor="Scotland")
-
-# testing NW as quicker than looping through all regions
+# testing as quicker than looping through all regions
 process_region(gor="NW")
