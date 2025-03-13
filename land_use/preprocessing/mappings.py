@@ -637,37 +637,37 @@ NSSEC_MAPPING = {
 
 NORCOM_MAPPINGS = {
     'hh_income_banded_v1': {
-        'hh_income_SOURCE': INCOME_MAPPING_ONE
+        'hh_income': INCOME_MAPPING_ONE
     },
     'hh_income_banded_v2': {
-        'hh_income_SOURCE': INCOME_MAPPING_TWO
+        'hh_income': INCOME_MAPPING_TWO
     },
     '0v1_car': {
-        'numcarvan_SOURCE': NUMCAR_MAPPING_ONE
+        'numcarvan': NUMCAR_MAPPING_ONE
     },
     '1v2+_car': {
-        'numcarvan_SOURCE': NUMCAR_MAPPING_TWO
+        'numcarvan': NUMCAR_MAPPING_TWO
     },
     'adults': {
-        'hholdnumadults_SOURCE': HH_ADULTS_MAPPING
+        'hholdnumadults': HH_ADULTS_MAPPING
     },
     'children': {
-        'hholdnumchildren_SOURCE': HH_CHILDREN_MAPPING
+        'hholdnumchildren': HH_CHILDREN_MAPPING
     },
     'tfn_at_v1': {
-        'tfn_at_SOURCE': AREA_TYPE_MAPPING_ONE
+        'tfn_at': AREA_TYPE_MAPPING_ONE
     },
     'tfn_at_v2': {
-        'tfn_at_SOURCE': AREA_TYPE_MAPPING_TWO
+        'tfn_at': AREA_TYPE_MAPPING_TWO
     },
     'accom_h': {
-        'addresstype_b01id_SOURCE': ACCOM_TYPE_MAPPING
+        'addresstype_b01id': ACCOM_TYPE_MAPPING
     },
     'ns_sec': {
-        'ns_SOURCE': NSSEC_MAPPING
+        'ns': NSSEC_MAPPING
     },
     'car_availability': {
-        'numcarvan_SOURCE': NUMCAR_MAPPING
+        'numcarvan': NUMCAR_MAPPING
     }
 }
 
