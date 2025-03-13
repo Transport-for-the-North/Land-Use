@@ -146,12 +146,7 @@ def process_region(gor: str):
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("Prepare base files into forecasting segmentations")
 
-    # switch p11's age segmentation from age_9 to age_ntem
-    p11_ntem_age = p11.add_segments(new_segs=["age_ntem"])
-
-    p11_ntem_age = p11_ntem_age.aggregate(
-        segs=[seg for seg in p11_ntem_age.data.index.names if seg != "age_9"]
-    )
+    p11_ntem_age = p11.translate_segment(from_seg="age_9", to_seg="age_ntem", drop_from=True)
 
     # --- Step 2 --- #
     # Calculate the population growth factors
