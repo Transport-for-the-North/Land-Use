@@ -1,16 +1,16 @@
-file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v5.csv
+file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v6.csv
 folder_path: null
 output_path: I:\NorMITs NorCOM\AECOM working\v35\0v1+
 validation_path: null
 
 target_column: "car_availability"
 custom_index:
-  - "psuid_SOURCE"
-  - "householdid_SOURCE"
-  - "surveyyear_SOURCE"
-  - "hholdua_b01id_SOURCE"
+  - "psuid"
+  - "householdid"
+  - "surveyyear"
+  - "hholdua_b01id"
 column_name_to_drop_rows:
-  - "walkrail_b01id_SOURCE"
+  - "walkrail_b01id"
   - "hh_income_2023"
   - "accom_h"
 value_in_row:
@@ -22,7 +22,7 @@ categorical_features:
   - "children"
   - "ns_sec"
   - "adults"
-  - "walkrail_b01id_SOURCE"
+  - "walkrail_b01id"
   - "accom_h"
 # I *think* only one of sample_size_encode and select_encode_values should be True
 sample_size_encode: True
@@ -38,7 +38,7 @@ numerical_features:
 #  - total_cost
 #  - deflated_total_cost
 #  - gdp_pc
-weight_column: "w2_SOURCE"
+weight_column: "w2"
 classification_prediction: [0, 1]
 split_by_value: null
 split_size: 0.2

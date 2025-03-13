@@ -494,14 +494,14 @@ def process_and_save_hh_projections_children() -> None:
             raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
 
         hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "segment", year]]
+        hh_year = hh_year[["CODE", "segment", year]].rename(columns={"segment": "children"})
         hh_year.columns = [str(col) for col in hh_year.columns]
 
         # Into a wide format for DVector
         hh_year = pp.pivot_to_dvector(
             data=hh_year,
             zoning_column="CODE",
-            index_cols=["segment"],
+            index_cols=["children"],
             value_column=str(year),
         )
         pp.save_preprocessed_hdf(

@@ -9,16 +9,16 @@ from land_use import constants
 
 final_dfs = []
 # Analysis of outputs
-for rgn in ['NW', 'NE']:
+for rgn in constants.GORS:
     for output in ['p11_step3', 'p11_step6']:
         if output == 'p11_step3':
             dv = DVector.load(Path(
-                fr"F:\Working\Land-Use\OUTPUTS_forecast_population\01_Intermediate Files\
-                Output p11_age_g_{rgn}.hdf"))
+                fr"F:\Working\Land-Use\OUTPUTS_forecast_population\01_Intermediate Files\Output p11_age_g_"
+                fr"{rgn}.hdf"))
         else:
             dv = DVector.load(Path(
-                fr"F:\Working\Land-Use\OUTPUTS_forecast_population\01_Intermediate Files\
-                Output p11_age_g_soc_{rgn}.hdf"))
+                fr"F:\Working\Land-Use\OUTPUTS_forecast_population\01_Intermediate Files\Output p11_age_g_soc_"
+                fr"{rgn}.hdf"))
         dv_translated = dv.translate_zoning(
             new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,

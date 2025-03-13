@@ -1057,7 +1057,7 @@ def reduce_classified_build(
 
     # rename all columns to have _SOURCE at the end so that we can rename
     # columns as we need to be consistent with the caf.base.segmentation names
-    hh_data.columns = list(map(lambda c: f'{c}_SOURCE', hh_data.columns))
+    # hh_data.columns = list(map(lambda c: f'{c}_SOURCE', hh_data.columns))
 
     return hh_data
 

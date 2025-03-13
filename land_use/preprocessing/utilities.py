@@ -536,8 +536,8 @@ def convert_price_base(
         data: pd.DataFrame,
         deflator: pd.DataFrame,
         index_column: str,
-        year_column: str = 'surveyyear_SOURCE',
-        income_column: str = 'hh_income_SOURCE'
+        year_column: str = 'surveyyear',
+        income_column: str = 'hh_income'
 ) -> pd.DataFrame:
     """
 
