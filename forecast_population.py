@@ -171,7 +171,31 @@ def process_region(gor: str):
         weighting=TranslationWeighting.NO_WEIGHT,
     )
 
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"pop_{base_year}_{gor}",
+        dvector=p11_age_ntem_g_gor,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"pop_factors_{base_year}_to_{forecast_year}_{gor}",
+        dvector=adj_growth_factor,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
     pop_targets = p11_age_ntem_g_gor * adj_growth_factor
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"pop_targets_{forecast_year}_{gor}",
+        dvector=pop_targets,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
 
     # --- Step 3 --- #
     # Apply the IPF to targets based on age and gender
