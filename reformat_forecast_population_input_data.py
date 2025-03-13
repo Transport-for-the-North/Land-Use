@@ -10,6 +10,7 @@ import land_use.preprocessing as pp
 YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048]
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
+OBR_INPUT_DIR = Path(r'I:\NorMITs Land Use\2023\import\OBR')
 ENGLAND_CODE = "E92000001"
 
 
@@ -493,14 +494,14 @@ def process_and_save_hh_projections_children() -> None:
             raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
 
         hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "segment", year]]
+        hh_year = hh_year[["CODE", "segment", year]].rename(columns={"segment": "children"})
         hh_year.columns = [str(col) for col in hh_year.columns]
 
         # Into a wide format for DVector
         hh_year = pp.pivot_to_dvector(
             data=hh_year,
             zoning_column="CODE",
-            index_cols=["segment"],
+            index_cols=["children"],
             value_column=str(year),
         )
         pp.save_preprocessed_hdf(
@@ -508,3 +509,54 @@ def process_and_save_hh_projections_children() -> None:
             df=hh_year,
             multiple_output_ref=str(year),
         )
+
+
+def pre_process_obr() -> None:
+    # Read in OBR data (using quarter 1 data)
+    df = pd.read_csv(OBR_INPUT_DIR / 'obr_forecasts_feb_2025.csv')
+
+    # employment
+    emp = df.loc[(df["Measure"] == "Employment forecast") | (
+            df["Measure"] == "Employment outturn")]
+    emp = emp[emp["Quarter"].str.endswith("Q1")].sort_values('Quarter')
+    emp["year"] = emp["Quarter"].str.replace("Q1", "").astype(int)
+    emp['Measure'] = 'employment'
+
+    # unemployment (percentage pf population 16+)
+    unemp = df.loc[(df["Measure"] == "Unemployment rate forecast") | (
+            df["Measure"] == "Unemployment rate outturn")]
+    unemp = unemp[unemp["Quarter"].str.endswith("Q1")].sort_values('Quarter')
+    unemp["year"] = unemp["Quarter"].str.replace("Q1", "").astype(int)
+    unemp["Measure"] = "unemployment"
+
+    both = pd.concat([emp, unemp], ignore_index=False)[["year", "Measure", "Value"]]
+    both = both.pivot(index="Measure", columns="year", values="Value")
+
+    years = [int(yr) for yr in both.columns if str(yr).isnumeric()]
+    min_year = min(years)
+    # Calculate growth
+    for year in YEARS_TO_CALCULATE:
+        print(year)
+        if year in both.columns:
+            # column already exists
+            # TODO check we just take the value?
+            pass
+        elif year < min_year:
+            # before first year, raise error for now
+            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+        else:
+            # As 2030 is the maximum year, continue the 2023 to 2030
+            year_a = 2023
+            year_b = 2030
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            both[year] = perc_of_a * both[year_a] + perc_of_b * both[year_b]
+
+    # Prepare for export
+    export = both[YEARS_TO_CALCULATE]
+    export.to_csv(
+        OBR_INPUT_DIR / 'preprocessing/OBR_forecasts_processed.csv',
+        index=True,
+        index_label="Measure"
+    )
