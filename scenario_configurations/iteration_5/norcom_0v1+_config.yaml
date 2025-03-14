@@ -1,6 +1,6 @@
 file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v6.csv
 folder_path: null
-output_path: I:\NorMITs NorCOM\AECOM working\v35\0v1+
+output_path: I:\NorMITs NorCOM\AECOM working\v37\0v1+
 validation_path: null
 
 target_column: "car_availability"
@@ -11,10 +11,12 @@ custom_index:
   - "hholdua_b01id"
 column_name_to_drop_rows:
   - "walkrail_b01id"
-  - "hh_income_2023"
+#  - "hh_income_2023"
+  - "hh_income_banded_v3"
   - "accom_h"
 value_in_row:
   - "-10"
+#  - "-1"
   - "-1"
   - "-1"
 categorical_features:
@@ -24,13 +26,14 @@ categorical_features:
   - "adults"
   - "walkrail_b01id"
   - "accom_h"
+  - "hh_income_banded_v3"
 # I *think* only one of sample_size_encode and select_encode_values should be True
 sample_size_encode: True
 select_encode_values: False
 # if select_encode_values is true then this should not be null
 encode_values_to_drop: null
 numerical_features:
-  - "hh_income_2023"
+#  - "hh_income_2023"
 #  - purchase_cost
 #  - maintenance_cost
 #  - fuel_cost
