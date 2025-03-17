@@ -14,6 +14,9 @@ from land_use.data_processing import OutputLevel
 ons_pop_forecast_dir = Path(
     r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs\preprocessing"
 )
+ons_hh_forecast_dir = Path(
+    r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs\preprocessing"
+)
 
 base_year = 2023
 forecast_year = 2043
@@ -26,7 +29,7 @@ forecast_year = 2043
 # and then growth from 2043 to 2048 using 2022
 
 # %%
-base_emp_dir = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
+base_pop_dir = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
 soc_dir = Path(
     r"I:\NorMITs Land Use\2023\import\Labour Market and Skills\LMS_SOC\preprocessing"
 )
@@ -47,6 +50,7 @@ LOGGER = lu_logging.configure_logger(
 
 def process_region(gor: str):
     # --- Step 0 --- #
+    LOGGER.info("--- Step 0 ---")
     # read in the currently hard coded but switch to config
 
     LOGGER.info(f"Importing data for {gor}")  # eventually from the config file
@@ -138,7 +142,7 @@ def process_region(gor: str):
         geography_subset=geographical_subset,
     )
 
-    filepath = base_emp_dir / f"Output P11_{gor}.hdf"
+    filepath = base_pop_dir / f"Output P11_{gor}.hdf"
     p11 = DVector.load(filepath)
 
     # --- Step 1 --- #
@@ -209,7 +213,7 @@ def process_region(gor: str):
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_{gor}",
+        output_reference=f"Output p11_age_g_{gor}_{forecast_year}",
         dvector=rebalanced_p11,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
@@ -297,8 +301,71 @@ def process_region(gor: str):
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_soc_{gor}",
+        output_reference=f"Output p11_age_g_soc_{gor}_{forecast_year}",
         dvector=rebalanced_age_g_soc_p11,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
+    # Below is testing the IPF for children households, might want to comment out when testing above
+    # TODO check if input totals match
+    # --- Step 7 --- #
+    LOGGER.info("--- Step 7 ---")
+    # Read in the children households data as DVector
+    LOGGER.info(f"Importing children households data for {gor}")  # eventually from the config file
+
+    regional_2018_base_children = (
+            ons_hh_forecast_dir / f"hh_children_{base_year}.hdf"
+    )
+    regional_2018_forecast_children = (
+            ons_hh_forecast_dir / f"hh_children_{forecast_year}.hdf"
+    )
+
+    dv_base_children = data_processing.read_dvector_data(
+        file_path=regional_2018_base_children,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+    )
+
+    dv_forecast_children = data_processing.read_dvector_data(
+        file_path=regional_2018_forecast_children,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+
+    )
+
+    # --- Step 8 --- #
+    LOGGER.info("--- Step 8 ---")
+    # Calculate the growth factors
+    LOGGER.info("Calculate the children households growth factors")
+
+    children_growth_factor = dv_forecast_children / dv_base_children
+
+    p11_children = p11.aggregate(segs=["children"])
+
+    p11_children_gor = p11_children.translate_zoning(
+        new_zoning=children_growth_factor.zoning_system,  # fix zoning system to match growth factors
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT
+    )
+
+    hh_children_targets = p11_children_gor * children_growth_factor
+
+    # --- Step 9 --- #
+    LOGGER.info("--- Step 9 ---")
+    # Apply the IPF to targets based on age, gender, SOC and children
+    rebalanced_age_g_soc_children_p11, summary, differences = data_processing.apply_ipf(
+        seed_data=p11_ntem_age,
+        target_dvectors=[pop_targets, soc_targets, hh_children_targets],
+        cache_folder=constants.CACHE_FOLDER,
+    )
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"Output p11_age_g_soc_children_{gor}_{forecast_year}",
+        dvector=rebalanced_age_g_soc_children_p11,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
     )
