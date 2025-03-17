@@ -12,12 +12,17 @@ LOGGER = logging.getLogger(__name__)
 
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
 
-region_corr = pd.read_csv(
+REGION_CORRESPONDENCE = pd.read_csv(
     Path(
         r"I:\NorMITs Land Use\2023\import\ONS\Correspondence_lists",
         "GOR2021_CD_NM_EWS.csv",
     )
 )
+
+
+def main():
+    pre_process_lms_sic()
+    pre_process_lms_soc()
 
 
 def pre_process_lms_sic() -> None:
@@ -27,7 +32,7 @@ def pre_process_lms_sic() -> None:
     """
     sic = []
     # Read in and format the LM&S data for each region
-    for region in region_corr["RGN21NM"]:
+    for region in REGION_CORRESPONDENCE["RGN21NM"]:
         df = pd.read_csv(
             LMS_INPUT_DIR / rf"LMS_SIC_Ind2\LMS_Ind2_{region}.csv",
             header=[0],
@@ -99,7 +104,7 @@ def pre_process_lms_sic() -> None:
 
     # Remap region back to codes
     sic_rgns["region"] = sic_rgns["region"].map(
-        dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
+        dict((x, y) for y, x in dict(sorted(REGION_CORRESPONDENCE.values.tolist())).items())
     )
 
     # Output as hdf, ready to be read in as DVector
@@ -128,7 +133,7 @@ def pre_process_lms_sic() -> None:
             data=sic_output,
             zoning_column="region",
             index_cols=["sic_1_digit"],
-            value_column=str(year),
+            value_column=year, # function expects a string but int works here as matches column heading type
         )
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / r"LMS_SIC_Ind2\LMS_SIC_1_digit_Ind2.hdf",
@@ -140,7 +145,7 @@ def pre_process_lms_sic() -> None:
 def pre_process_lms_soc() -> None:
     soc = []
     # Read in and format the LM&S data for each region
-    for region in region_corr["RGN21NM"]:
+    for region in REGION_CORRESPONDENCE["RGN21NM"]:
         df = pd.read_csv(
             LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{region}.csv",
             header=[0],
@@ -202,7 +207,7 @@ def pre_process_lms_soc() -> None:
     )
     # Remap region back to codes
     soc_rgns["region"] = soc_rgns["region"].map(
-        dict((x, y) for y, x in dict(sorted(region_corr.values.tolist())).items())
+        dict((x, y) for y, x in dict(sorted(REGION_CORRESPONDENCE.values.tolist())).items())
     )
 
     soc_rgns = soc_rgns.groupby(["soc", "region"]).sum().reset_index()
@@ -221,10 +226,13 @@ def pre_process_lms_soc() -> None:
             data=soc_rgns,
             zoning_column="region",
             index_cols=["soc"],
-            value_column=str(year),
+            value_column=year, # function expects a string but int works here as matches column heading type
         )
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / r"LMS_SOC\LMS_SOC_Occ_T1.hdf",
             df=df_wide,
             multiple_output_ref=str(year),
         )
+
+if __name__ == "__main__":
+    main()
