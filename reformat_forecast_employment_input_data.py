@@ -6,7 +6,7 @@ import land_use.preprocessing as pp
 
 
 # Include the base year in here as we are pivoting from it
-YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048]
+YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
 
 LOGGER = logging.getLogger(__name__)
 
