@@ -128,12 +128,12 @@ def pre_process_lms_sic() -> None:
             data=sic_output,
             zoning_column="region",
             index_cols=["sic_1_digit"],
-            value_column=year,
+            value_column=str(year),
         )
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / r"LMS_SIC_Ind2\LMS_SIC_1_digit_Ind2.hdf",
             df=df_wide,
-            multiple_output_ref=year,
+            multiple_output_ref=str(year),
         )
 
 
@@ -221,10 +221,10 @@ def pre_process_lms_soc() -> None:
             data=soc_rgns,
             zoning_column="region",
             index_cols=["soc"],
-            value_column=year,
+            value_column=str(year),
         )
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / r"LMS_SOC\LMS_SOC_Occ_T1.hdf",
             df=df_wide,
-            multiple_output_ref=year,
+            multiple_output_ref=str(year),
         )
