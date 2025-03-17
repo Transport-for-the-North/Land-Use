@@ -1,9 +1,6 @@
 # %%
 from pathlib import Path
 
-import pandas as pd
-import yaml
-
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
@@ -24,10 +21,10 @@ OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
-generate_summary_outputs = True
+# generate_summary_outputs = True
 
 LOGGER = lu_logging.configure_logger(
-    OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="employment"
+    OUTPUT_DIR / OutputLevel.SUPPORTING, log_name=f"employment_{forecast_year}"
 )
 
 # %%
@@ -86,8 +83,7 @@ def process_forecast_emp():
 
     sic_1_digit_targets = output_e6_agg * growth_factors
     # Drop targets for SIC level -1, 20, 21 (potentially move this to the reformatting script)
-    sic_1_digit_targets = sic_1_digit_targets.filter_segment_value(
-        "sic_1_digit", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
+    sic_1_digit_targets = drop_seg_values(sic_1_digit_targets, "sic_1_digit", [-1, 20, 21])
 
     # --- Step 3 --- #
     LOGGER.info("--- Step 3 ---")
@@ -100,8 +96,27 @@ def process_forecast_emp():
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output E6_IPF_SIC_1_digit",
+        output_reference=f"Output E6_SIC_1_digit_{forecast_year}",
         dvector=rebalanced_e6,
         dvector_dimension="jobs",
         output_level=OutputLevel.INTERMEDIATE,
     )
+
+
+# --- Useful function that probably should be DVector method --- #
+def drop_seg_values(dvec: DVector, segment_name:str, drop_values: list[int]) -> DVector:
+    """Drop rows with provided seg values for the given segmentation, keep other rows
+    Args:
+        dvec (DVector): DVector function will be applied to
+        segment_name (str): The name of the segment to filter by.
+        drop_values (list[int]): Segment values to drop
+    Returns:
+        DVector: Dvector with values removed for the given segment
+    """
+
+    current_values = dvec.data.index.get_level_values(segment_name).tolist()
+    keep_values = list(set(current_values) - set(drop_values))
+    return dvec.filter_segment_value(segment_name, keep_values)
+
+
+process_forecast_emp()
