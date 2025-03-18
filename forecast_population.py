@@ -168,6 +168,7 @@ def process_region(gor: str, forecast_year:int):
     uplift_base_year_factor = dv_national_2022_base / dv_national_2018_base
 
     # this will be a maximum of 2043 as 2018 forecast does not exist beyond 2043
+    # TODO review for 2048 and 2053
     uplift_forecast_year_factor = dv_national_2022_forecast / dv_national_2018_forecast
 
     # Adjust to take account of more recent forecasts from 2022
@@ -362,6 +363,14 @@ def process_region(gor: str, forecast_year:int):
 
     hh_children_targets = p11_children_gor * children_growth_factor
 
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"hh_children_targets_{forecast_year}_{gor}",
+        dvector=hh_children_targets,
+        dvector_dimension="households",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
     # --- Step 9 --- #
     LOGGER.info("--- Step 9 ---")
     # Apply the IPF to targets based on age, gender, SOC and children
@@ -379,11 +388,13 @@ def process_region(gor: str, forecast_year:int):
         output_level=OutputLevel.INTERMEDIATE,
     )
 
+
 def fetch_gor_info(gor:str) -> tuple[str, str|None]:
 
     if gor == "Scotland":
         return "SCOTLANDRGN", None
     return "RGN2021", gor
+
 
 def fetch_regional_forecast_up_to_crossover(
     geographical_level: str, geographical_subset: str|None, forecast_year: int
@@ -448,12 +459,16 @@ def check_negatives(input_df: pd.DataFrame):
         pass
 
 
-# # takes a while to run. So suggest this is run only when needed
-# for gor in constants.GORS + ["Scotland"]:
-#     print(gor)
-#     process_region(gor=gor)
+# takes a while to run. So suggest this is run only when needed
+for gor in constants.GORS + ["Scotland"]:
+    print(gor)
+    process_region(gor=gor, forecast_year=2038)
+
+for gor in constants.GORS + ["Scotland"]:
+    print(gor)
+    process_region(gor=gor, forecast_year=2048)
 
 # testing as quicker than looping through all regions
-process_region(gor="NW", forecast_year=2043)
-process_region(gor="NW", forecast_year=2048)
-process_region(gor="NW", forecast_year=2053)
+# process_region(gor="NW", forecast_year=2043)
+# process_region(gor="NW", forecast_year=2048)
+# process_region(gor="NW", forecast_year=2053)
