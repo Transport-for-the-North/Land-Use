@@ -9,7 +9,7 @@ from land_use import constants
 
 OUTPUT_DIR = Path(r'F:\Working\Land-Use\OUTPUTS_forecast_population')
 
-years_to_extract = [2033, 2043]
+years_to_extract = [2033, 2038, 2043, 2048]
 
 
 def summarise_outputs():
@@ -47,6 +47,7 @@ def summarise_outputs():
                 dv1['filename'] = f'{output}'
                 dv1['output code'] = f'{output}'
                 dv1 = dv1[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
+                dv1['year'] = year
 
                 # stack columns and format
                 dv2 = dv2.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
@@ -54,6 +55,7 @@ def summarise_outputs():
                 dv2['filename'] = f'{output}'
                 dv2['output code'] = f'{output}'
                 dv2 = dv2[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
+                dv2['year'] = year
 
                 dv3 = dv3.data.stack().reset_index().set_axis(['age_ntem', 'g', 'region', 'value'], axis='columns')
                 dv3['age_ntem'] = dv3['age_ntem'].astype(str)
@@ -63,20 +65,27 @@ def summarise_outputs():
                 dv3['filename'] = f'{output}'
                 dv3['output code'] = f'{output}'
                 dv3 = dv3[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
+                dv3['year'] = year
 
                 dv4 = dv4.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
                 dv4['segmentation'] = 'soc'
                 dv4['filename'] = f'{output}'
                 dv4['output code'] = f'{output}'
                 dv4 = dv4[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
+                dv4['year'] = year
 
                 dv5 = dv5.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
                 dv5['segmentation'] = 'children'
                 dv5['filename'] = f'{output}'
                 dv5['output code'] = f'{output}'
                 dv5 = dv5[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
+                dv5['year'] = year
 
-                final_dfs.append([dv1, dv2, dv3, dv4, dv5])
+                final_dfs.append(dv1)
+                final_dfs.append(dv2)
+                final_dfs.append(dv3)
+                final_dfs.append(dv4)
+                final_dfs.append(dv5)
 
     final_output = pd.concat(final_dfs)
     # redefine the region names
@@ -95,7 +104,7 @@ def summarise_targets_output():
         for rgn in constants.GORS:
             for output in ['pop_targets', 'hh_children_targets']:
                 print(f'Summarising for {year}, {rgn}, {output}')
-                dv = DVector.load(Path(OUTPUT_DIR / f'{output}_{year}_{rgn}.hdf'))
+                dv = DVector.load(Path(OUTPUT_DIR / f'01_Intermediate Files/{output}_{year}_{rgn}.hdf'))
 
                 if output == 'pop_targets':
                     # stack columns and format
