@@ -7,7 +7,7 @@ import numpy as np
 import land_use.preprocessing as pp
 
 # Include the base year in here as we are pivoting from it
-YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048]
+YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
 OBR_INPUT_DIR = Path(r'I:\NorMITs Land Use\2023\import\OBR')
