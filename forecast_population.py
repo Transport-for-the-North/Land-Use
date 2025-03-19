@@ -159,6 +159,22 @@ def process_region(gor: str, forecast_year:int):
         from_seg="age_9", to_seg="age_ntem", drop_from=True
     )
 
+    p11_age_ntem_g = p11_ntem_age.aggregate(segs=["age_ntem", "g"])
+
+    p11_age_ntem_g_gor = p11_age_ntem_g.translate_zoning(
+        new_zoning=dv_national_2022_base.zoning_system,  # fix zoning system to match
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"pop_{base_year}_{gor}",
+        dvector=p11_age_ntem_g_gor,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
     # --- Step 2 --- #
     # Calculate the population growth factors
     LOGGER.info("--- Step 2 ---")
@@ -178,22 +194,6 @@ def process_region(gor: str, forecast_year:int):
 
     adj_growth_factor = adj_future_year / adj_base_year
 
-    p11_age_ntem_g = p11_ntem_age.aggregate(segs=["age_ntem", "g"])
-
-    p11_age_ntem_g_gor = p11_age_ntem_g.translate_zoning(
-        new_zoning=adj_growth_factor.zoning_system,  # fix zoning system to match growth factors
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.NO_WEIGHT,
-    )
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"pop_{base_year}_{gor}",
-        dvector=p11_age_ntem_g_gor,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
-
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=f"pop_factors_{base_year}_to_{forecast_year}_{gor}",
@@ -201,6 +201,11 @@ def process_region(gor: str, forecast_year:int):
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
     )
+
+    # --- Step 2a --- #
+    # Apply the growth factors to calcuate the new population targets
+    LOGGER.info("--- Step 2a ---")
+    LOGGER.info("Calculate the population targets")
 
     pop_targets = p11_age_ntem_g_gor * adj_growth_factor
 
