@@ -92,7 +92,7 @@ def process_region(gor: str, forecast_year: int):
     if forecast_year > crossover_year:
         national_2021_22_forecast_year = (
             ons_pop_forecast_dir
-            / f"2021_22_based_ews_pop_projections_{capped_forecast_year}.hdf"
+            / f"2021_22_based_ews_pop_projections_{forecast_year}.hdf"
         )
         dv_national_2022_forecast_year = data_processing.read_dvector_data(
             file_path=national_2021_22_forecast_year,
