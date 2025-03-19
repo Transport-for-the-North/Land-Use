@@ -15,7 +15,6 @@ sic_dir = Path(
 )
 
 base_year = 2023
-forecast_year = 2043
 
 OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -23,15 +22,15 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
 # generate_summary_outputs = True
 
-LOGGER = lu_logging.configure_logger(
-    OUTPUT_DIR / OutputLevel.SUPPORTING, log_name=f"employment_{forecast_year}"
-)
-
 # %%
 # TODO load configuration file and use "read_dvector_from_config")
 
 
-def process_forecast_emp():
+def process_forecast_emp(forecast_year: int):
+    LOGGER = lu_logging.configure_logger(
+        OUTPUT_DIR / OutputLevel.SUPPORTING, log_name=f"employment_{forecast_year}"
+    )
+
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     # Read in the data
@@ -85,6 +84,14 @@ def process_forecast_emp():
     # Drop targets for SIC level -1, 20, 21 (potentially move this to the reformatting script)
     sic_1_digit_targets = drop_seg_values(sic_1_digit_targets, "sic_1_digit", [-1, 20, 21])
 
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"sic_1_digit_targets_{forecast_year}",
+        dvector=sic_1_digit_targets,
+        dvector_dimension="jobs",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
     # --- Step 3 --- #
     LOGGER.info("--- Step 3 ---")
     # Apply the IPF to targets based on SIC 1 digit
@@ -119,4 +126,7 @@ def drop_seg_values(dvec: DVector, segment_name:str, drop_values: list[int]) -> 
     return dvec.filter_segment_value(segment_name, keep_values)
 
 
-process_forecast_emp()
+process_forecast_emp(forecast_year=2033)
+process_forecast_emp(forecast_year=2038)
+process_forecast_emp(forecast_year=2043)
+process_forecast_emp(forecast_year=2048)

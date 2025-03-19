@@ -7,26 +7,30 @@ from caf.base.zoning import TranslationWeighting
 
 from land_use import constants
 
-OUTPUT_DIR = Path(r'F:\Working\Land-Use\OUTPUTS_forecast_population')
+POP_OUTPUT_DIR = Path(r'F:\Working\Land-Use\OUTPUTS_forecast_population')
+EMP_OUTPUT_DIR = Path(r'F:\Working\Land-Use\OUTPUTS_forecast_employment')
+ANALYSIS_DIR = Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs')
 
-years_to_extract = [2033, 2038, 2043, 2048]
+
+pop_years_to_extract = [2033, 2038, 2043, 2048]
+emp_years_to_extract = [2033, 2038, 2043, 2048]
 
 
-def summarise_outputs():
+def summarise_population_outputs():
     # Create a summary table of the output hdfs from the main process
     final_dfs = []
-    for year in years_to_extract:
+    for year in pop_years_to_extract:
         for rgn in constants.GORS:
             for output in ['p11_step3', 'p11_step6', 'p11_step9']:
                 print(f'Summarising for {year}, {rgn}, {output}')
                 if output == 'p11_step3':
-                    dv = DVector.load(Path(OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_'
+                    dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_'
                                                         fr'{rgn}_{year}.hdf'))
                 elif output == 'p11_step6':
-                    dv = DVector.load(Path(OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_'
+                    dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_'
                                                         fr'{rgn}_{year}.hdf'))
                 else:
-                    dv = DVector.load(Path(OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_children_'
+                    dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_children_'
                                                         fr'{rgn}_{year}.hdf'))
                 dv_translated = dv.translate_zoning(
                     new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -94,17 +98,17 @@ def summarise_outputs():
                       'E12000007': 'London', 'E12000003': 'Yorkshire and The Humber', 'E12000001': 'North East',
                       'E12000006': 'East of England', 'S92000003': 'Scotland'}
     final_output['region'] = final_output['region'].map(region_mapping)
-    final_output.to_csv(OUTPUT_DIR / r'Analysis\outputs\population_forecast_output_summary.csv')
+    final_output.to_csv(ANALYSIS_DIR / r'population_forecast_output_summary.csv')
 
 
-def summarise_targets_output():
+def summarise_population_targets_output():
     # Create a summary table of the targets output from the main process
     targets_dfs = []
-    for year in years_to_extract:
+    for year in pop_years_to_extract:
         for rgn in constants.GORS:
             for output in ['pop_targets', 'hh_children_targets']:
                 print(f'Summarising for {year}, {rgn}, {output}')
-                dv = DVector.load(Path(OUTPUT_DIR / f'01_Intermediate Files/{output}_{year}_{rgn}.hdf'))
+                dv = DVector.load(Path(POP_OUTPUT_DIR / f'01_Intermediate Files/{output}_{year}_{rgn}.hdf'))
 
                 if output == 'pop_targets':
                     # stack columns and format
@@ -134,8 +138,93 @@ def summarise_targets_output():
                       'E12000007': 'London', 'E12000003': 'Yorkshire and The Humber', 'E12000001': 'North East',
                       'E12000006': 'East of England', 'S92000003': 'Scotland'}
     final_output['region'] = final_output['region'].map(region_mapping)
-    final_output.to_csv(OUTPUT_DIR / r'Analysis\outputs\population_forecast_targets_summary.csv')
+    final_output.to_csv(ANALYSIS_DIR / r'population_forecast_targets_summary.csv')
 
 
-summarise_outputs()
-summarise_targets_output()
+def summarise_emp_outputs():
+    # Create a summary table of the output hdfs from the main process
+    final_dfs = []
+    for year in emp_years_to_extract:
+        print(f'Summarising for {year}')
+        dv = DVector.load(Path(EMP_OUTPUT_DIR / fr'01_Intermediate Files\Output E6_SIC_1_digit_'
+                                                fr'{year}.hdf'))
+
+        dv_translated = dv.translate_zoning(
+            new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False
+        )
+
+        # aggregate segmentation
+        dv1 = dv_translated.aggregate(['sic_1_digit'])
+        dv2 = dv_translated.aggregate(['sic_2_digit'])
+        dv3 = dv_translated.aggregate(['sic_4_digit'])
+        dv4 = dv_translated.aggregate(['soc'])
+
+        # stack columns and format
+        dv1 = dv1.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
+        dv1['segmentation'] = 'sic_1_digit'
+        dv1['year'] = year
+        dv1 = dv1[['year', 'segmentation', 'region', 'segment', 'value']]
+
+        # stack columns and format
+        dv2 = dv2.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
+        dv2['segmentation'] = 'sic_2_digit'
+        dv2['year'] = year
+        dv2 = dv2[['year', 'segmentation', 'region', 'segment', 'value']]
+
+        # stack columns and format
+        dv3 = dv3.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
+        dv3['segmentation'] = 'sic_4_digit'
+        dv3['year'] = year
+        dv3 = dv3[['year', 'segmentation', 'region', 'segment', 'value']]
+
+        # stack columns and format
+        dv4 = dv4.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
+        dv4['segmentation'] = 'soc'
+        dv4['year'] = year
+        dv4 = dv4[['year', 'segmentation', 'region', 'segment', 'value']]
+
+        final_dfs.append(dv1)
+        final_dfs.append(dv2)
+        final_dfs.append(dv3)
+        final_dfs.append(dv4)
+
+    final_output = pd.concat(final_dfs)
+    # redefine the region names
+    region_mapping = {'W92000004': 'Wales', 'E12000008': 'South East', 'E12000004': 'East Midlands',
+                      'E12000005': 'West Midlands', 'E12000002': 'North West', 'E12000009': 'South West',
+                      'E12000007': 'London', 'E12000003': 'Yorkshire and The Humber', 'E12000001': 'North East',
+                      'E12000006': 'East of England', 'S92000003': 'Scotland'}
+    final_output['region'] = final_output['region'].map(region_mapping)
+    final_output.to_csv(ANALYSIS_DIR / r'employment_forecast_output_summary.csv')
+
+
+def summarise_emp_targets_output():
+    # Create a summary table of the targets output from the main process
+    targets_dfs = []
+    for year in emp_years_to_extract:
+        print(f'Summarising for {year}')
+        dv = DVector.load(Path(EMP_OUTPUT_DIR / f'01_Intermediate Files/sic_1_digit_targets_{year}.hdf'))
+        dv2 = dv.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis='columns')
+        dv2['segmentation'] = 'sic_1_digit'
+        dv2['year'] = year
+        dv2 = dv2[['year', 'segmentation', 'region', 'segment', 'value']]
+
+        targets_dfs.append(dv2)
+
+    final_output = pd.concat(targets_dfs)
+    # redefine the region names
+    region_mapping = {'W92000004': 'Wales', 'E12000008': 'South East', 'E12000004': 'East Midlands',
+                      'E12000005': 'West Midlands', 'E12000002': 'North West', 'E12000009': 'South West',
+                      'E12000007': 'London', 'E12000003': 'Yorkshire and The Humber', 'E12000001': 'North East',
+                      'E12000006': 'East of England', 'S92000003': 'Scotland'}
+    final_output['region'] = final_output['region'].map(region_mapping)
+    final_output.to_csv(ANALYSIS_DIR / r'employment_forecast_targets_summary.csv')
+
+
+# summarise_population_outputs()
+# summarise_population_targets_output()
+# summarise_emp_outputs()
+# summarise_emp_targets_output()

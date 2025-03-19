@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 
+# data class for reading and storing NorCOM estimation results
 class NorCOMResult:
 
     def __init__(self, coefficients: pd.DataFrame, case_category: str, noncase_category: str, zonal_lookups: Path,
