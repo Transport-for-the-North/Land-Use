@@ -13,6 +13,34 @@ HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs
 OBR_INPUT_DIR = Path(r'I:\NorMITs Land Use\2023\import\OBR')
 ENGLAND_CODE = "E92000001"
 
+CHILDREN_MAPPING = {
+    "One person households: Male": 1,
+    "One person households: Female": 1,
+    "Households with one dependent child": 2,
+    "Households with two dependent children": 2,
+    "Households with three or more dependent children": 2,
+    "Other households with two or more adults": 1,
+    "1 adult female": 1,
+    "1 adult male": 1,
+    "2 adults": 1,
+    "1 adult, 1 child": 2,
+    "1 adult, 2+ children": 2,
+    "2+ adult 1+ children": 2,
+    "3+ person all adult": 1,
+    "1 person": 1,
+    "2 person (No children)": 1,
+    "2 person (1 adult, 1 child)": 2,
+    "3 person (No children)": 1,
+    "3 person (2 adults, 1 child)": 2,
+    "3 person (1 adult, 2 children)": 2,
+    "4 person (No children)": 1,
+    "4 person (2+ adults, 1+ children)": 2,
+    "4 person (1 adult, 3 children)": 2,
+    "5+ person (No children)": 1,
+    "5+ person (2+ adults, 1+ children)": 2,
+    "5+ person (1 adult, 4+ children)": 2
+}
+
 
 # %%
 def main():
@@ -392,15 +420,7 @@ def process_and_save_hh_projections_children() -> None:
     hh_eng = hh_eng.loc[:, ["CODE", "HOUSEHOLD TYPE"] + years]
 
     # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
-    children_map_eng = {
-        "One person households: Male": 1,
-        "One person households: Female": 1,
-        "Households with one dependent child": 2,
-        "Households with two dependent children": 2,
-        "Households with three or more dependent children": 2,
-        "Other households with two or more adults": 1
-    }
-    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(children_map_eng).astype(int)
+    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(CHILDREN_MAPPING).astype(int)
     hh_eng = hh_eng.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # SCOTLAND
@@ -418,16 +438,7 @@ def process_and_save_hh_projections_children() -> None:
     hh_scot["CODE"] = "S92000003"
 
     # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
-    children_map_scot = {
-        "1 adult female": 1,
-        "1 adult male": 1,
-        "2 adults": 1,
-        "1 adult, 1 child": 2,
-        "1 adult, 2+ children": 2,
-        "2+ adult 1+ children": 2,
-        "3+ person all adult": 1
-    }
-    hh_scot["segment"] = hh_scot["Household type"].map(children_map_scot).astype(int)
+    hh_scot["segment"] = hh_scot["Household type"].map(CHILDREN_MAPPING).astype(int)
     hh_scot = hh_scot.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # WALES
@@ -447,21 +458,7 @@ def process_and_save_hh_projections_children() -> None:
 
     # Map to Land Use children segmentation
     # (hh with no children / hh with 1+ children)
-    children_map_wales = {
-        "1 person": 1,
-        "2 person (No children)": 1,
-        "2 person (1 adult, 1 child)": 2,
-        "3 person (No children)": 1,
-        "3 person (2 adults, 1 child)": 2,
-        "3 person (1 adult, 2 children)": 2,
-        "4 person (No children)": 1,
-        "4 person (2+ adults, 1+ children)": 2,
-        "4 person (1 adult, 3 children)": 2,
-        "5+ person (No children)": 1,
-        "5+ person (2+ adults, 1+ children)": 2,
-        "5+ person (1 adult, 4+ children)": 2
-    }
-    hh_wales["segment"] = hh_wales["Household type"].map(children_map_wales).astype(int)
+    hh_wales["segment"] = hh_wales["Household type"].map(CHILDREN_MAPPING).astype(int)
     hh_wales = hh_wales.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # Join together England regions, Scotland and Wales 2018-based household data
