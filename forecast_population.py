@@ -61,13 +61,6 @@ def process_region(gor: str, forecast_year: int):
 
     geographical_level, geographical_subset = fetch_gor_info(gor=gor)
 
-    if gor == "Scotland":
-        geographical_level = "SCOTLANDRGN"
-        geographical_subset = None
-    else:
-        geographical_level = "RGN2021"
-        geographical_subset = gor
-
     national_2021_22_base = (
         ons_pop_forecast_dir / f"2021_22_based_ews_pop_projections_{base_year}.hdf"
     )
