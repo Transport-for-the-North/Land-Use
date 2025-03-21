@@ -19,14 +19,7 @@ ons_hh_forecast_dir = Path(
 )
 
 base_year = 2023
-crossover_year = 2043
 
-# if beyond 2043 then need to get
-# the regional ones at 2043,
-# the 2018 national for 2043
-# the 2022 national forecast for 2048
-# first growth from 2023 to 2043 (2022),
-# and then growth from 2043 to 2048 using 2022
 
 # %%
 base_pop_dir = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
@@ -50,9 +43,6 @@ LOGGER = lu_logging.configure_logger(
 
 def process_region(gor: str, forecast_year: int):
 
-    # for some datasets we only have information up to the crossover year so take that
-    capped_forecast_year = min(forecast_year, crossover_year)
-
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     # read in the currently hard coded but switch to config
@@ -61,78 +51,8 @@ def process_region(gor: str, forecast_year: int):
 
     geographical_level, geographical_subset = fetch_gor_info(gor=gor)
 
-    national_2021_22_base = (
-        ons_pop_forecast_dir / f"2021_22_based_ews_pop_projections_{base_year}.hdf"
-    )
-    dv_national_2022_base = data_processing.read_dvector_data(
-        file_path=national_2021_22_base,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    national_2021_22_capped_forecast_year = (
-        ons_pop_forecast_dir
-        / f"2021_22_based_ews_pop_projections_{capped_forecast_year}.hdf"
-    )
-    dv_national_2022_capped_forecast = data_processing.read_dvector_data(
-        file_path=national_2021_22_capped_forecast_year,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    if forecast_year > crossover_year:
-        national_2021_22_forecast_year = (
-            ons_pop_forecast_dir
-            / f"2021_22_based_ews_pop_projections_{forecast_year}.hdf"
-        )
-        dv_national_2022_forecast_year = data_processing.read_dvector_data(
-            file_path=national_2021_22_forecast_year,
-            geographical_level=geographical_level,
-            input_segments=["age_ntem", "g"],
-            geography_subset=geographical_subset,
-        )
-
-    regional_2021_22_base = (
-        ons_pop_forecast_dir / f"2018_20_21_regions_pop_projections_{base_year}.hdf"
-    )
-
-    dv_regional_base = data_processing.read_dvector_data(
-        file_path=regional_2021_22_base,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    # process changes based on crossover year
-    if forecast_year <= crossover_year:
-        fetch_regional_forecast = fetch_regional_forecast_up_to_crossover
-    else:
-        fetch_regional_forecast = fetch_regional_forecast_post_crossover
-
-    dv_regional_forecast = fetch_regional_forecast(
-        geographical_level=geographical_level,
-        geographical_subset=geographical_subset,
-        forecast_year=forecast_year,
-    )
-
-    national_2018_20_21_base = (
-        ons_pop_forecast_dir / f"2018_20_21_country_pop_projections_{base_year}.hdf"
-    )
-    dv_national_2018_base = data_processing.read_dvector_data(
-        file_path=national_2018_20_21_base,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    national_2018_20_21_capped_forecast = (
-        ons_pop_forecast_dir
-        / f"2018_20_21_country_pop_projections_{capped_forecast_year}.hdf"
-    )
-    dv_national_2018_capped_forecast = data_processing.read_dvector_data(
-        file_path=national_2018_20_21_capped_forecast,
+    pop_growth_factor = data_processing.read_dvector_data(
+        file_path= ons_pop_forecast_dir / f"pop_growth_factors_{base_year}_to_{forecast_year}.hdf",
         geographical_level=geographical_level,
         input_segments=["age_ntem", "g"],
         geography_subset=geographical_subset,
@@ -169,68 +89,17 @@ def process_region(gor: str, forecast_year: int):
     p11_age_ntem_g = p11_ntem_age.aggregate(segs=["age_ntem", "g"])
 
     p11_age_ntem_g_gor = p11_age_ntem_g.translate_zoning(
-        new_zoning=dv_national_2022_base.zoning_system,  # fix zoning system to match
+        new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
-    )
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"pop_{base_year}_{gor}",
-        dvector=p11_age_ntem_g_gor,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
     )
 
     # --- Step 2 --- #
     # Calculate the population growth factors
     LOGGER.info("--- Step 2 ---")
-    LOGGER.info("Calculate the population growth factors")
-
-    # forecast corrections
-    uplift_base_year_factor = dv_national_2022_base / dv_national_2018_base
-
-    # this will be a maximum of 2043 as 2018 forecast does not exist beyond 2043
-    uplift_forecast_year_factor = (
-        dv_national_2022_capped_forecast / dv_national_2018_capped_forecast
-    )
-
-    if forecast_year > crossover_year:
-        # need to futher adjust from crossover year to the actual forecast year
-        crossover_to_forecast_year = (
-            dv_national_2022_forecast_year / dv_national_2022_capped_forecast
-        )
-        uplift_forecast_year_factor *= crossover_to_forecast_year
-
-    # Adjust to take account of more recent forecasts from 2022
-    # we will have to assume the same adjustment factor will apply for years beyond 2043
-    adj_base_year = uplift_base_year_factor * dv_regional_base
-    adj_future_year = uplift_forecast_year_factor * dv_regional_forecast
-
-    adj_growth_factor = adj_future_year / adj_base_year
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"pop_factors_{base_year}_to_{forecast_year}_{gor}",
-        dvector=adj_growth_factor,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
-
-    # --- Step 2a --- #
-    # Apply the growth factors to calcuate the new population targets
-    LOGGER.info("--- Step 2a ---")
     LOGGER.info("Calculate the population targets")
 
-    pop_targets = p11_age_ntem_g_gor * adj_growth_factor
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"pop_targets_{forecast_year}_{gor}",
-        dvector=pop_targets,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
+    pop_targets = p11_age_ntem_g_gor * pop_growth_factor
 
     # --- Step 3 --- #
     # Apply the IPF to targets based on age and gender
@@ -399,63 +268,6 @@ def fetch_gor_info(gor: str) -> tuple[str, str | None]:
     return "RGN2021", gor
 
 
-def fetch_regional_forecast_up_to_crossover(
-    geographical_level: str, geographical_subset: str | None, forecast_year: int
-) -> DVector:
-    regional_2021_22_forecast = (
-        ons_pop_forecast_dir / f"2018_20_21_regions_pop_projections_{forecast_year}.hdf"
-    )
-    dv_regional_forecast = data_processing.read_dvector_data(
-        file_path=regional_2021_22_forecast,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    return dv_regional_forecast
-
-
-def fetch_regional_forecast_post_crossover(
-    geographical_level: str, geographical_subset: str | None, forecast_year: int
-) -> DVector:
-    regional_2021_22_crossover = (
-        ons_pop_forecast_dir
-        / f"2018_20_21_regions_pop_projections_{crossover_year}.hdf"
-    )
-    dv_regional_crossover_year = data_processing.read_dvector_data(
-        file_path=regional_2021_22_crossover,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    national_2018_crossover = (
-        ons_pop_forecast_dir
-        / f"2018_20_21_country_pop_projections_{crossover_year}.hdf"
-    )
-    national_2018_20_21_forecast = (
-        ons_pop_forecast_dir / f"2018_20_21_country_pop_projections_{forecast_year}.hdf"
-    )
-
-    dv_national_2018_crossover = data_processing.read_dvector_data(
-        file_path=national_2018_crossover,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    dv_national_2018_forecast = data_processing.read_dvector_data(
-        file_path=national_2018_20_21_forecast,
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
-    )
-
-    factor_crossover_to_fy = dv_national_2018_forecast / dv_national_2018_crossover
-
-    return dv_regional_crossover_year * factor_crossover_to_fy
-
-
 def check_negatives(input_df: pd.DataFrame):
     if (input_df < 0).any().any():
         raise ValueError(f"New SOC target splits calculated contain negatives")
@@ -475,8 +287,8 @@ def check_negatives(input_df: pd.DataFrame):
 # testing as quicker than looping through all regions
 
 regions = ["NW", "Scotland"]
-forecast_years = [2043, 2048, 2053]
+forecast_years = [2043, 2048]
 
-for region in constants.GORS + ["Scotland"]:
+for region in regions:
     for forecast_year in forecast_years:
         process_region(gor=region, forecast_year=forecast_year)

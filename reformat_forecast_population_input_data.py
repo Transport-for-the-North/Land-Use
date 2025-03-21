@@ -7,33 +7,89 @@ import numpy as np
 import land_use.preprocessing as pp
 
 # Include the base year in here as we are pivoting from it
-YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
+BASE_YEAR = 2023
+CROSSOVER_YEAR = 2043
+FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
-OBR_INPUT_DIR = Path(r'I:\NorMITs Land Use\2023\import\OBR')
+OBR_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\OBR")
 ENGLAND_CODE = "E92000001"
+
+# %%
 
 
 # %%
 def main():
-    process_gor_projections()
-    process_country_projections()
+    for forecast_year in range(BASE_YEAR, 2054):
+        write_ons_pop_growth_factors_from_base(
+            base_year=BASE_YEAR, forecast_year=forecast_year
+        )
+
+
+def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -> None:
+
+    if base_year < CROSSOVER_YEAR:
+        ons_pop_base = fetch_ons_pop_forecasts_up_to_crossover(year=base_year)
+    else:
+        ons_pop_base = fetch_ons_pop_forecasts_post_crossover(year=base_year)
+
+    if forecast_year < CROSSOVER_YEAR:
+        ons_pop_fy = fetch_ons_pop_forecasts_up_to_crossover(year=forecast_year)
+    else:
+        ons_pop_fy = fetch_ons_pop_forecasts_post_crossover(year=forecast_year)
+
+    pop_growth_factor = ons_pop_fy / ons_pop_base
+
+    filestem = f"pop_growth_factors_{base_year}_to_{forecast_year}"
+
+    pp.save_preprocessed_hdf(
+        source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=pop_growth_factor
+    )
 
 
 # %%
-def process_gor_projections() -> None:
+def fetch_ons_pop_forecasts_up_to_crossover(year: int) -> pd.DataFrame:
+
+    gor_2018, country_2018 = fetch_2018_pop_projections(year=year)
+    country_2022 = fetch_2022_pop_projections(year=year)
+
+    # adjust based on more recent country level data
+    update_forecast_factor = country_2022 / country_2018
+    return gor_2018 * update_forecast_factor
+
+
+def fetch_ons_pop_forecasts_post_crossover(year: int) -> pd.DataFrame:
+    # As regional 2018 forecasts aren't available after 2043 then a different approach is needed
+    gor_2018_crossover, country_2018_crossover = fetch_2018_pop_projections(
+        year=CROSSOVER_YEAR
+    )
+    country_2022_crossover = fetch_2022_pop_projections(year=CROSSOVER_YEAR)
+    country_2022_fy = fetch_2022_pop_projections(year=year)
+
+    # adjust from crossover to forecast year
+    update_forecast_factor = country_2022_crossover / country_2018_crossover
+    crossover_to_fy_factor = country_2022_fy / country_2022_crossover
+    return gor_2018_crossover * update_forecast_factor * crossover_to_fy_factor
+
+
+# %%
+def fetch_2018_pop_projections(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     # Note only England has projections by sub areas
     # however both Scotland and Wales are themselves regions
-    regional_forecast_filepath = (
+    eng_regional_forecast_filepath = (
         POPULATION_DIR / "2018_based_england_regions_pop_projections.xlsx"
     )
 
-    gor_df = pd.read_excel(regional_forecast_filepath, sheet_name="Males", skiprows=6)
+    gor_df = pd.read_excel(
+        eng_regional_forecast_filepath, sheet_name="Males", skiprows=6
+    )
     male_df = convert_rgn_forecasts_to_segmentations(df=gor_df, g_seg=1)
     male_df_rgn = male_df[male_df["RGN2021"] != "E92000001"]
     male_df_country = create_english_totals_from_regional(df=male_df)
 
-    gor_df = pd.read_excel(regional_forecast_filepath, sheet_name="Females", skiprows=6)
+    gor_df = pd.read_excel(
+        eng_regional_forecast_filepath, sheet_name="Females", skiprows=6
+    )
     female_df = convert_rgn_forecasts_to_segmentations(df=gor_df, g_seg=2)
     female_df_rgn = female_df[female_df["RGN2021"] != "E92000001"]
     female_df_country = create_english_totals_from_regional(df=female_df)
@@ -51,29 +107,18 @@ def process_gor_projections() -> None:
         [male_df_country, female_df_country, df_age_g_scotland, df_age_g_wales]
     )
 
-    output_years = [year for year in YEARS_TO_CALCULATE if year in gor_df]
+    if not year in gor_df.columns:
+        raise NotImplementedError(f"{year} is not included in dataset")
 
-    for year in output_years:
+    df_gor_wide = pd.pivot(
+        gor_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
+    )
 
-        df_gor_wide = pd.pivot(
-            gor_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
-        )
+    df_country_wide = pd.pivot(
+        country_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
+    )
 
-        filestem = f"2018_20_21_regions_pop_projections_{year}"
-
-        pp.save_preprocessed_hdf(
-            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_gor_wide
-        )
-
-        df_country_wide = pd.pivot(
-            country_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
-        )
-
-        filestem = f"2018_20_21_country_pop_projections_{year}"
-
-        pp.save_preprocessed_hdf(
-            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_country_wide
-        )
+    return df_gor_wide, df_country_wide
 
 
 def create_english_totals_from_regional(df: pd.DataFrame) -> pd.DataFrame:
@@ -100,14 +145,10 @@ def convert_rgn_forecasts_to_segmentations(
 
     df = df.rename(columns={"CODE": "RGN2021"})
 
-    # have to limit forecast years to those available
-    available_years = [year for year in YEARS_TO_CALCULATE if year in df.columns]
-    keep_cols: list[int | str] = ["RGN2021", "AGE GROUP"]
-    keep_cols.extend(available_years)
-    df = df[keep_cols]
+    df = df.drop(columns="AREA")
 
     # get lowest age
-    df = allocate_age_ntem(df, available_years)
+    df = allocate_age_ntem(df)
 
     df = df.groupby(["RGN2021", "age_ntem"]).sum()
     df["g"] = g_seg
@@ -116,7 +157,7 @@ def convert_rgn_forecasts_to_segmentations(
     return df
 
 
-def allocate_age_ntem(df: pd.DataFrame, available_years: list[int]) -> pd.DataFrame:
+def allocate_age_ntem(df: pd.DataFrame) -> pd.DataFrame:
     df["from_age"] = df["AGE GROUP"].str.split("-").str[0]
 
     # fix 15-19 issue mapping to two categories in ratio 1:4
@@ -131,6 +172,8 @@ def allocate_age_ntem(df: pd.DataFrame, available_years: list[int]) -> pd.DataFr
 
     df_15 = df[df["from_age"] == "15"].copy()
     df_15["from_age"] = 15
+
+    available_years = list(range(2018, 2044))
     df_15[available_years] = df_15[available_years] * 0.2
 
     df_16 = df[df["from_age"] == "15"].copy()
@@ -169,7 +212,7 @@ def fetch_region_correspondence() -> pd.DataFrame:
 
 
 # %%
-def process_country_projections() -> None:
+def fetch_2022_pop_projections(year: int) -> pd.DataFrame:
 
     country_forecasts = {}
 
@@ -201,7 +244,11 @@ def process_country_projections() -> None:
         region_codes=region_codes,
     )
 
-    save_2022_to_hdfs(regions_df=regions_df)
+    country_pop_projections = pd.pivot(
+        regions_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
+    )
+
+    return country_pop_projections
 
 
 # %%
@@ -214,13 +261,6 @@ def process_to_segmentations(path_in: Path) -> pd.DataFrame:
     df.loc[df["Age"] == "110 and over", "Age"] = 105
 
     df["Age"] = df["Age"].astype(int)
-
-    keep_cols: list[int | str] = ["Sex", "Age"]
-
-    keep_cols.extend(YEARS_TO_CALCULATE)
-
-    df = df[keep_cols]
-    df = df.copy()
 
     df = find_age_ntem_enum(df=df, age_col="Age")
 
@@ -268,21 +308,6 @@ def create_2022_regions_df(
 
 
 # %%
-def save_2022_to_hdfs(regions_df: pd.DataFrame) -> None:
-    for year in YEARS_TO_CALCULATE:
-        df_wide = pd.pivot(
-            regions_df, index=["age_ntem", "g"], columns=["RGN2021"], values=year
-        )
-
-        filestem = f"2021_22_based_ews_pop_projections_{year}"
-        df_wide.to_csv(POPULATION_DIR / "temp_outputs" / f"{filestem}.csv")
-
-        pp.save_preprocessed_hdf(
-            source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=df_wide
-        )
-
-
-# %%
 if __name__ == "__main__":
     main()
 
@@ -305,7 +330,9 @@ def process_and_save_hh_projections() -> None:
     ).rename(columns={"Area code": "region"})
     hh_eng = hh_eng.iloc[:, np.r_[0:2, 19:45]]
     # Filter to the defined regions (2018-based ONS data is available up to 2043)
-    hh_eng = hh_eng[hh_eng["Area name"].isin(rgn_corr["RGN21NM"].tolist())].drop(columns=["Area name"])
+    hh_eng = hh_eng[hh_eng["Area name"].isin(rgn_corr["RGN21NM"].tolist())].drop(
+        columns=["Area name"]
+    )
 
     # SCOTLAND
     hh_scot = pd.read_excel(
@@ -335,7 +362,7 @@ def process_and_save_hh_projections() -> None:
     years = [int(yr) for yr in hh_projs.columns if str(yr).isnumeric()]
     max_year = max(years)
     min_year = min(years)
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
         print(year)
         if year in hh_projs.columns:
             # column already exists so nothing to do
@@ -350,10 +377,12 @@ def process_and_save_hh_projections() -> None:
             hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
         else:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+            raise ValueError(
+                f"Unable to extrapolate for {year}, earliest year is {min_year}"
+            )
 
     # Export
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
         hh_by_year = hh_projs.copy()
         hh_by_year = hh_by_year[["region", year]]
 
@@ -476,7 +505,7 @@ def process_and_save_hh_projections_children() -> None:
     years = [int(yr) for yr in hh_projs.columns if str(yr).isnumeric()]
     max_year = max(years)
     min_year = min(years)
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
         print(year)
         if year in hh_projs.columns:
             # column already exists so nothing to do
@@ -491,10 +520,14 @@ def process_and_save_hh_projections_children() -> None:
             hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
         else:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+            raise ValueError(
+                f"Unable to extrapolate for {year}, earliest year is {min_year}"
+            )
 
         hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "segment", year]].rename(columns={"segment": "children"})
+        hh_year = hh_year[["CODE", "segment", year]].rename(
+            columns={"segment": "children"}
+        )
         hh_year.columns = [str(col) for col in hh_year.columns]
 
         # Into a wide format for DVector
@@ -513,19 +546,23 @@ def process_and_save_hh_projections_children() -> None:
 
 def pre_process_obr() -> None:
     # Read in OBR data (using quarter 1 data)
-    df = pd.read_csv(OBR_INPUT_DIR / 'obr_forecasts_feb_2025.csv')
+    df = pd.read_csv(OBR_INPUT_DIR / "obr_forecasts_feb_2025.csv")
 
     # employment
-    emp = df.loc[(df["Measure"] == "Employment forecast") | (
-            df["Measure"] == "Employment outturn")]
-    emp = emp[emp["Quarter"].str.endswith("Q1")].sort_values('Quarter')
+    emp = df.loc[
+        (df["Measure"] == "Employment forecast")
+        | (df["Measure"] == "Employment outturn")
+    ]
+    emp = emp[emp["Quarter"].str.endswith("Q1")].sort_values("Quarter")
     emp["year"] = emp["Quarter"].str.replace("Q1", "").astype(int)
-    emp['Measure'] = 'employment'
+    emp["Measure"] = "employment"
 
     # unemployment (percentage pf population 16+)
-    unemp = df.loc[(df["Measure"] == "Unemployment rate forecast") | (
-            df["Measure"] == "Unemployment rate outturn")]
-    unemp = unemp[unemp["Quarter"].str.endswith("Q1")].sort_values('Quarter')
+    unemp = df.loc[
+        (df["Measure"] == "Unemployment rate forecast")
+        | (df["Measure"] == "Unemployment rate outturn")
+    ]
+    unemp = unemp[unemp["Quarter"].str.endswith("Q1")].sort_values("Quarter")
     unemp["year"] = unemp["Quarter"].str.replace("Q1", "").astype(int)
     unemp["Measure"] = "unemployment"
 
@@ -535,7 +572,7 @@ def pre_process_obr() -> None:
     years = [int(yr) for yr in both.columns if str(yr).isnumeric()]
     min_year = min(years)
     # Calculate growth
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
         print(year)
         if year in both.columns:
             # column already exists
@@ -543,7 +580,9 @@ def pre_process_obr() -> None:
             pass
         elif year < min_year:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+            raise ValueError(
+                f"Unable to extrapolate for {year}, earliest year is {min_year}"
+            )
         else:
             # As 2030 is the maximum year, continue the 2023 to 2030
             year_a = 2023
@@ -554,9 +593,9 @@ def pre_process_obr() -> None:
             both[year] = perc_of_a * both[year_a] + perc_of_b * both[year_b]
 
     # Prepare for export
-    export = both[YEARS_TO_CALCULATE]
+    export = both[FORECAST_YEARS]
     export.to_csv(
-        OBR_INPUT_DIR / 'preprocessing/OBR_forecasts_processed.csv',
+        OBR_INPUT_DIR / "preprocessing/OBR_forecasts_processed.csv",
         index=True,
-        index_label="Measure"
+        index_label="Measure",
     )
