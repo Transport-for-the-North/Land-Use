@@ -327,28 +327,11 @@ def process_region(gor: str, forecast_year: int):
         ["soc"]
     )
 
-    # --- Step 6 --- #
-    # Apply the IPF to targets based on age, gender and soc
-    LOGGER.info("--- Step 6 ---")
-
-    rebalanced_age_g_soc_p11, summary, differences = data_processing.apply_ipf(
-        seed_data=p11_ntem_age,
-        target_dvectors=[pop_targets, soc_targets],
-        cache_folder=constants.CACHE_FOLDER,
-    )
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_soc_{gor}_{forecast_year}",
-        dvector=rebalanced_age_g_soc_p11,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
 
     # Below is testing the IPF for children households, might want to comment out when testing above
     # TODO check if input totals match
-    # --- Step 7 --- #
-    LOGGER.info("--- Step 7 ---")
+    # --- Step 6 --- #
+    LOGGER.info("--- Step 6 ---")
     # Read in the children households data as DVector
     LOGGER.info(
         f"Importing children households data for {gor}"
@@ -373,8 +356,8 @@ def process_region(gor: str, forecast_year: int):
         geography_subset=geographical_subset,
     )
 
-    # --- Step 8 --- #
-    LOGGER.info("--- Step 8 ---")
+    # --- Step 7 --- #
+    LOGGER.info("--- Step 7 ---")
     # Calculate the growth factors
     LOGGER.info("Calculate the children households growth factors")
 
@@ -398,8 +381,8 @@ def process_region(gor: str, forecast_year: int):
         output_level=OutputLevel.INTERMEDIATE,
     )
 
-    # --- Step 9 --- #
-    LOGGER.info("--- Step 9 ---")
+    # --- Step 8 --- #
+    LOGGER.info("--- Step 8 ---")
     # Apply the IPF to targets based on age, gender, SOC and children
     rebalanced_age_g_soc_children_p11, summary, differences = data_processing.apply_ipf(
         seed_data=p11_ntem_age,
@@ -499,8 +482,8 @@ def check_negatives(input_df: pd.DataFrame):
 # testing as quicker than looping through all regions
 
 regions = ["NW", "Scotland"]
-forecast_years = [2038, 2043, 2048]
+forecast_years = [2043, 2048, 2053]
 
-for region in regions:
+for region in constants.GORS + ["Scotland"]:
     for forecast_year in forecast_years:
         process_region(gor=region, forecast_year=forecast_year)
