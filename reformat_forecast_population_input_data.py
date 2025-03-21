@@ -16,7 +16,37 @@ OBR_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\OBR")
 ENGLAND_CODE = "E92000001"
 
 # %%
+# mapping the various household compositions to the children segementation
+# 1: no children
+# 2: 1 or more children
 
+CHILDREN_MAPPING = {
+    "One person households: Male": 1,
+    "One person households: Female": 1,
+    "Households with one dependent child": 2,
+    "Households with two dependent children": 2,
+    "Households with three or more dependent children": 2,
+    "Other households with two or more adults": 1,
+    "1 adult female": 1,
+    "1 adult male": 1,
+    "2 adults": 1,
+    "1 adult, 1 child": 2,
+    "1 adult, 2+ children": 2,
+    "2+ adult 1+ children": 2,
+    "3+ person all adult": 1,
+    "1 person": 1,
+    "2 person (No children)": 1,
+    "2 person (1 adult, 1 child)": 2,
+    "3 person (No children)": 1,
+    "3 person (2 adults, 1 child)": 2,
+    "3 person (1 adult, 2 children)": 2,
+    "4 person (No children)": 1,
+    "4 person (2+ adults, 1+ children)": 2,
+    "4 person (1 adult, 3 children)": 2,
+    "5+ person (No children)": 1,
+    "5+ person (2+ adults, 1+ children)": 2,
+    "5+ person (1 adult, 4+ children)": 2
+}
 
 # %%
 def main():
@@ -307,10 +337,6 @@ def create_2022_regions_df(
     return regions_df.reset_index()
 
 
-# %%
-if __name__ == "__main__":
-    main()
-
 
 def process_and_save_hh_projections() -> None:
     """
@@ -426,15 +452,7 @@ def process_and_save_hh_projections_children() -> None:
     hh_eng = hh_eng.loc[:, ["CODE", "HOUSEHOLD TYPE"] + years]
 
     # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
-    children_map_eng = {
-        "One person households: Male": 1,
-        "One person households: Female": 1,
-        "Households with one dependent child": 2,
-        "Households with two dependent children": 2,
-        "Households with three or more dependent children": 2,
-        "Other households with two or more adults": 1,
-    }
-    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(children_map_eng).astype(int)
+    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(CHILDREN_MAPPING).astype(int)
     hh_eng = hh_eng.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # SCOTLAND
@@ -452,16 +470,7 @@ def process_and_save_hh_projections_children() -> None:
     hh_scot["CODE"] = "S92000003"
 
     # Map to Land Use children segmentation (hh with no children / hh with 1+ children)
-    children_map_scot = {
-        "1 adult female": 1,
-        "1 adult male": 1,
-        "2 adults": 1,
-        "1 adult, 1 child": 2,
-        "1 adult, 2+ children": 2,
-        "2+ adult 1+ children": 2,
-        "3+ person all adult": 1,
-    }
-    hh_scot["segment"] = hh_scot["Household type"].map(children_map_scot).astype(int)
+    hh_scot["segment"] = hh_scot["Household type"].map(CHILDREN_MAPPING).astype(int)
     hh_scot = hh_scot.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # WALES
@@ -481,21 +490,7 @@ def process_and_save_hh_projections_children() -> None:
 
     # Map to Land Use children segmentation
     # (hh with no children / hh with 1+ children)
-    children_map_wales = {
-        "1 person": 1,
-        "2 person (No children)": 1,
-        "2 person (1 adult, 1 child)": 2,
-        "3 person (No children)": 1,
-        "3 person (2 adults, 1 child)": 2,
-        "3 person (1 adult, 2 children)": 2,
-        "4 person (No children)": 1,
-        "4 person (2+ adults, 1+ children)": 2,
-        "4 person (1 adult, 3 children)": 2,
-        "5+ person (No children)": 1,
-        "5+ person (2+ adults, 1+ children)": 2,
-        "5+ person (1 adult, 4+ children)": 2,
-    }
-    hh_wales["segment"] = hh_wales["Household type"].map(children_map_wales).astype(int)
+    hh_wales["segment"] = hh_wales["Household type"].map(CHILDREN_MAPPING).astype(int)
     hh_wales = hh_wales.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
 
     # Join together England regions, Scotland and Wales 2018-based household data
@@ -599,3 +594,165 @@ def pre_process_obr() -> None:
         index=True,
         index_label="Measure",
     )
+
+
+def process_and_save_hh_projections_adults():
+    # This function groups the data based on what is available and clearly defined
+    # For example, the England data does not distinguish the number of adults in the children households, therefore
+    # these use 1 adult households, and 2+ adult households, with children definitions ruled out as 0s
+
+    # For Scotland and Wales, the children defintions can be used as these specify the number of adults, however
+    # it is unclear on households between 2 adults and 3+ adults, so these use 1 adult and 2+ adult households
+
+    rgn_corr = fetch_region_correspondence()
+
+    # Household projections 2023 to 2043 (all years)
+    # ENGLAND
+    hh_eng = pd.read_excel(
+        HOUSEHOLDS_DIR / "eng_2018_based_Stage 2 projected households - Principal.xlsx",
+        sheet_name="Households by type",
+    )
+
+    # Filter to the regions and "all ages"
+    hh_eng = hh_eng[hh_eng["AREA NAME"].isin(rgn_corr["RGN21NM"].tolist())]
+    hh_eng = hh_eng.loc[hh_eng["AGE GROUP"] == "All ages"]
+    hh_eng = hh_eng.loc[hh_eng["HOUSEHOLD TYPE"] != "Total"]
+    years = [year for year in range(2018, 2044)]
+    hh_eng = hh_eng.loc[:, ["CODE", "HOUSEHOLD TYPE"] + years]
+
+    # Map to Land Use adults segmentation
+    # (1 adult households / 2+ adult other households / 0 for children related segmentation)
+    adults_map_eng = {
+        "One person households: Male": 1,
+        "One person households: Female": 1,
+        "Households with one dependent child": 0,
+        "Households with two dependent children": 0,
+        "Households with three or more dependent children": 0,
+        "Other households with two or more adults": 2
+    }
+    hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(adults_map_eng).astype(int)
+    hh_eng = hh_eng.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
+    # drop the children segments (0s)
+    hh_eng = hh_eng.loc[hh_eng['segment'] != 0]
+    # Use 2+ adults data for 3+ adults as this will just be used for calculating growth factors in main code
+    eng_3_adults = hh_eng.copy()
+    eng_3_adults = eng_3_adults.loc[hh_eng['segment'] == 2]
+    eng_3_adults['segment'] = 3
+
+    # SCOTLAND
+    hh_scot = pd.read_excel(
+        HOUSEHOLDS_DIR / "scotland_2018-based_hh_projections.xlsx",
+        sheet_name="Table 2",
+        header=3,
+        nrows=7,
+    )
+    hh_scot = hh_scot.iloc[:, 1:28]
+    hh_scot.columns = [int(col) if col.isdigit() else col for col in hh_scot.columns]
+    hh_scot = hh_scot.loc[:, ["Household type"] + years]
+
+    # Define region code
+    hh_scot["CODE"] = "S92000003"
+
+    # Map to Land Use adults segmentation
+    # we have a direct correspondence between these except for "2+ adult 1+ children", as this could be 2 or 3+ adults
+    # (1 adult households / 2+ adult other households)
+    adults_map_scot = {
+        "1 adult female": 1,
+        "1 adult male": 1,
+        "2 adults": 2,
+        "1 adult, 1 child": 1,
+        "1 adult, 2+ children": 1,
+        "2+ adult 1+ children": 2,
+        "3+ person all adult": 2,
+    }
+    hh_scot["segment"] = hh_scot["Household type"].map(adults_map_scot).astype(int)
+    hh_scot = hh_scot.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
+    # Use 2+ adults data for 3+ adults as this will just be used for calculating growth factors in main code
+    scot_3_adults = hh_scot.copy()
+    scot_3_adults = scot_3_adults.loc[hh_scot['segment'] == 2]
+    scot_3_adults['segment'] = 3
+
+    # WALES
+    hh_wales = pd.read_csv(
+        HOUSEHOLDS_DIR / "wales_2018_based_hh_projections.csv", header=5, nrows=13
+    )
+    hh_wales = (
+        hh_wales.drop(hh_wales.columns[0], axis=1)
+        .drop(hh_wales.index[0], axis=0)
+        .rename(columns={hh_wales.columns[1]: "Household type"})
+    )
+    hh_wales.columns = hh_wales.columns.str.strip()
+    hh_wales.columns = [int(col) if col.isdigit() else col for col in hh_wales.columns]
+    hh_wales["Household type"] = hh_wales["Household type"].str.rstrip()
+    # Define region code
+    hh_wales["CODE"] = "W92000004"
+
+    # Map to Land Use children segmentation
+    # we have a direct correspondence between these except for "2+ adult 1+ children", as this could be 2 or 3+ adults
+    # (1 adult households / 2+ adult other households)
+    adults_map_wales = {
+        "1 person": 1,
+        "2 person (No children)": 2,
+        "2 person (1 adult, 1 child)": 1,
+        "3 person (No children)": 2,
+        "3 person (2 adults, 1 child)": 2,
+        "3 person (1 adult, 2 children)": 1,
+        "4 person (No children)": 2,
+        "4 person (2+ adults, 1+ children)": 2,
+        "4 person (1 adult, 3 children)": 1,
+        "5+ person (No children)": 2,
+        "5+ person (2+ adults, 1+ children)": 2,
+        "5+ person (1 adult, 4+ children)": 1,
+    }
+    hh_wales["segment"] = hh_wales["Household type"].map(adults_map_wales).astype(int)
+    hh_wales = hh_wales.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
+    # Use 2+ adults data for 3+ adults as this will just be used for calcualting growth factors in main code
+    wales_3_adults = hh_wales.copy()
+    wales_3_adults = wales_3_adults.loc[hh_wales['segment'] == 2]
+    wales_3_adults['segment'] = 3
+
+    # Join together England regions, Scotland and Wales 2018-based household data
+    hh_projs = pd.concat([hh_eng, eng_3_adults, hh_scot, scot_3_adults, hh_wales, wales_3_adults])
+
+    # Interpolate for any other years we want
+    years = [int(yr) for yr in hh_projs.columns if str(yr).isnumeric()]
+    max_year = max(years)
+    min_year = min(years)
+    for year in FORECAST_YEARS:
+        print(year)
+        if year in hh_projs.columns:
+            # column already exists so nothing to do
+            pass
+        elif year > max_year:
+            # As 2043 is the maximum year in the 2018-based ONS, continue the trend from 2038 to 2043
+            year_a = 2038
+            year_b = 2043
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
+        else:
+            # before first year, raise error for now
+            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+
+        hh_year = hh_projs.copy()
+        hh_year = hh_year[["CODE", "segment", year]].rename(columns={"segment": "adults"})
+        hh_year.columns = [str(col) for col in hh_year.columns]
+
+        # Into a wide format for DVector
+        hh_year = pp.pivot_to_dvector(
+            data=hh_year,
+            zoning_column="CODE",
+            index_cols=["adults"],
+            value_column=str(year),
+        )
+        pp.save_preprocessed_hdf(
+            source_file_path=HOUSEHOLDS_DIR / "hh_adults.hdf",
+            df=hh_year,
+            multiple_output_ref=str(year),
+        )
+
+
+# %%
+if __name__ == "__main__":
+    main()

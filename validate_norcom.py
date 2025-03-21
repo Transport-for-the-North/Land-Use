@@ -27,8 +27,9 @@ validation_dvector = Path(config['validation dvector'])
 output_path = Path(config['output path'])
 
 # create output folder
+data_dir = output_path / estimation_version / 'data'
 OUTPUT_DIR = output_path / estimation_version
-OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+data_dir.mkdir(exist_ok=True, parents=True)
 
 # load the NorCOM results
 any_car_ownership = NorCOMResult.from_coefficients_csv(
@@ -71,6 +72,16 @@ for GOR in GORS:
         file_path=validation_dvector, geographical_level=LSOA_NAME,
         input_segments=['car_availability'], geography_subset=GOR
     )
+
+    # save DVectors of validation
+    validation.save(data_dir / f'applied_{GOR}.hdf')
+    census_data.save(data_dir / f'expected_{GOR}.hdf')
+
+    # calculate DVectors of differences
+    absolute = validation - census_data
+    incremental = validation / census_data
+    absolute.save(data_dir / f'absolute_{GOR}.hdf')
+    incremental.save(data_dir / f'incremental_{GOR}.hdf')
 
     # add to result dictionnaries to output
     result_dict[f'{GOR}_APPLIED'] = validation.data.reset_index().melt(

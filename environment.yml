@@ -18,4 +18,4 @@ dependencies:
   - pip:
       - git+https://github.com/Transport-for-the-North/caf.base@ipf_adjustment_fixes
       - git+https://github.com/Transport-for-the-North/caf.space
-      - git+https://github.com/Transport-for-the-North/caf.brain@overhaul_code
+      - git+https://github.com/Transport-for-the-North/caf.brain@machine_vision

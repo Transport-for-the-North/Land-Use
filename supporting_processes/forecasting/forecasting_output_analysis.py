@@ -12,26 +12,26 @@ EMP_OUTPUT_DIR = Path(r'F:\Working\Land-Use\OUTPUTS_forecast_employment')
 ANALYSIS_DIR = Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs')
 
 
-pop_years_to_extract = [2033, 2038, 2043, 2048]
-emp_years_to_extract = [2033, 2038, 2043, 2048]
+pop_years_to_extract = [2033, 2038, 2043, 2048, 2053]
+emp_years_to_extract = [2033, 2038, 2043, 2048, 2053]
 
 
 def summarise_population_outputs():
     # Create a summary table of the output hdfs from the main process
     final_dfs = []
     for year in pop_years_to_extract:
-        for rgn in constants.GORS:
+        for rgn in constants.GORS + ['Scotland']:
             for output in ['p11_step3', 'p11_step6', 'p11_step9']:
                 print(f'Summarising for {year}, {rgn}, {output}')
                 if output == 'p11_step3':
                     dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_'
-                                                        fr'{rgn}_{year}.hdf'))
+                                                            fr'{rgn}_{year}.hdf'))
                 elif output == 'p11_step6':
                     dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_'
-                                                        fr'{rgn}_{year}.hdf'))
+                                                            fr'{rgn}_{year}.hdf'))
                 else:
                     dv = DVector.load(Path(POP_OUTPUT_DIR / fr'01_Intermediate Files\Output p11_age_g_soc_children_'
-                                                        fr'{rgn}_{year}.hdf'))
+                                                            fr'{rgn}_{year}.hdf'))
                 dv_translated = dv.translate_zoning(
                     new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
                     cache_path=constants.CACHE_FOLDER,
@@ -105,7 +105,7 @@ def summarise_population_targets_output():
     # Create a summary table of the targets output from the main process
     targets_dfs = []
     for year in pop_years_to_extract:
-        for rgn in constants.GORS:
+        for rgn in constants.GORS + ['Scotland']:
             for output in ['pop_targets', 'hh_children_targets']:
                 print(f'Summarising for {year}, {rgn}, {output}')
                 dv = DVector.load(Path(POP_OUTPUT_DIR / f'01_Intermediate Files/{output}_{year}_{rgn}.hdf'))
