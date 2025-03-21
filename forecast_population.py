@@ -52,12 +52,14 @@ def process_region(gor: str, forecast_year: int):
     geographical_level, geographical_subset = fetch_gor_info(gor=gor)
 
     pop_growth_factor = data_processing.read_dvector_data(
-        file_path= ons_pop_forecast_dir / f"pop_growth_factors_{base_year}_to_{forecast_year}.hdf",
+        file_path=ons_pop_forecast_dir
+        / f"pop_growth_factors_{base_year}_to_{forecast_year}.hdf",
         geographical_level=geographical_level,
         input_segments=["age_ntem", "g"],
         geography_subset=geographical_subset,
     )
 
+    # This should probably be done in the preprocessing and just the split changes we actual need read in
     soc_base_path = soc_dir / f"LMS_SOC_Occ_T1_{base_year}.hdf"
     soc_base = data_processing.read_dvector_data(
         file_path=soc_base_path,
@@ -74,77 +76,56 @@ def process_region(gor: str, forecast_year: int):
         geography_subset=geographical_subset,
     )
 
-    filepath = base_pop_dir / f"Output P11_{gor}.hdf"
-    p11 = DVector.load(filepath)
+    base_pop = DVector.load(base_pop_dir / f"Output P11_{gor}.hdf")
 
     # --- Step 1 --- #
     # Prepare base files into forecasting segmentations
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("Prepare base files into forecasting segmentations")
 
-    p11_ntem_age = p11.translate_segment(
+    base_pop_ntem_age = base_pop.translate_segment(
         from_seg="age_9", to_seg="age_ntem", drop_from=True
     )
 
-    p11_age_ntem_g = p11_ntem_age.aggregate(segs=["age_ntem", "g"])
+    base_pop_age_ntem_g = base_pop_ntem_age.aggregate(segs=["age_ntem", "g", "soc"])
 
-    p11_age_ntem_g_gor = p11_age_ntem_g.translate_zoning(
+    base_pop_age_ntem_g_gor = base_pop_age_ntem_g.translate_zoning(
         new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
     )
 
     # --- Step 2 --- #
-    # Calculate the population growth factors
+    # Calculate the IPF targets
     LOGGER.info("--- Step 2 ---")
-    LOGGER.info("Calculate the population targets")
+    LOGGER.info("Calculate the IPF targets")
 
-    pop_targets = p11_age_ntem_g_gor * pop_growth_factor
+    pop_targets = base_pop_age_ntem_g_gor * pop_growth_factor
+
+    base_pop_age_ntem_g_gor = pop_targets.translate_zoning(
+        new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
+    # also need to have a total for SOC excluding SOC 4
+    base_pop_soc = base_pop_age_ntem_g_gor.aggregate(["soc"])
+
+    base_pop_soc_exc_4 = base_pop_soc.filter_segment_value("soc", [1, 2, 3])
+
+    base_pop_soc_exc_4_total = base_pop_soc_exc_4.add_segments(["total"]).aggregate(
+        ["total"]
+    )
+
+    base_pop_soc_exc_4_total = base_pop_soc_exc_4_total.add_segments(
+        ["soc"]
+    ).filter_segment_value("soc", [1, 2, 3])
 
     # --- Step 3 --- #
-    # Apply the IPF to targets based on age and gender
+    # Calculate the new SOC splits
     LOGGER.info("--- Step 3 ---")
 
-    rebalanced_p11, summary, differences = data_processing.apply_ipf(
-        seed_data=p11_ntem_age,
-        target_dvectors=[pop_targets],
-        cache_folder=constants.CACHE_FOLDER,
-    )
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_{gor}_{forecast_year}",
-        dvector=rebalanced_p11,
-        dvector_dimension="people",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
-
-    # --- Step 4 --- #
-    # Calculate population numbers (post initial IPF) excluding soc 4
-    LOGGER.info("--- Step 4 ---")
-
-    rebalanced_p11_gor = rebalanced_p11.translate_zoning(soc_base.zoning_system)
-
-    rebalanced_p11_soc_totals = rebalanced_p11_gor.aggregate(["soc"])
-
-    rebalanced_p11_soc_totals_exc_4 = rebalanced_p11_soc_totals.filter_segment_value(
-        "soc", [1, 2, 3]
-    )
-
-    rebalanced_p11_soc_totals_exc_4_totals = (
-        rebalanced_p11_soc_totals_exc_4.add_segments(["total"]).aggregate(["total"])
-    )
-
-    rebalanced_p11_soc_totals_exc_4_totals = (
-        rebalanced_p11_soc_totals_exc_4_totals.add_segments(
-            ["soc"]
-        ).filter_segment_value("soc", [1, 2, 3])
-    )
-
-    # --- Step 5 --- #
-    # Calculate the new SOC splits
-    LOGGER.info("--- Step 5 ---")
-
+    # This should probably be moved to the preprocessing
     # soc 4 is excluded throughout as do not have a forecast for this segment
     soc_base_totals = (
         soc_base.add_segments(["total"])
@@ -167,7 +148,9 @@ def process_region(gor: str, forecast_year: int):
     # work out the change in per splits
     soc_splits_change = soc_forecast_perc - soc_base_perc
 
-    p11_gor = p11.translate_zoning(soc_base.zoning_system)
+    # read in soc_splits_change as a DVector
+
+    p11_gor = base_pop.translate_zoning(soc_base.zoning_system)
 
     p11_gor_soc = p11_gor.aggregate(["soc"]).filter_segment_value("soc", [1, 2, 3])
     p11_soc_totals = (
@@ -185,10 +168,9 @@ def process_region(gor: str, forecast_year: int):
     check_negatives(input_df=soc_target_perc.data)
 
     # the totals here should be the pop_targets without soc 4
-    soc_targets = (soc_target_perc * rebalanced_p11_soc_totals_exc_4_totals).aggregate(
-        ["soc"]
-    )
+    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["soc"])
 
+    # Now apply the IPF using age_ntem, g, and soc.
 
     # Below is testing the IPF for children households, might want to comment out when testing above
     # TODO check if input totals match
@@ -218,14 +200,14 @@ def process_region(gor: str, forecast_year: int):
         geography_subset=geographical_subset,
     )
 
-    # --- Step 7 --- #
-    LOGGER.info("--- Step 7 ---")
+    # --- Step 4 --- #
+    LOGGER.info("--- Step 4 ---")
     # Calculate the growth factors
     LOGGER.info("Calculate the children households growth factors")
 
     children_growth_factor = dv_forecast_children / dv_base_children
 
-    p11_children = p11.aggregate(segs=["children"])
+    p11_children = base_pop.aggregate(segs=["children"])
 
     p11_children_gor = p11_children.translate_zoning(
         new_zoning=children_growth_factor.zoning_system,  # fix zoning system to match growth factors
@@ -243,11 +225,11 @@ def process_region(gor: str, forecast_year: int):
         output_level=OutputLevel.INTERMEDIATE,
     )
 
-    # --- Step 8 --- #
-    LOGGER.info("--- Step 8 ---")
+    # --- Step 5 --- #
+    LOGGER.info("--- Step 5 ---")
     # Apply the IPF to targets based on age, gender, SOC and children
     rebalanced_age_g_soc_children_p11, summary, differences = data_processing.apply_ipf(
-        seed_data=p11_ntem_age,
+        seed_data=base_pop_ntem_age,
         target_dvectors=[pop_targets, soc_targets, hh_children_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
@@ -286,8 +268,12 @@ def check_negatives(input_df: pd.DataFrame):
 
 # testing as quicker than looping through all regions
 
-regions = ["NW", "Scotland"]
-forecast_years = [2043, 2048]
+regions = [
+    "NW",
+]
+forecast_years = [
+    2043,
+]
 
 for region in regions:
     for forecast_year in forecast_years:
