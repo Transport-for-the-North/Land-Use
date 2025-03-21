@@ -19,9 +19,6 @@ base_year = 2023
 OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Define whether to output intermediate outputs, recommended to not output loads if debugging
-# generate_summary_outputs = True
-
 # %%
 # TODO load configuration file and use "read_dvector_from_config")
 
@@ -56,31 +53,27 @@ def process_forecast_emp(forecast_year: int):
         input_segments=["sic_1_digit"]
     )
 
+    # Load in the Base employment output
+    base_emp = DVector.load(base_emp_dir / "Output E6.hdf")
+
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
-    # Prepare the base files into forecasting segmentation
-    LOGGER.info("Prepare base files into forecasting segmentations")
+    # Prepare the base files into forecasting segmentation and calculate the growth targets
+    LOGGER.info("Prepare base files into forecasting segmentations and calculate growth targets")
 
-    output_e6 = DVector.load(base_emp_dir / "Output E6.hdf")
-
-    # Translate Output E6 DVector into region zoning (England, Scotland, Wales)
-    output_e6_rgn = output_e6.translate_zoning(
+    # Translate Base Emp DVector into region zoning (England, Scotland, Wales)
+    base_emp_rgn = base_emp.translate_zoning(
         new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
         check_totals=False
     )
 
-    # --- Step 2 --- #
-    LOGGER.info("--- Step 2 ---")
-    # Calculate the growth factors and targets
-    LOGGER.info("Calculate the growth factors")
-
     growth_factors = lms_sic_forecast / lms_sic_base
 
-    output_e6_agg = output_e6_rgn.aggregate(segs=["sic_1_digit"])
+    base_emp_agg = base_emp_rgn.aggregate(segs=["sic_1_digit"])
 
-    sic_1_digit_targets = output_e6_agg * growth_factors
+    sic_1_digit_targets = base_emp_agg * growth_factors
     # Drop targets for SIC level -1, 20, 21 (potentially move this to the reformatting script)
     sic_1_digit_targets = drop_seg_values(sic_1_digit_targets, "sic_1_digit", [-1, 20, 21])
 
@@ -92,19 +85,20 @@ def process_forecast_emp(forecast_year: int):
         output_level=OutputLevel.INTERMEDIATE,
     )
 
-    # --- Step 3 --- #
-    LOGGER.info("--- Step 3 ---")
+    # --- Step 2 --- #
+    LOGGER.info("--- Step 2 ---")
     # Apply the IPF to targets based on SIC 1 digit
-    rebalanced_e6, summary, differences = data_processing.apply_ipf(
-        seed_data=output_e6,
+    LOGGER.info("Apply the IPF")
+    rebalanced_emp, summary, differences = data_processing.apply_ipf(
+        seed_data=base_emp,
         target_dvectors=[sic_1_digit_targets],
         cache_folder=constants.CACHE_FOLDER
     )
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output E6_SIC_1_digit_{forecast_year}",
-        dvector=rebalanced_e6,
+        output_reference=f"Output Emp_SIC_1_digit_{forecast_year}",
+        dvector=rebalanced_emp,
         dvector_dimension="jobs",
         output_level=OutputLevel.INTERMEDIATE,
     )
@@ -130,3 +124,4 @@ process_forecast_emp(forecast_year=2033)
 process_forecast_emp(forecast_year=2038)
 process_forecast_emp(forecast_year=2043)
 process_forecast_emp(forecast_year=2048)
+process_forecast_emp(forecast_year=2053)
