@@ -59,20 +59,12 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         geography_subset=geographical_subset,
     )
 
-    # This should probably be done in the preprocessing and just the split changes we actual need read in
-    soc_base_path = soc_dir / f"LMS_SOC_Occ_T1_{base_year}.hdf"
-    soc_base = data_processing.read_dvector_data(
-        file_path=soc_base_path,
-        geographical_level=geographical_level,
-        input_segments=["soc"],
-        geography_subset=geographical_subset,
-    )
+    soc_splits_change_path = soc_dir / f"soc_pp_change_{base_year}_to_{forecast_year}.hdf"
 
-    soc_forecast_path = soc_dir / f"LMS_SOC_Occ_T1_{forecast_year}.hdf"
-    soc_forecast = data_processing.read_dvector_data(
-        file_path=soc_forecast_path,
+    soc_splits_change = data_processing.read_dvector_data(
+        file_path=soc_splits_change_path,
         geographical_level=geographical_level,
-        input_segments=["soc"],
+        input_segments=["g", "soc"],
         geography_subset=geographical_subset,
     )
 
@@ -125,32 +117,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     # Calculate the new SOC splits
     LOGGER.info("--- Step 3 ---")
 
-    # This should probably be moved to the preprocessing
-    # soc 4 is excluded throughout as do not have a forecast for this segment
-    soc_base_totals = (
-        soc_base.add_segments(["total"])
-        .aggregate(["total"])
-        .add_segments(["soc"])
-        .filter_segment_value("soc", [1, 2, 3])
-    )
-
-    soc_forecast_totals = (
-        soc_forecast.add_segments(["total"])
-        .aggregate(["total"])
-        .add_segments(["soc"])
-        .filter_segment_value("soc", [1, 2, 3])
-    )
-
-    # calculate the soc splits from the forecast data
-    soc_base_perc = soc_base / soc_base_totals
-    soc_forecast_perc = soc_forecast / soc_forecast_totals
-
-    # work out the change in per splits
-    soc_splits_change = soc_forecast_perc - soc_base_perc
-
-    # read in soc_splits_change as a DVector
-
-    p11_gor = base_pop.translate_zoning(soc_base.zoning_system)
+    p11_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
 
     p11_gor_soc = p11_gor.aggregate(["soc"]).filter_segment_value("soc", [1, 2, 3])
     p11_soc_totals = (
