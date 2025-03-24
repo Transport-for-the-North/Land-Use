@@ -60,19 +60,19 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     )
 
     # This should probably be done in the preprocessing and just the split changes we actual need read in
-    soc_base_path = soc_dir / f"LMS_SOC_Occ_T1_{base_year}.hdf"
+    soc_base_path = soc_dir / f"LMS_SOC_Occ_T1_gender_{base_year}.hdf"
     soc_base = data_processing.read_dvector_data(
         file_path=soc_base_path,
         geographical_level=geographical_level,
-        input_segments=["soc"],
+        input_segments=["g", "soc"],
         geography_subset=geographical_subset,
     )
 
-    soc_forecast_path = soc_dir / f"LMS_SOC_Occ_T1_{forecast_year}.hdf"
+    soc_forecast_path = soc_dir / f"LMS_SOC_Occ_T1_gender_{forecast_year}.hdf"
     soc_forecast = data_processing.read_dvector_data(
         file_path=soc_forecast_path,
         geographical_level=geographical_level,
-        input_segments=["soc"],
+        input_segments=["g", "soc"],
         geography_subset=geographical_subset,
     )
 
@@ -130,14 +130,14 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     soc_base_totals = (
         soc_base.add_segments(["total"])
         .aggregate(["total"])
-        .add_segments(["soc"])
+        .add_segments(["g", "soc"])
         .filter_segment_value("soc", [1, 2, 3])
     )
 
     soc_forecast_totals = (
         soc_forecast.add_segments(["total"])
         .aggregate(["total"])
-        .add_segments(["soc"])
+        .add_segments(["g", "soc"])
         .filter_segment_value("soc", [1, 2, 3])
     )
 
@@ -152,7 +152,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     p11_gor = base_pop.translate_zoning(soc_base.zoning_system)
 
-    p11_gor_soc = p11_gor.aggregate(["soc"]).filter_segment_value("soc", [1, 2, 3])
+    p11_gor_soc = p11_gor.aggregate(["g", "soc"]).filter_segment_value("soc", [1, 2, 3])
     p11_soc_totals = (
         p11_gor_soc.add_segments(["total"])
         .aggregate(["total"])
@@ -168,7 +168,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     check_negatives(input_df=soc_target_perc.data)
 
     # the totals here should be the pop_targets without soc 4
-    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["soc"])
+    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
 
     # Now apply the IPF using age_ntem, g, and soc.
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
@@ -239,14 +239,14 @@ def process_households(gor: str, forecast_year: int):
     dv_base_year_totals = data_processing.read_dvector_data(
         file_path=regional_2018_base_year_totals,
         geographical_level=geographical_level,
-        input_segments=["children"],
+        input_segments=["total"],
         geography_subset=geographical_subset,
     )
 
     dv_forecast_year_totals = data_processing.read_dvector_data(
         file_path=regional_2018_forecast_year_totals,
         geographical_level=geographical_level,
-        input_segments=["children"],
+        input_segments=["total"],
         geography_subset=geographical_subset,
     )
 
