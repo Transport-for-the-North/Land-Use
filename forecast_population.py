@@ -41,7 +41,7 @@ LOGGER = lu_logging.configure_logger(
 # %%
 
 
-def process_region(gor: str, forecast_year: int):
+def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
@@ -171,76 +171,36 @@ def process_region(gor: str, forecast_year: int):
     soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["soc"])
 
     # Now apply the IPF using age_ntem, g, and soc.
-
-    # Below is testing the IPF for children households, might want to comment out when testing above
-    # TODO check if input totals match
-    # --- Step 6 --- #
-    LOGGER.info("--- Step 6 ---")
-    # Read in the children households data as DVector
-    LOGGER.info(
-        f"Importing children households data for {gor}"
-    )  # eventually from the config file
-
-    regional_2018_base_children = ons_hh_forecast_dir / f"hh_children_{base_year}.hdf"
-    regional_2018_forecast_children = (
-        ons_hh_forecast_dir / f"hh_children_{forecast_year}.hdf"
-    )
-
-    dv_base_children = data_processing.read_dvector_data(
-        file_path=regional_2018_base_children,
-        geographical_level=geographical_level,
-        input_segments=["children"],
-        geography_subset=geographical_subset,
-    )
-
-    dv_forecast_children = data_processing.read_dvector_data(
-        file_path=regional_2018_forecast_children,
-        geographical_level=geographical_level,
-        input_segments=["children"],
-        geography_subset=geographical_subset,
-    )
-
-    # --- Step 4 --- #
-    LOGGER.info("--- Step 4 ---")
-    # Calculate the growth factors
-    LOGGER.info("Calculate the children households growth factors")
-
-    children_growth_factor = dv_forecast_children / dv_base_children
-
-    p11_children = base_pop.aggregate(segs=["children"])
-
-    p11_children_gor = p11_children.translate_zoning(
-        new_zoning=children_growth_factor.zoning_system,  # fix zoning system to match growth factors
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.NO_WEIGHT,
-    )
-
-    hh_children_targets = p11_children_gor * children_growth_factor
-
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"hh_children_targets_{forecast_year}_{gor}",
-        dvector=hh_children_targets,
-        dvector_dimension="households",
-        output_level=OutputLevel.INTERMEDIATE,
-    )
-
-    # --- Step 5 --- #
-    LOGGER.info("--- Step 5 ---")
-    # Apply the IPF to targets based on age, gender, SOC and children
-    rebalanced_age_g_soc_children_p11, summary, differences = data_processing.apply_ipf(
+    rebalanced_pop, summary, differences = data_processing.apply_ipf(
         seed_data=base_pop_ntem_age,
-        target_dvectors=[pop_targets, soc_targets, hh_children_targets],
+        target_dvectors=[pop_targets, soc_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_soc_children_{gor}_{forecast_year}",
-        dvector=rebalanced_age_g_soc_children_p11,
+        output_reference=f"Population_age_g_soc_{gor}_{forecast_year}",
+        dvector=rebalanced_pop,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
     )
+
+    if output_targets:
+        data_processing.save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=f"pop_targets_{gor}_{forecast_year}",
+            dvector=pop_targets,
+            dvector_dimension="people",
+            output_level=OutputLevel.INTERMEDIATE,
+        )
+
+        data_processing.save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=f"soc_targets_{gor}_{forecast_year}",
+            dvector=soc_targets,
+            dvector_dimension="people",
+            output_level=OutputLevel.INTERMEDIATE,
+        )
 
 
 def fetch_gor_info(gor: str) -> tuple[str, str | None]:
@@ -256,6 +216,123 @@ def check_negatives(input_df: pd.DataFrame):
     else:
         pass
 
+
+def process_households(gor: str, forecast_year: int):
+    # --- Step 0 --- #
+    LOGGER.info("--- Step 0 ---")
+    # Read in the data
+    LOGGER.info("Reading in the forecasting data")
+
+    if gor == "Scotland":
+        geographical_level = "SCOTLANDRGN"
+        geographical_subset = None
+    else:
+        geographical_level = "RGN2021"
+        geographical_subset = gor
+
+    regional_2018_base_year_totals = ons_hh_forecast_dir / f"hh_totals_{base_year}.hdf"
+
+    regional_2018_forecast_year_totals = (
+            ons_hh_forecast_dir / f"hh_totals_{forecast_year}.hdf"
+    )
+
+    dv_base_year_totals = data_processing.read_dvector_data(
+        file_path=regional_2018_base_year_totals,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+    )
+
+    dv_forecast_year_totals = data_processing.read_dvector_data(
+        file_path=regional_2018_forecast_year_totals,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+    )
+
+    regional_2018_base_year_children = ons_hh_forecast_dir / f"hh_children_{base_year}.hdf"
+
+    regional_2018_forecast_year_children = (
+        ons_hh_forecast_dir / f"hh_children_{forecast_year}.hdf"
+    )
+
+    dv_base_year_children = data_processing.read_dvector_data(
+        file_path=regional_2018_base_year_children,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+    )
+
+    dv_forecast_year_children = data_processing.read_dvector_data(
+        file_path=regional_2018_forecast_year_children,
+        geographical_level=geographical_level,
+        input_segments=["children"],
+        geography_subset=geographical_subset,
+    )
+
+    filepath = base_pop_dir / f"Output P13.3_{gor}.hdf"
+    base_hhs = DVector.load(filepath)
+
+    # --- Step 1 --- #
+    LOGGER.info("--- Step 1 ---")
+    LOGGER.info("Calculate the households growth targets")
+
+    totals_growth_factor = dv_forecast_year_totals / dv_base_year_totals
+
+    children_growth_factor = dv_forecast_year_children / dv_base_year_children
+
+    base_hhs_totals = base_hhs.aggregate(segs=["total"])
+
+    base_hhs_children = base_hhs.aggregate(segs=["children"])
+
+    base_hhs_totals_gor = base_hhs_totals.translate_zoning(
+        new_zoning=totals_growth_factor.zoning_system,  # fix zoning system to match growth factors
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
+    base_hhs_children_gor = base_hhs_children.translate_zoning(
+        new_zoning=children_growth_factor.zoning_system,  # fix zoning system to match growth factors
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
+    hh_totals_targets = base_hhs_totals_gor * totals_growth_factor
+
+    hh_children_targets = base_hhs_children_gor * children_growth_factor
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"hh_totals_targets_{forecast_year}_{gor}",
+        dvector=hh_totals_targets,
+        dvector_dimension="households",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"hh_children_targets_{forecast_year}_{gor}",
+        dvector=hh_children_targets,
+        dvector_dimension="households",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
+
+    # --- Step 2 --- #
+    LOGGER.info("--- Step 2 ---")
+    # Apply the IPF to targets based on children and total households
+    rebalanced_hhs, summary, differences = data_processing.apply_ipf(
+        seed_data=base_hhs,
+        target_dvectors=[hh_children_targets, hh_totals_targets],
+        cache_folder=constants.CACHE_FOLDER,
+    )
+
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f"Output p11_age_g_soc_children_{gor}_{forecast_year}",
+        dvector=rebalanced_hhs,
+        dvector_dimension="people",
+        output_level=OutputLevel.INTERMEDIATE,
+    )
 
 # # takes a while to run. So suggest this is run only when needed
 # for gor in constants.GORS + ["Scotland"]:
@@ -277,4 +354,4 @@ forecast_years = [
 
 for region in regions:
     for forecast_year in forecast_years:
-        process_region(gor=region, forecast_year=forecast_year)
+        process_region(gor=region, forecast_year=forecast_year, output_targets=True)
