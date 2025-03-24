@@ -119,7 +119,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     p11_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
 
-    p11_gor_soc = p11_gor.aggregate(["soc"]).filter_segment_value("soc", [1, 2, 3])
+    p11_gor_soc = p11_gor.aggregate(["g", "soc"]).filter_segment_value("soc", [1, 2, 3])
     p11_soc_totals = (
         p11_gor_soc.add_segments(["total"])
         .aggregate(["total"])
@@ -135,7 +135,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     check_negatives(input_df=soc_target_perc.data)
 
     # the totals here should be the pop_targets without soc 4
-    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["soc"])
+    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
 
     # Now apply the IPF using age_ntem, g, and soc.
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
@@ -206,14 +206,14 @@ def process_households(gor: str, forecast_year: int):
     dv_base_year_totals = data_processing.read_dvector_data(
         file_path=regional_2018_base_year_totals,
         geographical_level=geographical_level,
-        input_segments=["children"],
+        input_segments=["total"],
         geography_subset=geographical_subset,
     )
 
     dv_forecast_year_totals = data_processing.read_dvector_data(
         file_path=regional_2018_forecast_year_totals,
         geographical_level=geographical_level,
-        input_segments=["children"],
+        input_segments=["total"],
         geography_subset=geographical_subset,
     )
 
