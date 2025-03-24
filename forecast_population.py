@@ -117,25 +117,25 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     # Calculate the new SOC splits
     LOGGER.info("--- Step 3 ---")
 
-    p11_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
+    base_pop_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
 
-    p11_gor_soc = p11_gor.aggregate(["g", "soc"]).filter_segment_value("soc", [1, 2, 3])
-    p11_soc_totals = (
-        p11_gor_soc.add_segments(["total"])
+    base_pop_gor = base_pop_gor.aggregate(["g", "soc"]).filter_segment_value("soc", [1, 2, 3])
+    base_pop_soc_totals = (
+        base_pop_gor.add_segments(["total"])
         .aggregate(["total"])
         .add_segments(["soc"])
         .filter_segment_value("soc", [1, 2, 3])
     )
 
-    soc_p11_perc = p11_gor_soc / p11_soc_totals
+    base_pop_soc_splits = base_pop_gor / base_pop_soc_totals
 
     # work out the new targets splits
-    soc_target_perc = soc_p11_perc + soc_splits_change
+    soc_target_splits = base_pop_soc_splits + soc_splits_change
     # check for negative splits
-    check_negatives(input_df=soc_target_perc.data)
+    check_negatives(input_df=soc_target_splits.data)
 
     # the totals here should be the pop_targets without soc 4
-    soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
+    soc_targets = (soc_target_splits * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
 
     # Now apply the IPF using age_ntem, g, and soc.
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
@@ -295,7 +295,7 @@ def process_households(gor: str, forecast_year: int):
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output p11_age_g_soc_children_{gor}_{forecast_year}",
+        output_reference=f"Output forecast_population_age_g_soc_children_{gor}_{forecast_year}",
         dvector=rebalanced_hhs,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
