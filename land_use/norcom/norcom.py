@@ -64,6 +64,7 @@ class NorCOMResult:
         continuous_params_path = csv_path.parent / 'scale_csv.csv'
         if continuous_params_path.is_file():
             continuous_params = pd.read_csv(continuous_params_path, index_col=0)
+            continuous_params.columns = [c.rsplit('_', maxsplit=1)[0] for c in continuous_params.columns]
         else:
             continuous_params = None
         
@@ -113,7 +114,7 @@ class NorCOMResult:
         # We always drop the intercept (category, not coefficient) column, and the zonal attribute flags (i.e. just used to expand to geography)
         columns_to_drop = ['intercept'] + zonal_attribute_columns
 
-        if continuous_params:
+        if continuous_params is not None:
             # Set up the scaler according to the continuous params
             scaler = StandardScaler()
             scaler.mean_ = continuous_params.loc['mean'].values
