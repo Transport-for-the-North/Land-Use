@@ -5,7 +5,7 @@ import pandas as pd
 import yaml
 from caf.base import DVector
 
-from land_use.norcom import NorCOMResult
+from land_use.norcom import NorCOMResult, Params
 from land_use.data_processing import create_dvector_from_data, read_dvector_data, write_to_excel
 from land_use.constants import GORS, LSOA_NAME
 
@@ -19,29 +19,24 @@ with open(args.config_file, 'r') as text_file:
     config = yaml.load(text_file, yaml.SafeLoader)
 
 # Set up inputs from yaml
-estimation_version = str(config['estimation version'])
-results_path = Path(config['results path'])
-zonal_lookups = Path(config['zonal lookups'])
-input_dvectors = Path(config['input dvectors'])
-validation_dvector = Path(config['validation dvector'])
-output_path = Path(config['output path'])
+params = Params.from_yaml(config)
 
 # create output folder
-data_dir = output_path / estimation_version / 'data'
-OUTPUT_DIR = output_path / estimation_version
+data_dir = params.output_path / params.estimation_version / 'data'
+OUTPUT_DIR = params.output_path / params.estimation_version
 data_dir.mkdir(exist_ok=True, parents=True)
 
 # load the NorCOM results
 any_car_ownership = NorCOMResult.from_coefficients_csv(
-    csv_path=results_path / estimation_version / '0v1+' / 'output' / 'final_model_coefficients.csv',
+    csv_path=params.results_path / params.estimation_version / '0v1+' / 'output' / 'final_model_coefficients.csv',
     case_category='1+', noncase_category='0',
-    zonal_lookups= zonal_lookups / f'zonal_logit_data_{estimation_version}.csv'
+    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}.csv'
 )
 
 multiple_car_ownership = NorCOMResult.from_coefficients_csv(
-    csv_path=results_path / estimation_version / '1v2+' / 'output' / 'final_model_coefficients.csv',
+    csv_path=params.results_path / params.estimation_version / '1v2+' / 'output' / 'final_model_coefficients.csv',
     case_category='2+', noncase_category='1', dependent_category='1+',
-    zonal_lookups= zonal_lookups / f'zonal_logit_data_{estimation_version}.csv'
+    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}.csv'
 )
 
 # expand the results to have all three probability levels in one dataframe
@@ -58,7 +53,7 @@ for GOR in GORS:
     )
 
     # define path to region specific input dvector
-    input_dvector = input_dvectors / f'Output P4.3_{GOR}.hdf'
+    input_dvector = params.input_dvectors / f'Output P4.3_{GOR}.hdf'
     # load the 2021 household output that we are trying to validate
     _2021_data = DVector.load(input_dvector).aggregate(['accom_h', 'ns_sec', 'adults', 'children'])
     # apply norcom to this 2021 modelled output
@@ -69,7 +64,7 @@ for GOR in GORS:
     # load the validation DVector, just number of households in each car ownership
     # category by LSOA from the census
     census_data = read_dvector_data(
-        file_path=validation_dvector, geographical_level=LSOA_NAME,
+        file_path=params.validation_dvector, geographical_level=LSOA_NAME,
         input_segments=['car_availability'], geography_subset=GOR
     )
 
