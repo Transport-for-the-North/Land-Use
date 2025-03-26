@@ -122,7 +122,8 @@ def create_interactive_maps(
     max_unique_categories: int = 15,
     specific_segment: Optional[str] = None,
     filter_by: Optional[Dict] = None,
-    simplification: Optional[int] = 30
+    simplification: Optional[int] = 30,
+    fix_proportional_scale: Optional[bool] = False
 ) -> List[Path]:
     
     if desired_zoning_system:
@@ -171,6 +172,11 @@ def create_interactive_maps(
             segment_proportional[col] = segment_proportional[col] / zone_totals
         
         for unit, data in (('absolute', segment_absolute), ('proportional', segment_proportional)):
+            vmax, vmin = None, None
+            if unit == 'proportional' and fix_proportional_scale:
+                vmax = 1
+                vmin = 0
+
             label = f'{seg.name} ({unit})'
             output_path = output_folder / f'{label}.html'
             segment_spatial = spatial_zoning.merge(
@@ -180,7 +186,7 @@ def create_interactive_maps(
             output_map = render_map(
                 segment_spatial, cols_to_map=segment_absolute.columns,
                 cmap='viridis' if unit=='proportional' else 'plasma',
-                cbar_label=label
+                cbar_label=label, vmax=vmax, vmin=vmin
             )
 
             with output_path.open('w') as text_file:
