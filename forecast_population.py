@@ -22,7 +22,7 @@ base_year = 2023
 
 
 # %%
-base_pop_dir = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
+base_pop_dir = Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
 soc_dir = Path(
     r"I:\NorMITs Land Use\2023\import\Labour Market and Skills\LMS_SOC\preprocessing"
 )
@@ -68,6 +68,21 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         geography_subset=geographical_subset,
     )
 
+    hh_1_adults_g_base_path = ons_hh_forecast_dir / f'hh_1_adult_by_g_{base_year}.hdf'
+    hh_1_adults_g_forecast_path = ons_hh_forecast_dir / f'hh_1_adult_by_g_{forecast_year}.hdf'
+    hh_1_adults_g_base = data_processing.read_dvector_data(
+        file_path=hh_1_adults_g_base_path,
+        geographical_level="LAD2019_EWS",
+        input_segments=["g", "adults"],
+        geography_subset=None,  # geographical subset?
+    )
+    hh_1_adults_g_forecast = data_processing.read_dvector_data(
+        file_path=hh_1_adults_g_forecast_path,
+        geographical_level="LAD2019_EWS",
+        input_segments=["g", "adults"],
+        geography_subset=None,
+    )
+
     base_pop = DVector.load(base_pop_dir / f"Output P11_{gor}.hdf")
 
     # --- Step 1 --- #
@@ -92,6 +107,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
     LOGGER.info("--- Step 2 ---")
     LOGGER.info("Calculate the IPF targets")
 
+    # -- POPULATION AGE AND GENDER --
     pop_targets = base_pop_age_ntem_g_gor * pop_growth_factor
 
     base_pop_age_ntem_g_gor = pop_targets.translate_zoning(
@@ -100,6 +116,7 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         weighting=TranslationWeighting.NO_WEIGHT,
     )
 
+    # -- POPULATION SOC (EXCLUDING SOC 4) --
     # also need to have a total for SOC excluding SOC 4
     base_pop_soc = base_pop_age_ntem_g_gor.aggregate(["soc"])
 
@@ -113,9 +130,23 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         ["soc"]
     ).filter_segment_value("soc", [1, 2, 3])
 
+    # -- POPULATION GENDER AND ADULTS --
+    base_pop_g_adults = base_pop.aggregate(segs=["g", "adults"]).filter_segment_value("adults", [1])
+
+    pop_g_adults_growth_factors = hh_1_adults_g_forecast / hh_1_adults_g_base
+
+    base_pop_g_adults_lad19 = base_pop_g_adults.translate_zoning(
+        new_zoning=pop_g_adults_growth_factors.zoning_system,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT
+    )
+
+    pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors  # in LAD19 zoning
+
     # --- Step 3 --- #
     # Calculate the new SOC splits
     LOGGER.info("--- Step 3 ---")
+    LOGGER.info("Calculate the new SOC splits")
 
     p11_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
 
@@ -136,8 +167,13 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     # the totals here should be the pop_targets without soc 4
     soc_targets = (soc_target_perc * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
+    # TODO change SOC to use the SOC by gender (at region level)
 
-    # Now apply the IPF using age_ntem, g, and soc.
+    # --- Step 4 --- #
+    # Now apply the IPF using age_ntem, g, and soc
+    # TODO add the 1 adult households to the IPF process
+    LOGGER.info("--- Step 4 ---")
+    LOGGER.info("Apply the IPF")
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
         seed_data=base_pop_ntem_age,
         target_dvectors=[pop_targets, soc_targets],
