@@ -13,17 +13,17 @@ zonal_lookups: I:\NorMITs NorCOM\Import\Zonal Data
 
 # path to the P4.3 (2021) household dvectors that are an output of the
 # base_population.py
-input_dvectors: F:\Deliverables\Land-Use\241213_Population\01_Intermediate Files
-file_reference: 4.3
-year: 2021
-#input_dvectors: F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs
-#file_reference: 13.3
-#year: 2023
+#input_dvectors: F:\Deliverables\Land-Use\241213_Population\01_Intermediate Files
+#file_reference: 4.3
+#year: 2021
+input_dvectors: F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs
+file_reference: 13.3
+year: 2023
 
 # path to the dvector at LSOA level from the census website that reports
 # total car ownership by 0, 1, 2+ cars from the census (this is ultimately
 # what we want to match)
-validation_dvector: I:\NorMITs Land Use\2023\import\ONS-validation\preprocessing\households_cars_lsoa_3.hdf
+#validation_dvector: I:\NorMITs Land Use\2023\import\ONS-validation\preprocessing\households_cars_lsoa_3.hdf
 
 # path to store any validation outputs
 output_path: I:\NorMITs NorCOM\Validation

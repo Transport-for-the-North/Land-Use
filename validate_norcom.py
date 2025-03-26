@@ -30,13 +30,13 @@ data_dir.mkdir(exist_ok=True, parents=True)
 any_car_ownership = NorCOMResult.from_coefficients_csv(
     csv_path=params.results_path / params.estimation_version / '0v1+' / 'output' / 'final_model_coefficients.csv',
     case_category='1+', noncase_category='0',
-    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}.csv'
+    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}_{params.year}.csv'
 )
 
 multiple_car_ownership = NorCOMResult.from_coefficients_csv(
     csv_path=params.results_path / params.estimation_version / '1v2+' / 'output' / 'final_model_coefficients.csv',
     case_category='2+', noncase_category='1', dependent_category='1+',
-    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}.csv'
+    zonal_lookups=params.zonal_lookups / f'zonal_logit_data_{params.estimation_version}_{params.year}.csv'
 )
 
 # expand the results to have all three probability levels in one dataframe
