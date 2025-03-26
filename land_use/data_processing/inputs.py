@@ -38,6 +38,7 @@ def read_dvector_data(
         input_segments: list, 
         geography_subset: Optional[str] = None,
         input_root_directory: Path = None,
+        hdf_key: str = "df",
         **params
     ) -> DVector:
     """Read DVector data from an HDF file formatted for input (i.e. "wide").
@@ -97,7 +98,7 @@ def read_dvector_data(
         input_file = Path(input_root_directory) / Path(file_path)
     LOGGER.info(f'Reading in {input_file}')
     # note this key is required in the save_processed_hdf()
-    df = pd.read_hdf(input_file, key='df')
+    df = pd.read_hdf(input_file, key=hdf_key)
 
     # filter columns if necessary
     zones = KNOWN_GEOGRAPHIES.get(zoning).zone_ids

@@ -184,6 +184,13 @@ LAD23_ZONING_SYSTEM = generate_zoning_system(
     shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2023)' / 'LAD_2023_EnglandWales.shp',
     id_col='LAD23CD', desc_col='LAD23NM'
 )
+# (INCLUDES SCOTLAND)
+LAD19_EWS_NAME = 'LAD2019_EWS'
+LAD19_EWS_ZONING_SYSTEM = generate_zoning_system(
+    name=LAD19_EWS_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2019)' / 'LAD_Dec_2019__EWS.shp',
+    id_col='lad19cd', desc_col='lad19nm'
+)
 
 # --- REGION ZONE SYSTEMS (ENGLAND AND WALES ONLY) --- #
 RGN_NAME = 'RGN2021'
@@ -278,6 +285,7 @@ LSOAS_BY_GOR = dict()
 MSOAS_BY_GOR = dict()
 LADS_BY_GOR = dict()
 LADS23_BY_GOR = dict()
+LADS19_BY_GOR = dict()
 RGNS_BY_GOR = dict()
 for gor in GORS:
     # LSOA CORRESPONDENCES
@@ -315,6 +323,14 @@ for gor in GORS:
     )
     LADS23_BY_GOR[lad23_zone_name] = lad23_zone_system
 
+    lad19_zone_name = f'LAD2019_EWS-{gor}'
+    lad19_zone_system = generate_zoning_system(
+        name=lad19_zone_name,
+        shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2019)' / f'LAD_Dec_2019_EWS_{gor}.shp',
+        id_col='lad19cd', desc_col='lad19nm'
+    )
+    LADS19_BY_GOR[lad19_zone_name] = lad19_zone_system
+
     # REGION CORRESPONDENCES
     rgn_zone_name = f'RGN2021-{gor}'
     rgn_zone_system = generate_zoning_system(
@@ -323,6 +339,24 @@ for gor in GORS:
         id_col='RGN21CD', desc_col='RGN21NM'
     )
     RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
+
+# Generate for Scotland LAD2019
+lad19_zone_name = f'LAD2019_EWS-Scotland'
+lad19_zone_system = generate_zoning_system(
+    name=lad19_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2019)' / f'LAD_Dec_2019_EWS_Scotland.shp',
+    id_col='lad19cd', desc_col='lad19nm'
+)
+LADS19_BY_GOR[lad19_zone_name] = lad19_zone_system
+
+# Expand regions to include a Scotland 'subset' which is the whole of Scotland
+rgn_zone_name = f'RGN2021-Scotland'
+rgn_zone_system = generate_zoning_system(
+    name=rgn_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'GOR (2021)' / f'GOR_2021_EnglandWales_Scotland.shp',
+    id_col='RGN21CD', desc_col='RGN21NM'
+)
+RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
 
 # TODO: think about a different way to implement generate_zoning_system possibly on the fly as needed?
 
@@ -351,6 +385,7 @@ KNOWN_GEOGRAPHIES = {
     LSOA_EWS_NAME: LSOA_EWS_ZONING_SYSTEM,
     LSOA_2011_EWS_NAME: LSOA_2011_EWS_ZONING_SYSTEM,
     LAD_EWS_2023_NAME: LAD_EWS_2023_ZONING_SYSTEM,
+    LAD19_EWS_NAME: LAD19_EWS_ZONING_SYSTEM
 }
 
 KNOWN_GEOGRAPHIES = {
@@ -359,6 +394,7 @@ KNOWN_GEOGRAPHIES = {
     **MSOAS_BY_GOR,
     **LADS_BY_GOR,
     **LADS23_BY_GOR,
+    **LADS19_BY_GOR,
     **RGNS_BY_GOR
 }
 

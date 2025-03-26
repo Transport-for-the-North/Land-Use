@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from os import PathLike
-from typing import Tuple
+from typing import Literal, Tuple
 from warnings import warn
 
 import pandas as pd
@@ -155,7 +155,13 @@ def read_in_excel(file: Path, tab: str, names: list|None = None) -> pd.DataFrame
     return pd.read_excel(file, sheet_name=tab, engine='openpyxl', header=0)
 
 
-def save_preprocessed_hdf(source_file_path: Path, df: pd.DataFrame, multiple_output_ref: str|None = None):
+def save_preprocessed_hdf(
+        source_file_path: Path, 
+        df: pd.DataFrame, 
+        multiple_output_ref: str|None = None,
+        key: str = 'df',
+        mode: Literal['a', 'w', 'r+'] = 'w'
+    ) -> None:
     """Save a dataframe to HDF5 format, in a "preprocessing" subfolder.
 
     The output file location will be a subfolder in the file_path location named 'preprocessing'
@@ -177,6 +183,11 @@ def save_preprocessed_hdf(source_file_path: Path, df: pd.DataFrame, multiple_out
         This is a reference to include if multiple outputs will be output from the same input file. Instead
         of the hdf being named exactly as the input file, it will be named as the {input_file}_{multiple_output_ref}.hdf
 
+    key: str, default df
+        Key to use within the output hdf file.
+
+    mode: Literal['a', 'w', 'r+'], default w
+        Mode to write to hdf. Default of w write to file, replacing existing contents 
     Returns
     -------
 
@@ -190,7 +201,7 @@ def save_preprocessed_hdf(source_file_path: Path, df: pd.DataFrame, multiple_out
         filename = source_file_path.with_suffix('.hdf').name
         
     logging.info(f'Writing to {output_folder / filename}')
-    df.to_hdf(output_folder / filename, key='df', mode='w')
+    df.to_hdf(output_folder / filename, key=key, mode=mode)
 
 
 def pivot_to_dvector(

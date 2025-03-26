@@ -260,10 +260,12 @@ def pre_process_lms_soc_by_g() -> None:
             index_cols=["g", "soc"],
             value_column=f"soc_pp_change_from_{BASE_YEAR}_to_{year}",
         )
-        out_stem = f"soc_pp_change_{BASE_YEAR}_to_{year}.hdf"
+        out_stem = f"soc_pp_change_from_{BASE_YEAR}.hdf"
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / "LMS_SOC" / out_stem,
             df=df_wide,
+            key=f"from_{BASE_YEAR}_to_{year}",
+            mode="a"
         )
 
 

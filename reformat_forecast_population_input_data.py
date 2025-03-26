@@ -16,7 +16,7 @@ OBR_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\OBR")
 ENGLAND_CODE = "E92000001"
 
 # %%
-# mapping the various household compositions to the children segementation
+# mapping the various household compositions to the children segmentation
 # 1: no children
 # 2: 1 or more children
 
@@ -70,10 +70,13 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
 
     pop_growth_factor = ons_pop_fy / ons_pop_base
 
-    filestem = f"pop_growth_factors_{base_year}_to_{forecast_year}"
+    filestem = f"pop_growth_factors_from_{base_year}"
 
     pp.save_preprocessed_hdf(
-        source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=pop_growth_factor
+        source_file_path=POPULATION_DIR / f"{filestem}.hdf",
+        df=pop_growth_factor,
+        key=f"factors_{base_year}_to_{forecast_year}",
+        mode="r+"
     )
 
 
@@ -596,12 +599,12 @@ def pre_process_obr() -> None:
     )
 
 
-def process_and_save_hh_projections_adults():
+def process_and_save_hh_projections_adults_ss():
     # This function groups the data based on what is available and clearly defined
     # For example, the England data does not distinguish the number of adults in the children households, therefore
     # these use 1 adult households, and 2+ adult households, with children definitions ruled out as 0s
 
-    # For Scotland and Wales, the children defintions can be used as these specify the number of adults, however
+    # For Scotland and Wales, the children definitions can be used as these specify the number of adults, however
     # it is unclear on households between 2 adults and 3+ adults, so these use 1 adult and 2+ adult households
 
     rgn_corr = fetch_region_correspondence()
@@ -748,6 +751,135 @@ def process_and_save_hh_projections_adults():
         )
         pp.save_preprocessed_hdf(
             source_file_path=HOUSEHOLDS_DIR / "hh_adults.hdf",
+            df=hh_year,
+            multiple_output_ref=str(year),
+        )
+
+
+def process_and_save_projections_1_adult_hhs():
+    # This function processes the households data into 1 adult male and female households, by local authority (2019)
+
+    rgn_corr = fetch_region_correspondence()
+    years = [year for year in range(2018, 2044)]
+
+    # -------------
+    # ENGLAND
+    hh_eng = pd.read_excel(
+        HOUSEHOLDS_DIR / "eng_2018_based_Stage 2 projected households - Principal (2019 geog).xlsx",
+        sheet_name="Households by type",
+    )
+    # Filter to the local authorities, "all ages" and 1-person households
+    hh_eng = hh_eng[~hh_eng["AREA NAME"].isin(rgn_corr["RGN21NM"].tolist()) & ~hh_eng["AREA NAME"].isin(["England"])]
+    hh_eng = hh_eng.loc[hh_eng["AGE GROUP"] == "All ages"]
+    hh_eng = hh_eng.loc[(hh_eng["HOUSEHOLD TYPE"] == "One person households: Male") | (
+            hh_eng["HOUSEHOLD TYPE"] == "One person households: Female")]
+    hh_eng = hh_eng.loc[:, ["CODE", "HOUSEHOLD TYPE"] + years]
+
+    # Map to Land Use gender segmentation
+    hh_eng["g"] = hh_eng["HOUSEHOLD TYPE"].map({
+        "One person households: Male": 1,
+        "One person households: Female": 2
+    }).astype(int)
+    hh_eng = hh_eng.groupby(by=["CODE", "g"], as_index=False)[years].sum()
+
+    # -------------
+    # SCOTLAND
+    scot_la_codes = pd.read_csv(
+        HOUSEHOLDS_DIR / "scot_LA_codes.csv",
+        usecols=["lad19cd", "lad19nm"]
+    )
+    scot_dfs = []
+    for code in scot_la_codes["lad19nm"]:
+        hh_scot = pd.read_excel(
+            HOUSEHOLDS_DIR / "scotland_2018_based_hh_detailed-area-tables-principal-projection.xlsx",
+            sheet_name=code,
+            header=4,
+            nrows=34,
+        )
+        hh_scot = hh_scot.rename(columns={hh_scot.columns[0]: "Household type", hh_scot.columns[1]: "age"})
+        hh_scot = hh_scot.drop(hh_scot.columns[28: 34], axis=1)
+        hh_scot = hh_scot[hh_scot["age"] != "All Ages"]
+        hh_scot["region"] = code
+        hh_scot["CODE"] = hh_scot["region"].map(scot_la_codes.set_index("lad19nm")["lad19cd"].to_dict())
+        hh_scot["g"] = hh_scot["Household type"].map(
+            {"1 person male": 1,
+             "1 person female": 2}).astype(int)
+        hh_scot.columns = [int(col) if col.isdigit() else col for col in hh_scot.columns]
+        hh_scot = hh_scot.groupby(by=["CODE", "g"], as_index=False)[years].sum()
+        scot_dfs.append(hh_scot)
+    hh_scot = pd.concat(scot_dfs)
+
+    # -------------
+    # WALES
+    wales_dfs = []
+    for g in ["males", "females"]:
+        hh_wales = pd.read_csv(
+            HOUSEHOLDS_DIR / f"wales_2018_based_hh_projections_LAs_1_person_hh_{g}.csv", header=8, nrows=22,
+        )
+        hh_wales = (
+            hh_wales.rename(columns={hh_wales.columns[0]: "Household type"})
+        )
+        hh_wales["Household type"] = hh_wales["Household type"].str.rstrip()
+
+        wales_la_codes = pd.read_csv(
+            HOUSEHOLDS_DIR / "wales_LA_codes.csv",
+            usecols=["lad19cd", "lad19nm"]
+        )
+        hh_wales = pd.merge(
+            hh_wales,
+            wales_la_codes,
+            left_on="Household type",
+            right_on="lad19nm",
+            how="left"
+        ).rename(columns={"lad19cd": "CODE"})
+        if g == "males":
+            hh_wales["g"] = 1
+        elif g == "females":
+            hh_wales["g"] = 2
+        wales_dfs.append(hh_wales)
+    hh_wales = pd.concat(wales_dfs)
+    hh_wales.columns = hh_wales.columns.str.strip()
+    hh_wales.columns = [int(col) if col.isdigit() else col for col in hh_wales.columns]
+    hh_wales = hh_wales.groupby(by=["CODE", "g"], as_index=False)[years].sum()
+
+    # Join together England regions, Scotland and Wales 2018-based household data
+    hh_projs = pd.concat([hh_eng, hh_scot, hh_wales])
+
+    # Interpolate for any other years we want
+    years = [int(yr) for yr in hh_projs.columns if str(yr).isnumeric()]
+    max_year = max(years)
+    min_year = min(years)
+    for year in FORECAST_YEARS:
+        print(year)
+        if year in hh_projs.columns:
+            # column already exists so nothing to do
+            pass
+        elif year > max_year:
+            # As 2043 is the maximum year in the 2018-based ONS, continue the trend from 2038 to 2043
+            year_a = 2038
+            year_b = 2043
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
+        else:
+            # before first year, raise error for now
+            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+
+        hh_year = hh_projs.copy()
+        hh_year = hh_year[["CODE", "g", year]]
+        hh_year['adults'] = 1
+        hh_year.columns = [str(col) for col in hh_year.columns]
+
+        # Into a wide format for DVector
+        hh_year = pp.pivot_to_dvector(
+            data=hh_year,
+            zoning_column="CODE",
+            index_cols=["g", "adults"],
+            value_column=str(year),
+        )
+        pp.save_preprocessed_hdf(
+            source_file_path=HOUSEHOLDS_DIR / "hh_1_adult_by_g.hdf",
             df=hh_year,
             multiple_output_ref=str(year),
         )
