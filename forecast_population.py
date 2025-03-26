@@ -53,13 +53,16 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     pop_growth_factor = data_processing.read_dvector_data(
         file_path=ons_pop_forecast_dir
-        / f"pop_growth_factors_{base_year}_to_{forecast_year}.hdf",
+        / f"pop_growth_factors_from_{base_year}.hdf",
         geographical_level=geographical_level,
         input_segments=["age_ntem", "g"],
         geography_subset=geographical_subset,
+        hdf_key=f"factors_{base_year}_to_{forecast_year}"
     )
 
-    soc_splits_change_path = soc_dir / f"soc_pp_change_{base_year}_to_{forecast_year}.hdf"
+    soc_splits_change_path = (
+        soc_dir / f"soc_pp_change_{base_year}_to_{forecast_year}.hdf"
+    )
 
     soc_splits_change = data_processing.read_dvector_data(
         file_path=soc_splits_change_path,
@@ -119,7 +122,9 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
 
     base_pop_gor = base_pop.translate_zoning(pop_growth_factor.zoning_system)
 
-    base_pop_gor = base_pop_gor.aggregate(["g", "soc"]).filter_segment_value("soc", [1, 2, 3])
+    base_pop_gor = base_pop_gor.aggregate(["g", "soc"]).filter_segment_value(
+        "soc", [1, 2, 3]
+    )
     base_pop_soc_totals = (
         base_pop_gor.add_segments(["total"])
         .aggregate(["total"])
@@ -150,6 +155,19 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         dvector=rebalanced_pop,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
+    )
+
+    summary.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE
+        / f"Population_age_g_soc_{gor}_{forecast_year}_VALIDATION.csv",
+        float_format="%.5f",
+        index=False,
+    )
+    data_processing.write_to_excel(
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
+        file=f"Population_age_g_soc_{gor}_VALIDATION.xlsx",
+        dfs=differences,
     )
 
     if output_targets:
@@ -190,6 +208,7 @@ def process_households(gor: str, forecast_year: int):
     # Read in the data
     LOGGER.info("Reading in the forecasting data")
 
+    # wasn't this meant to feed into P11 as well as P13.3?
     if gor == "Scotland":
         geographical_level = "SCOTLANDRGN"
         geographical_subset = None
@@ -197,10 +216,15 @@ def process_households(gor: str, forecast_year: int):
         geographical_level = "RGN2021"
         geographical_subset = gor
 
+    # as done in the population side these two and then divide can be done in the preprocessing to
+    # make this script much simplier
+    # totals_growth_factor read from ons_hh_forecast_dir/"hh_totals_growth_{base_year}_to_{future_year}"
+    # children_growth_factor read from ons_hh_forecast_dir/"hh_children_growth_{base_year}_to_{future_year}"
+
     regional_2018_base_year_totals = ons_hh_forecast_dir / f"hh_totals_{base_year}.hdf"
 
     regional_2018_forecast_year_totals = (
-            ons_hh_forecast_dir / f"hh_totals_{forecast_year}.hdf"
+        ons_hh_forecast_dir / f"hh_totals_{forecast_year}.hdf"
     )
 
     dv_base_year_totals = data_processing.read_dvector_data(
@@ -217,7 +241,9 @@ def process_households(gor: str, forecast_year: int):
         geography_subset=geographical_subset,
     )
 
-    regional_2018_base_year_children = ons_hh_forecast_dir / f"hh_children_{base_year}.hdf"
+    regional_2018_base_year_children = (
+        ons_hh_forecast_dir / f"hh_children_{base_year}.hdf"
+    )
 
     regional_2018_forecast_year_children = (
         ons_hh_forecast_dir / f"hh_children_{forecast_year}.hdf"
@@ -248,6 +274,8 @@ def process_households(gor: str, forecast_year: int):
 
     children_growth_factor = dv_forecast_year_children / dv_base_year_children
 
+    # feels like it would make more sense to do this translation once (to a base_hhs_gor say),
+    # and then do the aggregation afterwards
     base_hhs_totals = base_hhs.aggregate(segs=["total"])
 
     base_hhs_children = base_hhs.aggregate(segs=["children"])
@@ -295,11 +323,26 @@ def process_households(gor: str, forecast_year: int):
 
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
-        output_reference=f"Output forecast_population_age_g_soc_children_{gor}_{forecast_year}",
+        output_reference=f"forecast_population_age_g_soc_children_{gor}_{forecast_year}",
         dvector=rebalanced_hhs,
         dvector_dimension="people",
         output_level=OutputLevel.INTERMEDIATE,
     )
+
+    summary.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE
+        / f"forecast_population_age_g_soc_children_{gor}_{forecast_year}_VALIDATION.csv",
+        float_format="%.5f",
+        index=False,
+    )
+    data_processing.write_to_excel(
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
+        file=f"forecast_population_age_g_soc_children_{gor}_VALIDATION.xlsx",
+        dfs=differences,
+    )
+
+
 
 # # takes a while to run. So suggest this is run only when needed
 # for gor in constants.GORS + ["Scotland"]:

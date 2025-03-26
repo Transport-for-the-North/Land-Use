@@ -70,10 +70,13 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
 
     pop_growth_factor = ons_pop_fy / ons_pop_base
 
-    filestem = f"pop_growth_factors_{base_year}_to_{forecast_year}"
+    filestem = f"pop_growth_factors_from_{base_year}"
 
     pp.save_preprocessed_hdf(
-        source_file_path=POPULATION_DIR / f"{filestem}.hdf", df=pop_growth_factor
+        source_file_path=POPULATION_DIR / f"{filestem}.hdf",
+        df=pop_growth_factor,
+        key=f"factors_{base_year}_to_{forecast_year}",
+        mode="r+"
     )
 
 
@@ -633,11 +636,11 @@ def process_and_save_hh_projections_adults_ss():
     hh_eng["segment"] = hh_eng["HOUSEHOLD TYPE"].map(adults_map_eng).astype(int)
     hh_eng = hh_eng.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
     # drop the children segments (0s)
-    hh_eng = hh_eng.loc[hh_eng['segment'] != 0]
+    hh_eng = hh_eng.loc[hh_eng["segment"] != 0]
     # Use 2+ adults data for 3+ adults as this will just be used for calculating growth factors in main code
     eng_3_adults = hh_eng.copy()
-    eng_3_adults = eng_3_adults.loc[hh_eng['segment'] == 2]
-    eng_3_adults['segment'] = 3
+    eng_3_adults = eng_3_adults.loc[hh_eng["segment"] == 2]
+    eng_3_adults["segment"] = 3
 
     # SCOTLAND
     hh_scot = pd.read_excel(
@@ -669,8 +672,8 @@ def process_and_save_hh_projections_adults_ss():
     hh_scot = hh_scot.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
     # Use 2+ adults data for 3+ adults as this will just be used for calculating growth factors in main code
     scot_3_adults = hh_scot.copy()
-    scot_3_adults = scot_3_adults.loc[hh_scot['segment'] == 2]
-    scot_3_adults['segment'] = 3
+    scot_3_adults = scot_3_adults.loc[hh_scot["segment"] == 2]
+    scot_3_adults["segment"] = 3
 
     # WALES
     hh_wales = pd.read_csv(
@@ -708,11 +711,13 @@ def process_and_save_hh_projections_adults_ss():
     hh_wales = hh_wales.groupby(by=["CODE", "segment"], as_index=False)[years].sum()
     # Use 2+ adults data for 3+ adults as this will just be used for calcualting growth factors in main code
     wales_3_adults = hh_wales.copy()
-    wales_3_adults = wales_3_adults.loc[hh_wales['segment'] == 2]
-    wales_3_adults['segment'] = 3
+    wales_3_adults = wales_3_adults.loc[hh_wales["segment"] == 2]
+    wales_3_adults["segment"] = 3
 
     # Join together England regions, Scotland and Wales 2018-based household data
-    hh_projs = pd.concat([hh_eng, eng_3_adults, hh_scot, scot_3_adults, hh_wales, wales_3_adults])
+    hh_projs = pd.concat(
+        [hh_eng, eng_3_adults, hh_scot, scot_3_adults, hh_wales, wales_3_adults]
+    )
 
     # Interpolate for any other years we want
     years = [int(yr) for yr in hh_projs.columns if str(yr).isnumeric()]
@@ -733,10 +738,14 @@ def process_and_save_hh_projections_adults_ss():
             hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
         else:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+            raise ValueError(
+                f"Unable to extrapolate for {year}, earliest year is {min_year}"
+            )
 
         hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "segment", year]].rename(columns={"segment": "adults"})
+        hh_year = hh_year[["CODE", "segment", year]].rename(
+            columns={"segment": "adults"}
+        )
         hh_year.columns = [str(col) for col in hh_year.columns]
 
         # Into a wide format for DVector
@@ -762,46 +771,61 @@ def process_and_save_projections_1_adult_hhs():
     # -------------
     # ENGLAND
     hh_eng = pd.read_excel(
-        HOUSEHOLDS_DIR / "eng_2018_based_Stage 2 projected households - Principal (2019 geog).xlsx",
+        HOUSEHOLDS_DIR
+        / "eng_2018_based_Stage 2 projected households - Principal (2019 geog).xlsx",
         sheet_name="Households by type",
     )
     # Filter to the local authorities, "all ages" and 1-person households
-    hh_eng = hh_eng[~hh_eng["AREA NAME"].isin(rgn_corr["RGN21NM"].tolist()) & ~hh_eng["AREA NAME"].isin(["England"])]
+    hh_eng = hh_eng[
+        ~hh_eng["AREA NAME"].isin(rgn_corr["RGN21NM"].tolist())
+        & ~hh_eng["AREA NAME"].isin(["England"])
+    ]
     hh_eng = hh_eng.loc[hh_eng["AGE GROUP"] == "All ages"]
-    hh_eng = hh_eng.loc[(hh_eng["HOUSEHOLD TYPE"] == "One person households: Male") | (
-            hh_eng["HOUSEHOLD TYPE"] == "One person households: Female")]
+    hh_eng = hh_eng.loc[
+        (hh_eng["HOUSEHOLD TYPE"] == "One person households: Male")
+        | (hh_eng["HOUSEHOLD TYPE"] == "One person households: Female")
+    ]
     hh_eng = hh_eng.loc[:, ["CODE", "HOUSEHOLD TYPE"] + years]
 
     # Map to Land Use gender segmentation
-    hh_eng["g"] = hh_eng["HOUSEHOLD TYPE"].map({
-        "One person households: Male": 1,
-        "One person households: Female": 2
-    }).astype(int)
+    hh_eng["g"] = (
+        hh_eng["HOUSEHOLD TYPE"]
+        .map({"One person households: Male": 1, "One person households: Female": 2})
+        .astype(int)
+    )
     hh_eng = hh_eng.groupby(by=["CODE", "g"], as_index=False)[years].sum()
 
     # -------------
     # SCOTLAND
     scot_la_codes = pd.read_csv(
-        HOUSEHOLDS_DIR / "scot_LA_codes.csv",
-        usecols=["lad19cd", "lad19nm"]
+        HOUSEHOLDS_DIR / "scot_LA_codes.csv", usecols=["lad19cd", "lad19nm"]
     )
     scot_dfs = []
     for code in scot_la_codes["lad19nm"]:
         hh_scot = pd.read_excel(
-            HOUSEHOLDS_DIR / "scotland_2018_based_hh_detailed-area-tables-principal-projection.xlsx",
+            HOUSEHOLDS_DIR
+            / "scotland_2018_based_hh_detailed-area-tables-principal-projection.xlsx",
             sheet_name=code,
             header=4,
             nrows=34,
         )
-        hh_scot = hh_scot.rename(columns={hh_scot.columns[0]: "Household type", hh_scot.columns[1]: "age"})
-        hh_scot = hh_scot.drop(hh_scot.columns[28: 34], axis=1)
+        hh_scot = hh_scot.rename(
+            columns={hh_scot.columns[0]: "Household type", hh_scot.columns[1]: "age"}
+        )
+        hh_scot = hh_scot.drop(hh_scot.columns[28:34], axis=1)
         hh_scot = hh_scot[hh_scot["age"] != "All Ages"]
         hh_scot["region"] = code
-        hh_scot["CODE"] = hh_scot["region"].map(scot_la_codes.set_index("lad19nm")["lad19cd"].to_dict())
-        hh_scot["g"] = hh_scot["Household type"].map(
-            {"1 person male": 1,
-             "1 person female": 2}).astype(int)
-        hh_scot.columns = [int(col) if col.isdigit() else col for col in hh_scot.columns]
+        hh_scot["CODE"] = hh_scot["region"].map(
+            scot_la_codes.set_index("lad19nm")["lad19cd"].to_dict()
+        )
+        hh_scot["g"] = (
+            hh_scot["Household type"]
+            .map({"1 person male": 1, "1 person female": 2})
+            .astype(int)
+        )
+        hh_scot.columns = [
+            int(col) if col.isdigit() else col for col in hh_scot.columns
+        ]
         hh_scot = hh_scot.groupby(by=["CODE", "g"], as_index=False)[years].sum()
         scot_dfs.append(hh_scot)
     hh_scot = pd.concat(scot_dfs)
@@ -811,23 +835,22 @@ def process_and_save_projections_1_adult_hhs():
     wales_dfs = []
     for g in ["males", "females"]:
         hh_wales = pd.read_csv(
-            HOUSEHOLDS_DIR / f"wales_2018_based_hh_projections_LAs_1_person_hh_{g}.csv", header=8, nrows=22,
+            HOUSEHOLDS_DIR / f"wales_2018_based_hh_projections_LAs_1_person_hh_{g}.csv",
+            header=8,
+            nrows=22,
         )
-        hh_wales = (
-            hh_wales.rename(columns={hh_wales.columns[0]: "Household type"})
-        )
+        hh_wales = hh_wales.rename(columns={hh_wales.columns[0]: "Household type"})
         hh_wales["Household type"] = hh_wales["Household type"].str.rstrip()
 
         wales_la_codes = pd.read_csv(
-            HOUSEHOLDS_DIR / "wales_LA_codes.csv",
-            usecols=["lad19cd", "lad19nm"]
+            HOUSEHOLDS_DIR / "wales_LA_codes.csv", usecols=["lad19cd", "lad19nm"]
         )
         hh_wales = pd.merge(
             hh_wales,
             wales_la_codes,
             left_on="Household type",
             right_on="lad19nm",
-            how="left"
+            how="left",
         ).rename(columns={"lad19cd": "CODE"})
         if g == "males":
             hh_wales["g"] = 1
@@ -861,11 +884,13 @@ def process_and_save_projections_1_adult_hhs():
             hh_projs[year] = perc_of_a * hh_projs[year_a] + perc_of_b * hh_projs[year_b]
         else:
             # before first year, raise error for now
-            raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
+            raise ValueError(
+                f"Unable to extrapolate for {year}, earliest year is {min_year}"
+            )
 
         hh_year = hh_projs.copy()
         hh_year = hh_year[["CODE", "g", year]]
-        hh_year['adults'] = 1
+        hh_year["adults"] = 1
         hh_year.columns = [str(col) for col in hh_year.columns]
 
         # Into a wide format for DVector
