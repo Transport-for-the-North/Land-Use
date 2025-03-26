@@ -3,18 +3,21 @@
 # As the config is likely to be used for multiple files then the file stem 
 
 input_root_directory: I:\NorMITs Land Use\2023\import
-base_directory: F:\Deliverables\Land-Use\241213_Population\02_Final Outputs
-output_directory: F:\Working\Land-Use\temp_forecast_population_testing
+output_directory: F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config
 output_intermediate_outputs: False
+output_targets: True
 
 base_year: 2023
 forecast_year: 2043
 
 base_data:
-    base_pop:
-        file_path_prefix: Output P11.hdf
-    base_households:
-        file_path_prefix: Output P13.3.hdf
+    output_directory:
+        C:\Users\kilbys\Desktop\tfn_lu_local_copies
+        #F:\Deliverables\Land-Use\241213_Population\02_Final Outputs
+    base_pop_file_stem:
+        Output P11
+    base_households_file_stem:
+        Output P13.3
 
 forecast_data:
     # growth factors from base in terms of muliplicative factors e.g., 1.2 means 20% increase

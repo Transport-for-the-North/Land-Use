@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
@@ -27,49 +28,63 @@ soc_dir = Path(
     r"I:\NorMITs Land Use\2023\import\Labour Market and Skills\LMS_SOC\preprocessing"
 )
 
-OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing")
-OUTPUT_DIR.mkdir(exist_ok=True)
+
+# %%
+
+
+# load configuration file
+#config_path = args.config_file
+configuration_path = Path("scenario_configurations", "iteration_5", "forecast_population_config.yml")
+with open(configuration_path, 'r') as text_file:
+    configuration = yaml.load(text_file, yaml.SafeLoader)
+
+# Get output directory for intermediate outputs from config file
+OUTPUT_DIR = Path(configuration['output_directory'])
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 # Define whether to output intermediate outputs, recommended to not output loads if debugging
-# generate_summary_outputs = True  # bool(config["output_intermediate_outputs"])
+generate_summary_outputs = bool(configuration['output_intermediate_outputs'])
 
 LOGGER = lu_logging.configure_logger(
     OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="population"
 )
 
 
-# %%
 
-
-def process_region(gor: str, forecast_year: int, output_targets: bool):
+def process_region(config: dict, gor: str):
 
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     # read in the currently hard coded but switch to config
 
+    forecast_year = config["forecast_year"]
+    output_targets = config["output_targets"]
+
     LOGGER.info(f"Importing data for {gor}")  # eventually from the config file
 
-    geographical_level, geographical_subset = fetch_gor_info(gor=gor)
-
-    pop_growth_factor = data_processing.read_dvector_data(
-        file_path=ons_pop_forecast_dir
-        / f"pop_growth_factors_from_{base_year}.hdf",
-        geographical_level=geographical_level,
-        input_segments=["age_ntem", "g"],
-        geography_subset=geographical_subset,
+    pop_growth_factor = data_processing.read_dvector_from_config(
+        config=config,
+        data_block="forecast_data",
+        key='pop_growth_factor',
+        geography_subset=gor,
         hdf_key=f"factors_{base_year}_to_{forecast_year}"
     )
 
-    soc_splits_change_path = (
-        soc_dir / f"soc_pp_change_{base_year}_to_{forecast_year}.hdf"
+    soc_splits_change = data_processing.read_dvector_from_config(
+        config=config,
+        data_block="forecast_data",
+        key='soc_splits_change',
+        geography_subset=gor,
+        hdf_key=f"from_{base_year}_to_{forecast_year}"
     )
 
-    soc_splits_change = data_processing.read_dvector_data(
-        file_path=soc_splits_change_path,
-        geographical_level=geographical_level,
-        input_segments=["g", "soc"],
-        geography_subset=geographical_subset,
-    )
+    base_pop_directory = Path(config["base_data"]["output_directory"])
+
+    base_pop_file_stem = config["base_data"]["base_pop_file_stem"]
+    base_households_file_stem = config["base_data"]["base_households_file_stem"]
+
+    base_pop = DVector.load(base_pop_directory / f"{base_pop_file_stem}_{gor}.hdf")
+    base_households = DVector.load(base_pop_directory / f"{base_households_file_stem}_{gor}.hdf")
 
     hh_1_adults_g_base_path = ons_hh_forecast_dir / f'hh_1_adult_by_g_{base_year}.hdf'
     hh_1_adults_g_forecast_path = ons_hh_forecast_dir / f'hh_1_adult_by_g_{forecast_year}.hdf'
@@ -77,16 +92,14 @@ def process_region(gor: str, forecast_year: int, output_targets: bool):
         file_path=hh_1_adults_g_base_path,
         geographical_level="LAD2019_EWS",
         input_segments=["g", "adults"],
-        geography_subset=None,  # geographical subset?
+        geography_subset=gor,
     )
     hh_1_adults_g_forecast = data_processing.read_dvector_data(
         file_path=hh_1_adults_g_forecast_path,
         geographical_level="LAD2019_EWS",
         input_segments=["g", "adults"],
-        geography_subset=None,
+        geography_subset=gor,
     )
-
-    base_pop = DVector.load(base_pop_dir / f"Output P11_{gor}.hdf")
 
     # --- Step 1 --- #
     # Prepare base files into forecasting segmentations
@@ -390,14 +403,5 @@ def process_households(gor: str, forecast_year: int):
 #     process_region(gor=gor, forecast_year=2048)
 
 # testing as quicker than looping through all regions
-
-regions = [
-    "NW",
-]
-forecast_years = [
-    2043,
-]
-
-for region in regions:
-    for forecast_year in forecast_years:
-        process_region(gor=region, forecast_year=forecast_year, output_targets=True)
+region="Scotland"
+process_region(config=configuration, gor=region)
