@@ -343,6 +343,15 @@ lad19_zone_system = generate_zoning_system(
 )
 LADS19_BY_GOR[lad19_zone_name] = lad19_zone_system
 
+# Expand regions to include a Scotland 'subset' which is the whole of Scotland
+rgn_zone_name = f'RGN2021-Scotland'
+rgn_zone_system = generate_zoning_system(
+    name=rgn_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'GOR (2021)' / f'GOR_2021_EnglandWales_Scotland.shp',
+    id_col='RGN21CD', desc_col='RGN21NM'
+)
+RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
+
 # TODO: think about a different way to implement generate_zoning_system possibly on the fly as needed?
 
 # --- GENERATE KNOWN_GEOGRAPHIES TO IMPORT INTO LAND USE PROCESSING --- #
