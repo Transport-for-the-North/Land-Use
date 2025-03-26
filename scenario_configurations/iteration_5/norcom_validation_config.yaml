@@ -3,7 +3,7 @@
 # folder name of the actual NorCOM estimation outputs, and the reference that
 # is in the name of the zonal data file
 # (e.g. "I:\NorMITs NorCOM\Import\Zonal Data\zonal_logit_data_v36.csv")
-estimation version: v36
+estimation version: v38
 
 # master folder of all the different versions of the NorCOM estimation results
 results path: I:\NorMITs NorCOM\AECOM working

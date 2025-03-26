@@ -5,13 +5,14 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 
 # data class for reading and storing NorCOM estimation results
 class NorCOMResult:
 
     def __init__(self, coefficients: pd.DataFrame, case_category: str, noncase_category: str, zonal_lookups: Path,
-                 dependent_category: Optional[str] = None):
+                 dependent_category: Optional[str] = None, continuous_params: Optional[pd.DataFrame] = None):
         # Store info about the results
         self.case_category = self.prob_col(case_category)
         self.noncase_category = self.prob_col(noncase_category)
@@ -20,7 +21,9 @@ class NorCOMResult:
 
         # Go from individual coefficients to all possible combinations, then add in zones
         self._combinations = self.coefficients_to_combinations(coefficients)
-        self.zonal_definition, self._expanded_to_zones = self.expand_to_zones(self._combinations, zonal_lookups)
+        self.zonal_definition, self._expanded_to_zones = self.expand_to_zones(
+            self._combinations, continuous_params, zonal_lookups
+        )
 
         # Figure out the actual probabilities for the case and noncase options
         self.probabilities = self._expanded_to_zones.copy()
@@ -57,7 +60,15 @@ class NorCOMResult:
         data['Category'] = data['Category'].fillna(0).astype(int)
         data.drop(columns=['Feature'], inplace=True)
 
-        return cls(data, *args, **kwargs)
+        # Check to see if continuous parameters are also present
+        continuous_params_path = csv_path.parent / 'scale_csv.csv'
+        if continuous_params_path.is_file():
+            continuous_params = pd.read_csv(continuous_params_path, index_col=0)
+            continuous_params.columns = [c.rsplit('_', maxsplit=1)[0] for c in continuous_params.columns]
+        else:
+            continuous_params = None
+        
+        return cls(data, *args, **kwargs, continuous_params=continuous_params)
 
     @staticmethod
     def coefficients_to_combinations(coeff) -> pd.DataFrame:
@@ -83,7 +94,7 @@ class NorCOMResult:
         return results_frame[sorted(results_frame.columns, key=lambda c: c.replace('Coeff_', 'zzzzzz'))]
 
     @staticmethod
-    def expand_to_zones(combinations, lookup_path) -> Tuple[str, pd.DataFrame]:
+    def expand_to_zones(combinations, continuous_params, lookup_path) -> Tuple[str, pd.DataFrame]:
         lookup = pd.read_csv(lookup_path)
 
         # Figure out what the new zonal identifier should be
@@ -103,11 +114,23 @@ class NorCOMResult:
         # We always drop the intercept (category, not coefficient) column, and the zonal attribute flags (i.e. just used to expand to geography)
         columns_to_drop = ['intercept'] + zonal_attribute_columns
 
-        # Now apply our continuous variables
-        for col in combined_dataset.columns:
-            if col.startswith('CONT_'):
+        if continuous_params is not None:
+            # Set up the scaler according to the continuous params
+            scaler = StandardScaler()
+            scaler.mean_ = continuous_params.loc['mean'].values
+            scaler.scale_ = continuous_params.loc['std'].values
+            scaler.var_ = continuous_params.loc['var'].values
+
+            continuous_cols = [f'CONT_{c}' for c in continuous_params.columns]
+
+            # Apply the scaler to the "CONT_" columns (i.e. the _values_ rather than coefficients)
+            combined_dataset[continuous_cols] = (
+                scaler.transform(combined_dataset[continuous_cols])
+            )
+
+            # Now apply our continuous variables
+            for col in continuous_cols:
                 # Apply the uplift
-                # TODO: continuous variables are normalised as part of the machine learning model. We need to apply the same here.
                 combined_dataset[col.replace('CONT_', 'Coeff_')] *= combined_dataset[col]
                 # Drop both the uplifting column *and* the "category" column for that variable
                 columns_to_drop += [col, col.replace('CONT_', '')]
