@@ -206,6 +206,12 @@ NORTH_ZONING_SYSTEM = generate_zoning_system(
     shapefile_path=SHAPEFILE_DIRECTORY / 'LSOA (2021)' / f'LSOA_2021_EnglandWales_NORTH.shp',
     id_col='LSOA21CD', desc_col='LSOA21NM'
 )
+MSOA_NORTH_NAME = 'MSOA21-NORTH'
+MSOA_NORTH_ZONING_SYSTEM = generate_zoning_system(
+    name=MSOA_NORTH_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'MSOA (2021)' / f'MSOA_2021_EnglandWales_NORTH.shp',
+    id_col='MSOA21CD', desc_col='MSOA21NM'
+)
 TFN_AT_AGG_NAME = 'TFN-AT-AGG'
 TFN_AT_AGG_ZONING_SYSTEM = generate_zoning_system(
     name=TFN_AT_AGG_NAME,
@@ -332,6 +338,7 @@ KNOWN_GEOGRAPHIES = {
     RGN_NAME: RGN_ZONING_SYSTEM,
     SCOTLAND_DZONE_NAME: SCOTLAND_DZONE_ZONING_SYSTEM,
     NORTH_NAME: NORTH_ZONING_SYSTEM,
+    MSOA_NORTH_NAME: MSOA_NORTH_ZONING_SYSTEM,
     TFN_AT_AGG_NAME: TFN_AT_AGG_ZONING_SYSTEM,
     SCOTLAND_RGN_ZONING_NAME: SCOTLAND_RGN_ZONING_SYSTEM,
     SCOTLAND_LAD_NAME: SCOTLAND_LAD_ZONING_SYSTEM,
@@ -424,9 +431,9 @@ KNOWN_GEOGRAPHIES = {
 #         cache_path=CACHE_FOLDER
 #     )
 #
-#     for i in range(0, len(GORS)):
-#
-#         lsoa = list(LSOAS_BY_GOR.values())[i]
+    # for i in range(0, len(GORS)):
+    #
+    #     lsoa = list(LSOAS_BY_GOR.values())[i]
 #         msoa = list(MSOAS_BY_GOR.values())[i]
 #         lad = list(LADS_BY_GOR.values())[i]
 #         lad23 = list(LADS23_BY_GOR.values())[i]
@@ -462,6 +469,10 @@ KNOWN_GEOGRAPHIES = {
 #         )
 #         lsoa.translate(
 #             LAD_EWS_ZONING_SYSTEM,
+#             cache_path=CACHE_FOLDER
+#         )
+#         lsoa.translate(
+#             MSOA_NORTH_ZONING_SYSTEM,
 #             cache_path=CACHE_FOLDER
 #         )
 #         msoa.translate(
