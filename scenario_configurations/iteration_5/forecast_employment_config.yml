@@ -1,0 +1,21 @@
+# Configuration file specifying the segmentation and geographical level of the input data.
+# All files here are assumed to be in a format ready for DVectors.
+# As the config is likely to be used for multiple files then the key will include the forecast year
+
+input_root_directory: I:\NorMITs Land Use\2023\import
+output_directory: F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config
+output_intermediate_outputs: False
+output_targets: True
+
+base_year: 2023
+forecast_year: 2043
+
+base_data:
+    base_emp_filepath: C:\Users\kilbys\Desktop\tfn_lu_local_copies\Output E6.hdf
+
+forecast_data:
+    # growth factors from base in terms of muliplicative factors e.g., 1.2 means 20% increase
+    sic_employment_growth_factor:
+        file_path: Labour Market and Skills\LMS_SIC_Ind2\preprocessing\LMS_SIC_1_digit_Ind2_from_2023_factors.hdf
+        geographical_level: RGN2021+SCOTLANDRGN
+        input_segments: [sic_1_digit]
