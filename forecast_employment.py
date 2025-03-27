@@ -16,7 +16,7 @@ sic_dir = Path(
 
 base_year = 2023
 
-OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
+OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_OUTPUTS_forecast_employment")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # %%
@@ -36,21 +36,12 @@ def process_forecast_emp(forecast_year: int):
 
     geographical_level = "RGN2021+SCOTLANDRGN"
 
-    # Load in LM&S totals as DVector
-    lms_sic_base_file = sic_dir / fr"LMS_SIC_1_digit_Ind2_{base_year}.hdf"
-
-    lms_sic_base = data_processing.read_dvector_data(
-        file_path=lms_sic_base_file,
+    # Load in LM&S factors totals as DVector
+    sic_growth_factors = data_processing.read_dvector_data(
+        file_path=sic_dir / "LMS_SIC_1_digit_Ind2_from_2023_factors.hdf",
         geographical_level=geographical_level,
-        input_segments=["sic_1_digit"]
-    )
-
-    lms_sic_forecast_file = sic_dir / fr"LMS_SIC_1_digit_Ind2_{forecast_year}.hdf"
-
-    lms_sic_forecast = data_processing.read_dvector_data(
-        file_path=lms_sic_forecast_file,
-        geographical_level=geographical_level,
-        input_segments=["sic_1_digit"]
+        input_segments=["sic_1_digit"],
+        hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
     )
 
     # Load in the Base employment output
@@ -69,11 +60,9 @@ def process_forecast_emp(forecast_year: int):
         check_totals=False
     )
 
-    growth_factors = lms_sic_forecast / lms_sic_base
-
     base_emp_agg = base_emp_rgn.aggregate(segs=["sic_1_digit"])
 
-    sic_1_digit_targets = base_emp_agg * growth_factors
+    sic_1_digit_targets = base_emp_agg * sic_growth_factors
     # Drop targets for SIC level -1, 20, 21 (potentially move this to the reformatting script)
     sic_1_digit_targets = drop_seg_values(sic_1_digit_targets, "sic_1_digit", [-1, 20, 21])
 

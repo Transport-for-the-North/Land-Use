@@ -23,7 +23,7 @@ REGION_CORRESPONDENCE = pd.read_csv(
 
 def main():
     pre_process_lms_sic()
-    pre_process_lms_soc_by_g()
+    # pre_process_lms_soc_by_g()
 
 
 def pre_process_lms_sic() -> None:
@@ -120,7 +120,7 @@ def pre_process_lms_sic() -> None:
 
     # Output as hdf, ready to be read in as DVector
     for year in YEARS_TO_CALCULATE:
-        sic_output = sic_rgns[["sic_1_digit", "region", year]]
+        sic_output = sic_rgns
         # Check for negatives
         count = sic_output[year].lt(0).sum()
         if count > 0:
@@ -139,17 +139,25 @@ def pre_process_lms_sic() -> None:
         lvls_static[year] = 0
         sic_output = pd.concat([sic_output, lvls_static]).sort_values("sic_1_digit")
 
+        sic_output[f"factor_from_{BASE_YEAR}_to_{year}"] = sic_output[year] / sic_output[BASE_YEAR]
+
         # Into a wide format for DVector
         df_wide = pp.pivot_to_dvector(
             data=sic_output,
             zoning_column="region",
             index_cols=["sic_1_digit"],
-            value_column=year,  # function expects a string but int works here as matches column heading type
+            value_column=f"factor_from_{BASE_YEAR}_to_{year}",
         )
+
+        # infill the nas with 1 (this will be dividing by zero, coming from the static sic levels -1, 20, 21)
+        print("infilled with 1's")
+        df_wide = df_wide.fillna(1)
+
         pp.save_preprocessed_hdf(
-            source_file_path=LMS_INPUT_DIR / r"LMS_SIC_Ind2\LMS_SIC_1_digit_Ind2.hdf",
+            source_file_path=LMS_INPUT_DIR / "LMS_SIC_Ind2" / f"LMS_SIC_1_digit_Ind2_from_{BASE_YEAR}_factors.hdf",
             df=df_wide,
-            multiple_output_ref=str(year),
+            key=f"factors_from_{BASE_YEAR}_to_{year}"
+            mode="a",
         )
 
 
@@ -264,9 +272,10 @@ def pre_process_lms_soc_by_g() -> None:
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / "LMS_SOC" / out_stem,
             df=df_wide,
-            key=f"from_{BASE_YEAR}_to_{year}",
-            mode="a"
+            key=f"change_from_{BASE_YEAR}_to_{year}",
+            mode="a",
         )
+        print(f"written for {year=}")
 
 
 if __name__ == "__main__":

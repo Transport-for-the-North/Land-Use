@@ -50,10 +50,13 @@ CHILDREN_MAPPING = {
 
 # %%
 def main():
-    for forecast_year in range(BASE_YEAR, 2054):
-        write_ons_pop_growth_factors_from_base(
-            base_year=BASE_YEAR, forecast_year=forecast_year
-        )
+    # for forecast_year in range(BASE_YEAR, 2054):
+    #     write_ons_pop_growth_factors_from_base(
+    #         base_year=BASE_YEAR, forecast_year=forecast_year
+    #     )
+    # process_and_save_hh_projections_children()
+    #process_and_save_projections_1_adult_hhs()
+    process_and_save_hh_projections()
 
 
 def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -> None:
@@ -75,7 +78,7 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
     pp.save_preprocessed_hdf(
         source_file_path=POPULATION_DIR / f"{filestem}.hdf",
         df=pop_growth_factor,
-        key=f"factors_{base_year}_to_{forecast_year}",
+        key=f"factors_from_{base_year}_to_{forecast_year}",
         mode="r+"
     )
 
@@ -412,18 +415,19 @@ def process_and_save_hh_projections() -> None:
 
     # Export
     for year in FORECAST_YEARS:
-        hh_by_year = hh_projs.copy()
-        hh_by_year = hh_by_year[["region", year]]
+
+        hh_projs[f"factors_from_{BASE_YEAR}"] = hh_projs[year] / hh_projs[BASE_YEAR]
 
         # Create column to use as segmentation totals
-        hh_by_year["total"] = 1
+        hh_projs["total"] = 1
 
-        df_wide = pd.pivot(hh_by_year, index=["total"], columns=["region"], values=year)
+        df_wide = pd.pivot(hh_projs, index=["total"], columns=["region"], values=f"factors_from_{BASE_YEAR}")
 
         pp.save_preprocessed_hdf(
-            source_file_path=HOUSEHOLDS_DIR / "hh_totals.hdf",
+            source_file_path=HOUSEHOLDS_DIR / f"hh_totals_from_{BASE_YEAR}_factors.hdf",
             df=df_wide,
-            multiple_output_ref=str(year),
+            key=f"factors_from_{BASE_YEAR}_to_{year}",
+            mode="a",
         )
 
 
@@ -522,23 +526,25 @@ def process_and_save_hh_projections_children() -> None:
                 f"Unable to extrapolate for {year}, earliest year is {min_year}"
             )
 
-        hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "segment", year]].rename(
-            columns={"segment": "children"}
-        )
-        hh_year.columns = [str(col) for col in hh_year.columns]
+    hh_projs = hh_projs.rename(columns={"segment": "children"})
+    hh_projs.columns = [str(col) for col in hh_projs.columns]
+    
+    for year in FORECAST_YEARS:
+
+        hh_projs[f"factors_{year}"] = hh_projs[str(year)] / hh_projs[str(BASE_YEAR)]
 
         # Into a wide format for DVector
-        hh_year = pp.pivot_to_dvector(
-            data=hh_year,
+        df_wide = pp.pivot_to_dvector(
+            data=hh_projs,
             zoning_column="CODE",
             index_cols=["children"],
-            value_column=str(year),
+            value_column=f"factors_{year}",
         )
         pp.save_preprocessed_hdf(
-            source_file_path=HOUSEHOLDS_DIR / "hh_children.hdf",
-            df=hh_year,
-            multiple_output_ref=str(year),
+            source_file_path=HOUSEHOLDS_DIR / f"hh_children_from_{BASE_YEAR}_factors.hdf",
+            df=df_wide,
+            key=f"factors_from_{BASE_YEAR}_to_{year}",
+            mode="a",
         )
 
 
@@ -851,12 +857,13 @@ def process_and_save_projections_1_adult_hhs():
     min_year = min(years)
     for year in FORECAST_YEARS:
         print(year)
+        # note this this forecast is provide for all years between minimum and maximum so don't need to interpolate between them
         if year in hh_projs.columns:
             # column already exists so nothing to do
             pass
         elif year > max_year:
             # As 2043 is the maximum year in the 2018-based ONS, continue the trend from 2038 to 2043
-            year_a = 2038
+            year_a = 2038 # why are we doing 2038 here and not 2042?
             year_b = 2043
             year_gap = year_b - year_a
             perc_of_a = 1 - ((year - year_a) / year_gap)
@@ -866,22 +873,29 @@ def process_and_save_projections_1_adult_hhs():
             # before first year, raise error for now
             raise ValueError(f"Unable to extrapolate for {year}, earliest year is {min_year}")
 
-        hh_year = hh_projs.copy()
-        hh_year = hh_year[["CODE", "g", year]]
-        hh_year['adults'] = 1
-        hh_year.columns = [str(col) for col in hh_year.columns]
+    hh_year = hh_projs.copy()
+    hh_year = hh_year[["CODE", "g", year]]
+    hh_projs['adults'] = 1
+    hh_projs.columns = [str(col) for col in hh_projs.columns]
+
+    print(hh_year.columns)
+    
+    for year in FORECAST_YEARS:
+
+        hh_projs[f"{year}_factor"] = hh_projs[str(year)] / hh_projs[str(BASE_YEAR)]
 
         # Into a wide format for DVector
-        hh_year = pp.pivot_to_dvector(
-            data=hh_year,
+        hh_projs_wide = pp.pivot_to_dvector(
+            data=hh_projs,
             zoning_column="CODE",
             index_cols=["g", "adults"],
-            value_column=str(year),
+            value_column=f"{year}_factor",
         )
         pp.save_preprocessed_hdf(
-            source_file_path=HOUSEHOLDS_DIR / "hh_1_adult_by_g.hdf",
-            df=hh_year,
-            multiple_output_ref=str(year),
+            source_file_path=HOUSEHOLDS_DIR / f"hh_1_adult_by_g_from_{BASE_YEAR}_factors.hdf",
+            df=hh_projs_wide,
+            key=f"factors_from_{BASE_YEAR}_to_{year}",
+            mode="a",
         )
 
 
