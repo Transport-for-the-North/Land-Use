@@ -1,6 +1,6 @@
 # Configuration file specifying the segmentation and geographical level of the input data.
 # All files here are assumed to be in a format ready for DVectors.
-# As the config is likely to be used for multiple files then the file stem 
+# As the config is likely to be used for multiple files then the key will include the forecast year
 
 input_root_directory: I:\NorMITs Land Use\2023\import
 output_directory: F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config
@@ -12,8 +12,7 @@ forecast_year: 2043
 
 base_data:
     output_directory:
-        C:\Users\kilbys\Desktop\tfn_lu_local_copies
-        #F:\Deliverables\Land-Use\241213_Population\02_Final Outputs
+        F:\Deliverables\Land-Use\241213_Population\02_Final Outputs
     base_pop_file_stem:
         Output P11
     base_households_file_stem:
@@ -33,4 +32,18 @@ forecast_data:
         geographical_level: RGN2021
         input_segments: [g, soc]
         # do we need to specify cut_read false here?
-      
+
+    pop_single_household_adult_growth_factor:
+        file_path: ONS\forecasting\hh_projs\preprocessing\hh_1_adult_by_g_from_2023_factors.hdf
+        geographical_level: LAD2019_EWS
+        input_segments: [g, adults]
+    
+    pop_household_growth_factors:
+        file_path: ONS\forecasting\hh_projs\preprocessing\hh_totals_from_2023_factors.hdf
+        geographical_level: RGN2021
+        input_segments: [total]   
+    
+    pop_household_children_growth_factors:
+        file_path: ONS\forecasting\hh_projs\preprocessing\hh_children_from_2023_factors.hdf
+        geographical_level: RGN2021
+        input_segments: [children] 

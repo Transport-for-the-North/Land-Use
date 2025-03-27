@@ -50,12 +50,12 @@ CHILDREN_MAPPING = {
 
 # %%
 def main():
-    # for forecast_year in range(BASE_YEAR, 2054):
-    #     write_ons_pop_growth_factors_from_base(
-    #         base_year=BASE_YEAR, forecast_year=forecast_year
-    #     )
-    # process_and_save_hh_projections_children()
-    #process_and_save_projections_1_adult_hhs()
+    for forecast_year in range(BASE_YEAR, 2054):
+        write_ons_pop_growth_factors_from_base(
+            base_year=BASE_YEAR, forecast_year=forecast_year
+        )
+    process_and_save_hh_projections_children()
+    process_and_save_projections_1_adult_hhs()
     process_and_save_hh_projections()
 
 
@@ -79,7 +79,7 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
         source_file_path=POPULATION_DIR / f"{filestem}.hdf",
         df=pop_growth_factor,
         key=f"factors_from_{base_year}_to_{forecast_year}",
-        mode="r+"
+        mode="a"
     )
 
 
