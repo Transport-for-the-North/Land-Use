@@ -8,7 +8,9 @@ output_intermediate_outputs: False
 output_targets: True
 
 base_year: 2023
-forecast_year: 2043
+forecast_years: 
+- 2043
+- 2053
 
 base_data:
     base_emp_filepath: C:\Users\kilbys\Desktop\tfn_lu_local_copies\Output E6.hdf

@@ -12,10 +12,9 @@ from land_use import constants, data_processing
 from land_use import logging as lu_logging
 from land_use.data_processing import OutputLevel
 
-def process_forecast_emp(config: dict) -> None:
 
-    base_year = config["base_year"]
-    forecast_year = config["forecast_year"]
+def process_forecast_emp(config: dict, base_year: int, forecast_year: int) -> None:
+
     output_targets = config["output_targets"]
 
     # --- Step 0 --- #
@@ -86,12 +85,13 @@ def process_forecast_emp(config: dict) -> None:
     )
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}.csv",
-        float_format='%.5f', index=False
+        float_format="%.5f",
+        index=False,
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f"{output_reference}.xlsx",
-        dfs=differences
+        dfs=differences,
     )
 
 
@@ -142,4 +142,10 @@ shutil.copy(
     dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name,
 )
 
-process_forecast_emp(config=configuration)
+base_year = configuration["base_year"]
+forecast_years = configuration["forecast_years"]
+
+for forecast_year in forecast_years:
+    process_forecast_emp(
+        config=configuration, base_year=base_year, forecast_year=forecast_year
+    )

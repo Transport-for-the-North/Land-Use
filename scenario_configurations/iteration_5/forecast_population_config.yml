@@ -8,7 +8,22 @@ output_intermediate_outputs: False
 output_targets: True
 
 base_year: 2023
-forecast_year: 2043
+forecast_years: 
+- 2043
+- 2053
+
+run_for_regions:
+- NW
+- NE
+- YH
+- WM
+- EM
+- EoE
+- Wales
+- SW
+- SE
+- Lon
+- Scotland
 
 base_data:
     output_directory:

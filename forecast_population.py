@@ -111,9 +111,7 @@ def forecast_population_for_gor(
         weighting=TranslationWeighting.NO_WEIGHT,
     )
 
-    pop_g_adults_targets = (
-        base_pop_g_adults_lad19 * pop_g_adults_growth_factors
-    )
+    pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors
 
     # --- Step 3 --- #
     # Calculate the new SOC splits
@@ -166,9 +164,7 @@ def forecast_population_for_gor(
     )
 
     summary.to_csv(
-        OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
-        / f"{output_reference}_VALIDATION.csv",
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
         float_format="%.5f",
         index=False,
     )
@@ -348,14 +344,17 @@ shutil.copy(
     dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name,
 )
 
-region = "Scotland"
 
 base_year = config["base_year"]
-forecast_year = config["forecast_year"]
-forecast_population_for_gor(
-    config=config, base_year=base_year, forecast_year=forecast_year, gor=region
-)
+forecast_years = config["forecast_years"]
+run_for_regions = config["run_for_regions"]
 
-process_households_for_gor(
-    config=config, base_year=base_year, forecast_year=forecast_year, gor=region
-)
+for forecast_year in forecast_years:
+    for region in run_for_regions:
+        forecast_population_for_gor(
+            config=config, base_year=base_year, forecast_year=forecast_year, gor=region
+        )
+
+        process_households_for_gor(
+            config=config, base_year=base_year, forecast_year=forecast_year, gor=region
+        )
