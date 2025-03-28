@@ -17,13 +17,14 @@ from land_use.data_processing import OutputLevel
 def forecast_population_for_gor(
     config: dict, base_year: int, forecast_year: int, gor: str
 ):
-
-    # --- Step 0 --- #
-    LOGGER.info("--- Step 0 ---")
-    # read in the currently hard coded but switch to config
     output_targets = config["output_targets"]
 
-    LOGGER.info(f"Importing data for {gor}")  # eventually from the config file
+    # --- Step 0 --- #
+    # Importing data
+    LOGGER.info("--- Step 0 ---")
+    # Read in the data
+    LOGGER.info("Reading in the forecasting data for population forecasts")
+    LOGGER.info(f"For {gor}, base year {base_year}, forecast year {forecast_year}.")
 
     pop_growth_factor = data_processing.read_dvector_from_config(
         config=config,
@@ -44,7 +45,8 @@ def forecast_population_for_gor(
     base_pop_directory = Path(config["base_data"]["output_directory"])
     base_pop_file_stem = config["base_data"]["base_pop_file_stem"]
     filepath = base_pop_directory / f"{base_pop_file_stem}_{gor}.hdf"
-    LOGGER.info(f"Loading file from {filepath}")
+
+    LOGGER.info(f"Loading base population file from {filepath}")
     base_pop = DVector.load(filepath)
 
     pop_g_adults_growth_factors = data_processing.read_dvector_from_config(
@@ -67,7 +69,7 @@ def forecast_population_for_gor(
     base_pop_age_ntem_g = base_pop_ntem_age.aggregate(segs=["age_ntem", "g", "soc"])
 
     base_pop_age_ntem_g_gor = base_pop_age_ntem_g.translate_zoning(
-        new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
+        new_zoning=pop_growth_factor.zoning_system,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
     )
@@ -142,11 +144,9 @@ def forecast_population_for_gor(
 
     # the totals here should be the pop_targets without soc 4
     soc_targets = (soc_target_splits * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
-    # TODO change SOC to use the SOC by gender (at region level)
 
     # --- Step 4 --- #
-    # Now apply the IPF using age_ntem, g, and soc
-    # TODO add the 1 adult households to the IPF process
+    # Now apply the IPF using age_ntem, g, soc and adults
     LOGGER.info("--- Step 4 ---")
     LOGGER.info("Apply the IPF")
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
@@ -206,7 +206,8 @@ def process_households_for_gor(
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     # Read in the data
-    LOGGER.info("Reading in the forecasting data")
+    LOGGER.info("Reading in the forecasting data (for household forecasts)")
+    LOGGER.info(f"For {gor}, base year {base_year}, forecast year {forecast_year}.")
 
     totals_growth_factor = data_processing.read_dvector_from_config(
         config=config,
@@ -234,22 +235,23 @@ def process_households_for_gor(
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("Calculate the households growth targets")
 
-    # feels like it would make more sense to do this translation once (to a base_hhs_gor say),
-    # and then do the aggregation afterwards, I guess that isn't guarenteed to be true though
-    base_hhs_totals = base_hhs.add_segments(new_segs=["total"]).aggregate(
-        segs=["total"]
-    )
+    if "total" in base_hhs.segmentation.names:
+        base_hhs_totals = base_hhs.aggregate(segs=["total"])
+    else:
+        base_hhs_totals = base_hhs.add_segments(new_segs=["total"]).aggregate(
+            segs=["total"]
+        )
 
     base_hhs_children = base_hhs.aggregate(segs=["children"])
 
     base_hhs_totals_gor = base_hhs_totals.translate_zoning(
-        new_zoning=totals_growth_factor.zoning_system,  # fix zoning system to match growth factors
+        new_zoning=totals_growth_factor.zoning_system,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
     )
 
     base_hhs_children_gor = base_hhs_children.translate_zoning(
-        new_zoning=children_growth_factor.zoning_system,  # fix zoning system to match growth factors
+        new_zoning=children_growth_factor.zoning_system,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.NO_WEIGHT,
     )
@@ -304,7 +306,6 @@ def process_households_for_gor(
 
 
 # %%
-# load configuration file
 # python forecast_population.py "path/to_file/forecast_population_config.yml"
 
 # TODO: expand on the documentation here
@@ -325,18 +326,6 @@ generate_summary_outputs = bool(config["output_intermediate_outputs"])
 LOGGER = lu_logging.configure_logger(
     OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="population"
 )
-
-
-# # takes a while to run. So suggest this is run only when needed
-# for gor in constants.GORS + ["Scotland"]:
-#     print(gor)
-#     process_region(gor=gor, forecast_year=2038)
-
-# for gor in constants.GORS + ["Scotland"]:
-#     print(gor)
-#     process_region(gor=gor, forecast_year=2048)
-
-# testing as quicker than looping through all regions
 
 # copy config file for traceability
 shutil.copy(
