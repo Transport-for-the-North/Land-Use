@@ -16,6 +16,6 @@ dependencies:
   # Only used for memory usage tracking
   - psutil=6.1.0
   - pip:
-      - git+https://github.com/Transport-for-the-North/caf.base@ipf_adjustment_fixes
+      - git+https://github.com/Transport-for-the-North/caf.base
       - git+https://github.com/Transport-for-the-North/caf.space
       - git+https://github.com/Transport-for-the-North/caf.brain@machine_vision
