@@ -7,7 +7,7 @@ import land_use.preprocessing as pp
 
 # Include the base year in here as we are pivoting from it
 BASE_YEAR = 2023
-YEARS_TO_CALCULATE = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
+FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ REGION_CORRESPONDENCE = pd.read_csv(
 
 def main():
     pre_process_lms_sic()
-    # pre_process_lms_soc_by_g()
+    pre_process_lms_soc_by_g()
 
 
 def pre_process_lms_sic() -> None:
@@ -75,35 +75,9 @@ def pre_process_lms_sic() -> None:
     )
     # TODO numbers under 10,000?
 
-    # Interpolate for the years we want
-    max_year = max(years)
-    min_year = min(years)
-
-    for year in YEARS_TO_CALCULATE:
-        print(year)
-        if year in sic_rgns.columns:
-            # column already exists so nothing to do
-            pass
-        elif year < min_year:
-            # before first year, raise error for now
-            raise ValueError(
-                f"Unable to extrapolate for {year}, earliest year is {min_year}"
-            )
-        elif year > max_year:
-            # As 2035 is the maximum LM&S year, continue the 2025 to 2035 trend
-            year_a = 2025
-            year_b = 2035
-            year_gap = year_b - year_a
-            perc_of_a = 1 - ((year - year_a) / year_gap)
-            perc_of_b = 1 - perc_of_a
-            sic_rgns[year] = perc_of_a * sic_rgns[year_a] + perc_of_b * sic_rgns[year_b]
-        else:
-            year_a = max([y for y in years if y < year])
-            year_b = min([y for y in years if y > year])
-            year_gap = year_b - year_a
-            perc_of_a = 1 - ((year - year_a) / year_gap)
-            perc_of_b = 1 - perc_of_a
-            sic_rgns[year] = perc_of_a * sic_rgns[year_a] + perc_of_b * sic_rgns[year_b]
+    sic_rgns = pp.infill_for_years(
+        df=sic_rgns, forecast_years=FORECAST_YEARS, extroplate_beyond_end="trend"
+    )
 
     # Prepare for export
     sic_rgns = sic_rgns.rename(columns={"LU_SIC_1_digit": "sic_1_digit"}).astype(
@@ -119,7 +93,7 @@ def pre_process_lms_sic() -> None:
     )
 
     # Output as hdf, ready to be read in as DVector
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
         sic_output = sic_rgns
         # Check for negatives
         count = sic_output[year].lt(0).sum()
@@ -139,7 +113,9 @@ def pre_process_lms_sic() -> None:
         lvls_static[year] = 0
         sic_output = pd.concat([sic_output, lvls_static]).sort_values("sic_1_digit")
 
-        sic_output[f"factor_from_{BASE_YEAR}_to_{year}"] = sic_output[year] / sic_output[BASE_YEAR]
+        sic_output[f"factor_from_{BASE_YEAR}_to_{year}"] = (
+            sic_output[year] / sic_output[BASE_YEAR]
+        )
 
         # Into a wide format for DVector
         df_wide = pp.pivot_to_dvector(
@@ -154,9 +130,11 @@ def pre_process_lms_sic() -> None:
         df_wide = df_wide.fillna(1)
 
         pp.save_preprocessed_hdf(
-            source_file_path=LMS_INPUT_DIR / "LMS_SIC_Ind2" / f"LMS_SIC_1_digit_Ind2_from_{BASE_YEAR}_factors.hdf",
+            source_file_path=LMS_INPUT_DIR
+            / "LMS_SIC_Ind2"
+            / f"LMS_SIC_1_digit_Ind2_from_{BASE_YEAR}_factors.hdf",
             df=df_wide,
-            key=f"factors_from_{BASE_YEAR}_to_{year}"
+            key=f"factors_from_{BASE_YEAR}_to_{year}",
             mode="a",
         )
 
@@ -199,30 +177,9 @@ def pre_process_lms_soc_by_g() -> None:
     # Get jobs into 1000s
     soc_rgns[years] = soc_rgns[years] * 1000
 
-    # now need to work on interpolating for the years we want
-    max_year = max(years)
-    min_year = min(years)
-
-    for year in YEARS_TO_CALCULATE:
-        print(year)
-        if year in soc_rgns.columns:
-            # column already exists so nothing to do
-            pass
-        elif year > max_year:
-            # beyond year end so for soc we just take the last year as using it for proportions
-            soc_rgns[year] = soc_rgns[max_year]
-        elif year < min_year:
-            # before first year, raise error for now
-            raise ValueError(
-                f"Unable to extrapolate for {year}, earliest year is {min_year}"
-            )
-        else:
-            year_a = max([y for y in years if y < year])
-            year_b = min([y for y in years if y > year])
-            year_gap = year_b - year_a
-            perc_of_a = 1 - ((year - year_a) / year_gap)
-            perc_of_b = 1 - perc_of_a
-            soc_rgns[year] = perc_of_a * soc_rgns[year_a] + perc_of_b * soc_rgns[year_b]
+    soc_rgns = pp.infill_for_years(
+        df=soc_rgns, forecast_years=FORECAST_YEARS, extroplate_beyond_end="static"
+    )
 
     # prepare for export
     soc_rgns = soc_rgns.astype({"SOC": "int"}).rename(columns={"SOC": "soc"})
@@ -244,7 +201,7 @@ def pre_process_lms_soc_by_g() -> None:
     )
 
     # Output as hdf, ready to be read in as DVector
-    for year in YEARS_TO_CALCULATE:
+    for year in FORECAST_YEARS:
 
         soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
             soc_rgns.groupby(["region", "g"])[year].transform("sum")

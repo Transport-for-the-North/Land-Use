@@ -594,3 +594,69 @@ def convert_price_base(
     data[f'{new_column}_{_MODEL_PRICE_BASE}'] = data[f'{new_column}_{_MODEL_PRICE_BASE}'].astype(int)
 
     return data
+
+
+def infill_for_years(
+    df: pd.DataFrame,
+    forecast_years: list[int],
+    extroplate_beyond_end: Literal["static", "trend", "forbid"],
+    min_reasonable_year: int = 1000,
+    max_reasonable_year: int = 3000,
+):
+
+    years_in_df = [int(yr) for yr in df.columns if str(yr).isnumeric()]
+    years_in_df.sort()
+    min_year = years_in_df[0]
+    max_year = years_in_df[-1]
+    second_largest_year = years_in_df[-2]  # as it is sorted
+
+    ### Checking inputs make sense/are compatible
+    # make sure infered years are reasonable and not happening to be another column with a numeric name
+    error_suffix = "this seems unlikely, and suggests an input/code incompatibility, where the column isn't a year."
+    if min_year < min_reasonable_year:
+        raise ValueError(f"Lowest year provided is {min_year}, {error_suffix}")
+    if max_year > max_reasonable_year:
+        raise ValueError(f"Highest year provided is {max_year}, {error_suffix}")
+    if len(years_in_df) < 2:
+        raise ValueError(
+            f"Unable to infill as only found {len(years_in_df)} year in provided df: {years_in_df}."
+        )
+    if min(forecast_years) < min_year:
+        # before first year, raise error for now
+        raise NotImplementedError(
+            f"Unable to extrapolate backwards for {min(forecast_years)}, earliest year is {min_year}"
+        )
+    non_numeric_forecast_years = [y for y in forecast_years if not str(y).isnumeric()]
+    if len(non_numeric_forecast_years):
+        raise ValueError(f"The following requested forecasts year are not numbers {non_numeric_forecast_years}.")
+    if extroplate_beyond_end == "forbid":
+        forecast_years_beyond_final_provided = [y for y in forecast_years if y > max_year]
+        if forecast_years_beyond_final_provided:
+            raise ValueError(
+                f"Some forecast years are beyond the final provided year {max_year},",
+                f"this is not permitted given parameter {extroplate_beyond_end=}."
+                f"{forecast_years}."
+                 )
+
+    # Can now move onto the infilling
+    for year in forecast_years:
+        if year in df.columns:
+            # column already exists
+            pass
+        elif year > max_year and extroplate_beyond_end == "static":
+            # take last provided years as the value
+            df[year] = df[max_year]
+        else:
+            if year < max_year:
+                year_a = max([y for y in years_in_df if y < year])
+                year_b = min([y for y in years_in_df if y > year])
+            elif extroplate_beyond_end == "trend":
+                year_a = second_largest_year
+                year_b = max_year
+            else:
+                raise NotImplementedError(f"Unable to process for {year=}.")
+            year_gap = year_b - year_a
+            perc_of_a = 1 - ((year - year_a) / year_gap)
+            perc_of_b = 1 - perc_of_a
+            df[year] = perc_of_a * df[year_a] + perc_of_b * df[year_b]
+    return df
