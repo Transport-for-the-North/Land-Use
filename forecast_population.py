@@ -235,6 +235,13 @@ def process_households_for_gor(
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("Calculate the households growth targets")
 
+    if "total" in base_hhs.segmentation.names:
+        base_hhs_totals = base_hhs.aggregate(segs=["total"])
+    else:
+        base_hhs_totals = base_hhs.add_segments(new_segs=["total"]).aggregate(
+            segs=["total"]
+        )
+
     base_hhs_totals = base_hhs.add_segments(new_segs=["total"]).aggregate(
         segs=["total"]
     )
