@@ -84,13 +84,13 @@ def process_forecast_emp(config: dict, base_year: int, forecast_year: int) -> No
         output_level=OutputLevel.INTERMEDIATE,
     )
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}.csv",
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
         float_format="%.5f",
         index=False,
     )
     data_processing.write_to_excel(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
-        file=f"{output_reference}.xlsx",
+        file=f"{output_reference}_VALIDATION.xlsx",
         dfs=differences,
     )
 
