@@ -13,7 +13,7 @@ forecast_years:
 - 2053
 
 base_data:
-    base_emp_filepath: C:\Users\kilbys\Desktop\tfn_lu_local_copies\Output E6.hdf
+    base_emp_filepath: F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf
 
 forecast_data:
     # growth factors from base in terms of muliplicative factors e.g., 1.2 means 20% increase
