@@ -115,6 +115,13 @@ def forecast_population_for_gor(
 
     pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors
 
+    # and the lad targets need to be converted to a compatible 2021 zone system, being a combination of lsoa 2021 zones
+    pop_g_adults_targets = pop_g_adults_targets.translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
     # --- Step 3 --- #
     # Calculate the new SOC splits
     LOGGER.info("--- Step 3 ---")
