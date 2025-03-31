@@ -242,10 +242,6 @@ def process_households_for_gor(
             segs=["total"]
         )
 
-    base_hhs_totals = base_hhs.add_segments(new_segs=["total"]).aggregate(
-        segs=["total"]
-    )
-
     base_hhs_children = base_hhs.aggregate(segs=["children"])
 
     base_hhs_totals_gor = base_hhs_totals.translate_zoning(
