@@ -602,7 +602,43 @@ def infill_for_years(
     extroplate_beyond_end: Literal["static", "trend", "forbid"],
     min_reasonable_year: int = 1000,
     max_reasonable_year: int = 3000,
-):
+) -> pd.DataFrame:
+    """Infill a dataframe with additional years. 
+    Data within the provided range of years is extrpolated between the closet provided points.
+    Years before this range are not allowed and raise an error.
+    Behaviour for years after this range depend on the value provided by `extroplate_beyond_end`.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Dataframe with yearly information in columns.
+    forecast_years: list[int]
+        Years you wish to add to the dataframe using interpolation, extrapolation or static trends.
+    extroplate_beyond_end: Literal['static', 'trend', 'forbid']
+        What to do for forecast years that are beyond the final year.
+        static - Use the values provided in the final provided year
+        trend - Continue the trend given by the final provided two years
+        forbid - Do not allow a forecast year beyond the final provided year
+    min_reasonable_year: int, optional, default 1000
+        Lowest year that is expected in the dataset. To avoid pulling out a column that happens to have numeric name.
+    max_reasonable_year: int, optional, default 3000
+        Highest year that is expected in the dataset. To avoid pulling out a column that happens to have numeric name.
+  
+    Raises
+    -------
+    ValueError: If the minimum found year in the df is before min_reasonable_year
+    ValueError: If the maximum found year in the df is after max_reasonable_year
+    ValueError: If only one year is found in the df. Unable to extroplate.
+    NotImplementedError: Not able to forecast before the first year.
+    ValueError: Some of the forecast years asked for are not numeric.
+    ValueError: If extroplate_beyond_end=="forbid" AND some forecast years are beyond the final year.
+    NotImplementedError: Unhandled combination, due to gap in logic.
+
+    Returns
+    -------
+    pd.DataFrame
+        As df but with extra years columns (given by forecast_years).
+    """
 
     years_in_df = [int(yr) for yr in df.columns if str(yr).isnumeric()]
     years_in_df.sort()
