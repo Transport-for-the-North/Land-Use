@@ -213,7 +213,84 @@ def summarise_emp_targets_output(output_file_name: str):
     final_output.to_csv(EMP_ANALYSIS_DIR / f'{output_file_name}.csv')
 
 
+def dvector_segment_comparisons(dvector_dict: dict, output_file_name: Path, forecast_type: str):
+    # %%
+    rgn_code_to_desc = {
+        "E12000001": "NE",
+        "E12000002": "NW",
+        "E12000003": "YH",
+        "E12000004": "EM",
+        "E12000005": "WM",
+        "E12000006": "EoE",
+        "E12000007": "Lon",
+        "E12000008": "SE",
+        "E12000009": "SW",
+        "S92000003": "Scotland",
+        "W92000004": "Wales",
+    }
+    single_seg_totals_and_prop = []
+    for dv_name, dv_path in dvector_dict.items():
+        dv = DVector.load(Path(dv_path))
+
+        dv_rgn = dv.translate_zoning(
+            new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False,
+        )
+        # %%
+        for seg in dv_rgn.segmentation.names:
+            print(seg)
+            dv_seg = dv_rgn.aggregate([seg])
+
+            df = dv_seg.data.reset_index()
+
+            df["seg"] = seg
+            df = df.rename(columns={seg: "seg_value"})
+
+            df = df.rename(columns=rgn_code_to_desc)
+            df_long = df.melt(id_vars=["seg", "seg_value"], var_name="rgn")
+
+            df_long["prop"] = df_long["value"] / df_long.groupby("rgn")["value"].transform("sum")
+
+            if forecast_type == "emp":
+                if seg == "soc":
+                    df_long_exc_some = df_long[df_long["seg_value"] != 4]
+                if seg in ["sic_1_digit", "sic_2_digit", "sic_4_digit"]:
+                    df_long_exc_some = df_long[df_long["seg_value"] > 0]
+
+                df_long_exc_some = df_long_exc_some.copy()
+
+                df_long_exc_some["prop_excluding"] = df_long_exc_some["value"] / df_long_exc_some.groupby(
+                    "rgn")["value"].transform("sum")
+
+                df_combined = pd.merge(df_long, df_long_exc_some, how="outer")
+            else:
+                df_combined = df_long.copy()
+                df_combined["output_name"] = dv_name
+
+            single_seg_totals_and_prop.append(df_combined)
+
+    single_seg_df = pd.concat(single_seg_totals_and_prop)
+
+    print(single_seg_df)
+    single_seg_df.to_csv(output_file_name)
+
+
 # summarise_population_outputs(output_file_name='population_forecast_output_summary_20250321')
 # summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250321')
 # summarise_emp_outputs(output_file_name='employment_forecast_output_summary')
 # summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
+dvector_segment_comparisons(dvector_dict={
+    "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
+    "2043": r"F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config"
+            r"\01_Intermediate Files\Output Emp_SIC_1_digit_2043.hdf"},
+    output_file_name=Path(r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"),
+    forecast_type="emp")
+
+# dvector_segment_comparisons(dvector_dict={
+#     "2023_LU_Base": r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P11_EM.hdf",
+#     "2043": r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config"
+#             r"\01_Intermediate Files\forecast_population_age_g_soc_children_EM_2043.hdf"},
+#     output_file_name=Path(r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"),
+#     forecast_type="pop")
