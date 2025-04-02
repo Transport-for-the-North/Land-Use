@@ -326,7 +326,7 @@ def process_households_for_gor(
     if output_targets:
         data_processing.save_output(
             output_folder=OUTPUT_DIR,
-            output_reference=f"hh_totals_targets_{forecast_year}_{gor}",
+            output_reference=f"hh_totals_targets_{gor}_{forecast_year}",
             dvector=hh_totals_targets,
             dvector_dimension="households",
             output_level=OutputLevel.INTERMEDIATE,
@@ -334,7 +334,7 @@ def process_households_for_gor(
 
         data_processing.save_output(
             output_folder=OUTPUT_DIR,
-            output_reference=f"hh_children_targets_{forecast_year}_{gor}",
+            output_reference=f"hh_children_targets_{gor}_{forecast_year}",
             dvector=hh_children_targets,
             dvector_dimension="households",
             output_level=OutputLevel.INTERMEDIATE,
@@ -342,7 +342,7 @@ def process_households_for_gor(
 
         data_processing.save_output(
             output_folder=OUTPUT_DIR,
-            output_reference=f"hh_adults_targets_{forecast_year}_{gor}",
+            output_reference=f"hh_adults_targets_{gor}_{forecast_year}",
             dvector=hh_adults_targets,
             dvector_dimension="households",
             output_level=OutputLevel.INTERMEDIATE,
