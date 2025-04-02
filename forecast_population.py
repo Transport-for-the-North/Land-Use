@@ -291,7 +291,7 @@ def process_households_for_gor(
         target_dvectors=[hh_children_targets, hh_totals_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
-    output_reference = f"forecast_population_age_g_soc_children_{gor}_{forecast_year}"
+    output_reference = f"Households_{gor}_{forecast_year}"
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=output_reference,

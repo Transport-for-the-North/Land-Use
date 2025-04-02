@@ -564,7 +564,7 @@ def pre_process_obr() -> None:
 
 
 def process_and_save_projections_1_adult_hhs():
-    # This function processes the households data into 1 adult male and female households, by local authority (2019)
+    # This function processes the households data into 1 adult by gender and not by gender, by local authority (2019)
 
     rgn_corr = fetch_region_correspondence()
     years = [year for year in range(2018, 2044)]
@@ -673,24 +673,35 @@ def process_and_save_projections_1_adult_hhs():
     hh_projs["adults"] = 1
     hh_projs.columns = [str(col) for col in hh_projs.columns]
 
+    columns_to_sum = [col for col in hh_projs.columns if col.isdigit()]
+    hh_projs_by_g = hh_projs.copy()
+    hh_projs_no_g = hh_projs.groupby(by=["CODE", "adults"], as_index=False)[columns_to_sum].sum()
+
     for year in FORECAST_YEARS:
+        for x in ["g", "no_g"]:
+            if x == "g":
+                hh_projs_output = hh_projs_by_g.copy()
+                index_columns = ["g", "adults"]
+            else:
+                hh_projs_output = hh_projs_no_g.copy()
+                index_columns = ["adults"]
 
-        hh_projs[f"{year}_factor"] = hh_projs[str(year)] / hh_projs[str(BASE_YEAR)]
+            hh_projs_output[f"{year}_factor"] = hh_projs_output[str(year)] / hh_projs_output[str(BASE_YEAR)]
 
-        # Into a wide format for DVector
-        hh_projs_wide = pp.pivot_to_dvector(
-            data=hh_projs,
-            zoning_column="CODE",
-            index_cols=["g", "adults"],
-            value_column=f"{year}_factor",
-        )
-        pp.save_preprocessed_hdf(
-            source_file_path=HOUSEHOLDS_DIR
-            / f"hh_1_adult_by_g_from_{BASE_YEAR}_factors.hdf",
-            df=hh_projs_wide,
-            key=f"factors_from_{BASE_YEAR}_to_{year}",
-            mode="a",
-        )
+            # Into a wide format for DVector
+            hh_projs_wide = pp.pivot_to_dvector(
+                data=hh_projs_output,
+                zoning_column="CODE",
+                index_cols=index_columns,
+                value_column=f"{year}_factor",
+            )
+            pp.save_preprocessed_hdf(
+                source_file_path=HOUSEHOLDS_DIR
+                / f"hh_1_adult_by_{x}_from_{BASE_YEAR}_factors.hdf",
+                df=hh_projs_wide,
+                key=f"factors_from_{BASE_YEAR}_to_{year}",
+                mode="a",
+            )
 
 
 # %%

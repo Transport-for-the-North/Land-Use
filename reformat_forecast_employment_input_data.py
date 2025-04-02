@@ -23,7 +23,7 @@ REGION_CORRESPONDENCE = pd.read_csv(
 
 def main():
     pre_process_lms_sic()
-    pre_process_lms_soc_by_g()
+    pre_process_lms_soc_by_g(separate_by_g=True)
 
 
 def pre_process_lms_sic() -> None:
@@ -139,19 +139,26 @@ def pre_process_lms_sic() -> None:
         )
 
 
-def pre_process_lms_soc_by_g() -> None:
+def pre_process_lms_soc_by_g(separate_by_g: bool) -> None:
     soc = []
     # Read in and format the LM&S data for each region
     for region in REGION_CORRESPONDENCE["RGN21NM"]:
-        for g in ["Males", "Females"]:
+        if separate_by_g:
+            for g in ["Males", "Females"]:
+                df = pd.read_csv(
+                    LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{g}_{region}.csv",
+                    header=[0],
+                    skiprows=[1, 11, 12],
+                )
+                df["g"] = g
+        else:
             df = pd.read_csv(
-                LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{g}_{region}.csv",
+                LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{region}.csv",
                 header=[0],
                 skiprows=[1, 11, 12],
             )
-            df["region"] = region
-            df["g"] = g
-            soc.append(df)
+        df["region"] = region
+        soc.append(df)
     soc_rgns = pd.concat(soc)
 
     # Map LM&S industries to our segmentation
@@ -184,7 +191,6 @@ def pre_process_lms_soc_by_g() -> None:
     # prepare for export
     soc_rgns = soc_rgns.astype({"SOC": "int"}).rename(columns={"SOC": "soc"})
 
-    soc_rgns["g"] = soc_rgns["g"].map({"Males": 1, "Females": 2})
 
     # Remap region back to codes
     soc_rgns["region"] = soc_rgns["region"].map(
@@ -194,18 +200,33 @@ def pre_process_lms_soc_by_g() -> None:
         )
     )
 
-    soc_rgns = soc_rgns.groupby(["soc", "region", "g"]).sum().reset_index()
-
-    soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
-        soc_rgns.groupby(["region", "g"])[BASE_YEAR].transform("sum")
-    )
+    if separate_by_g:
+        soc_rgns["g"] = soc_rgns["g"].map({"Males": 1, "Females": 2})
+        soc_rgns = soc_rgns.groupby(["soc", "region", "g"]).sum().reset_index()
+        soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
+            soc_rgns.groupby(["region", "g"])[BASE_YEAR].transform("sum")
+        )
+    else:
+        soc_rgns = soc_rgns.groupby(["soc", "region"]).sum().reset_index()
+        soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
+            soc_rgns.groupby(["region"])[BASE_YEAR].transform("sum")
+        )
 
     # Output as hdf, ready to be read in as DVector
     for year in FORECAST_YEARS:
 
-        soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
-            soc_rgns.groupby(["region", "g"])[year].transform("sum")
-        )
+        if separate_by_g:
+            soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
+                soc_rgns.groupby(["region", "g"])[year].transform("sum")
+            )
+            index_columns = ["g", "soc"]
+            out_stem = f"soc_pp_change_from_{BASE_YEAR}.hdf"
+        else:
+            soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
+                soc_rgns.groupby(["region"])[year].transform("sum")
+            )
+            index_columns = ["soc"]
+            out_stem = f"soc_no_g_pp_change_from_{BASE_YEAR}.hdf"
 
         soc_rgns[f"soc_pp_change_from_{BASE_YEAR}_to_{year}"] = (
             soc_rgns[f"soc_prop_{year}"] - soc_rgns[f"soc_prop_{BASE_YEAR}"]
@@ -222,10 +243,9 @@ def pre_process_lms_soc_by_g() -> None:
         df_wide = pp.pivot_to_dvector(
             data=soc_rgns,
             zoning_column="region",
-            index_cols=["g", "soc"],
+            index_cols=index_columns,
             value_column=f"soc_pp_change_from_{BASE_YEAR}_to_{year}",
         )
-        out_stem = f"soc_pp_change_from_{BASE_YEAR}.hdf"
         pp.save_preprocessed_hdf(
             source_file_path=LMS_INPUT_DIR / "LMS_SOC" / out_stem,
             df=df_wide,
