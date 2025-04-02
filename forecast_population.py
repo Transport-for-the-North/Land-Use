@@ -208,8 +208,9 @@ def forecast_population_for_gor(
 
 
 def process_households_for_gor(
-    config: dict, base_year: int, forecast_year: int, gor: str
+        config: dict, base_year: int, forecast_year: int, gor: str
 ):
+    output_targets = config["output_targets"]
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     # Read in the data
@@ -228,6 +229,14 @@ def process_households_for_gor(
         config=config,
         data_block="forecast_data",
         key="pop_household_children_growth_factors",
+        geography_subset=gor,
+        hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
+    )
+
+    single_adults_growth_factors = data_processing.read_dvector_from_config(
+        config=config,
+        data_block="forecast_data",
+        key="pop_single_household_adult_growth_factor_no_g",
         geography_subset=gor,
         hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
     )
@@ -267,20 +276,23 @@ def process_households_for_gor(
 
     hh_children_targets = base_hhs_children_gor * children_growth_factor
 
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"hh_totals_targets_{forecast_year}_{gor}",
-        dvector=hh_totals_targets,
-        dvector_dimension="households",
-        output_level=OutputLevel.INTERMEDIATE,
+    base_hh_single_adults = base_hhs.aggregate(segs=["adults"]).filter_segment_value(
+        "adults", [1]
     )
 
-    data_processing.save_output(
-        output_folder=OUTPUT_DIR,
-        output_reference=f"hh_children_targets_{forecast_year}_{gor}",
-        dvector=hh_children_targets,
-        dvector_dimension="households",
-        output_level=OutputLevel.INTERMEDIATE,
+    base_hh_single_adults_lad19 = base_hh_single_adults.translate_zoning(
+        new_zoning=single_adults_growth_factors.zoning_system,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+    )
+
+    hh_single_adults_targets = base_hh_single_adults_lad19 * single_adults_growth_factors
+
+    # and the lad targets need to be converted to a compatible 2021 zone system, being a combination of lsoa 2021 zones
+    hh_adults_targets = hh_single_adults_targets.translate_zoning(
+        new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
     )
 
     # --- Step 2 --- #
@@ -288,7 +300,7 @@ def process_households_for_gor(
     # Apply the IPF to targets based on children and total households
     rebalanced_hhs, summary, differences = data_processing.apply_ipf(
         seed_data=base_hhs,
-        target_dvectors=[hh_children_targets, hh_totals_targets],
+        target_dvectors=[hh_children_targets, hh_adults_targets, hh_totals_targets],
         cache_folder=constants.CACHE_FOLDER,
     )
     output_reference = f"Households_{gor}_{forecast_year}"
@@ -310,6 +322,31 @@ def process_households_for_gor(
         file=f"{output_reference}_VALIDATION.xlsx",
         dfs=differences,
     )
+
+    if output_targets:
+        data_processing.save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=f"hh_totals_targets_{forecast_year}_{gor}",
+            dvector=hh_totals_targets,
+            dvector_dimension="households",
+            output_level=OutputLevel.INTERMEDIATE,
+        )
+
+        data_processing.save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=f"hh_children_targets_{forecast_year}_{gor}",
+            dvector=hh_children_targets,
+            dvector_dimension="households",
+            output_level=OutputLevel.INTERMEDIATE,
+        )
+
+        data_processing.save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=f"hh_adults_targets_{forecast_year}_{gor}",
+            dvector=hh_adults_targets,
+            dvector_dimension="households",
+            output_level=OutputLevel.INTERMEDIATE,
+        )
 
 
 # %%
