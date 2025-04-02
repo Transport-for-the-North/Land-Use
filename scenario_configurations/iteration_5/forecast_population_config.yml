@@ -52,6 +52,11 @@ forecast_data:
         file_path: ONS\forecasting\hh_projs\preprocessing\hh_1_adult_by_g_from_2023_factors.hdf
         geographical_level: LAD2019_EWS
         input_segments: [g, adults]
+
+    pop_single_household_adult_growth_factor_no_g:
+        file_path: ONS\forecasting\hh_projs\preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf
+        geographical_level: LAD2019_EWS
+        input_segments: [adults]
     
     pop_household_growth_factors:
         file_path: ONS\forecasting\hh_projs\preprocessing\hh_totals_from_2023_factors.hdf
