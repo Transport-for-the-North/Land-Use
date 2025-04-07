@@ -184,12 +184,44 @@ def summarise_dvector(
     #         float_format='%.5f'
     #     )
 
+def find_segment_totals(dvec:DVector, dimension:str) -> pd.DataFrame:
+    """Function to return the segment totals for all segments within a DVector.
+
+    Parameters
+    ----------
+    dvector : DVector
+        DVector to summarise
+    dimension : str
+        Dimension of the DVector.data (e.g. maybe 'households' or 'population'),
+        something to help the user know what totals are being logged. Though not used in the output.
+
+    Returns
+    -------
+    pd.DataFrame
+        with columns giving the seementation, segment description and total in the provided DVector.
+    """
+
+    seg_summary = summary_reporting(dvector=dvec, dimension=dimension)
+
+    segment_totals_all_segs = []
+    for segment, seg_dictionary in seg_summary.items():
+        segment_totals = pd.DataFrame(
+            {
+                "segmentation": segment,
+                "segment_desc": seg_dictionary.keys(),
+                "value": seg_dictionary.values(),
+            }
+        )
+        segment_totals_all_segs.append(segment_totals)
+
+    return pd.concat(segment_totals_all_segs)
+
 
 def summary_reporting(
         dvector: DVector,
         dimension: str,
         detailed_logs: bool = False
-    ):
+    ) -> dict[str, dict[str, str]]:
     """Function to log matrix totals to the log file (and prompt)
 
     Parameters
@@ -216,16 +248,20 @@ def summary_reporting(
     # Remove the zoning
     non_spatial = dvector.remove_zoning()
     total = non_spatial.total
+    tracked_totals = dict()
     for segmentation in dvector.segmentation.naming_order:
         summary = non_spatial.aggregate([segmentation])
 
         # Get lookup from numeric labels to descriptions
         mapping = dvector.segmentation.seg_dict[segmentation].values
-        values = {desc: f"{summary.data.get(key, 0):,.0f}" for key, desc in mapping.items()}
-        proportions = {desc: f"{summary.data.get(key, 0)/total:.0%}" for key, desc in mapping.items()}
+        values = {desc: summary.data.get(key, 0) for key, desc in mapping.items()}
+        str_values = {k: f"{v:,.0f}" for k, v in values.items()}
+        proportions = {k: f"{v/total:.0%}" for k, v in values.items()}
 
-        log_level(f'{segmentation} values: {values}')
+        log_level(f'{segmentation} values: {str_values}')
         log_level(f'{segmentation} proportions: {proportions}')
+        tracked_totals[segmentation] = values
+    return tracked_totals
 
 
 def save_output(
