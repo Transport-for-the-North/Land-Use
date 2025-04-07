@@ -96,7 +96,7 @@ def read_dvector_data(
         input_file = Path(file_path)
     else:
         input_file = Path(input_root_directory) / Path(file_path)
-    LOGGER.info(f'Reading in {input_file}')
+    LOGGER.info(f'Reading in {input_file}, with hdf_key of {hdf_key}.')
     # note this key is required in the save_processed_hdf()
     df = pd.read_hdf(input_file, key=hdf_key)
 
