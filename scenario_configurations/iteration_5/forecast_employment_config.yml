@@ -2,22 +2,27 @@
 # All files here are assumed to be in a format ready for DVectors.
 # As the config is likely to be used for multiple files then the key will include the forecast year
 
-input_root_directory: I:\NorMITs Land Use\2023\import
+input_root_directory: F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment
 output_directory: F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config
-output_intermediate_outputs: False
-output_targets: True
 
 base_year: 2023
 forecast_years: 
 - 2043
-- 2053
 
 base_data:
     base_emp_filepath: F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf
 
 forecast_data:
     # growth factors from base in terms of muliplicative factors e.g., 1.2 means 20% increase
-    sic_employment_growth_factor:
-        file_path: Labour Market and Skills\LMS_SIC_Ind2\preprocessing\LMS_SIC_1_digit_Ind2_from_2023_factors.hdf
+    sic_targets:
+        file_path: sic_targets.hdf
         geographical_level: RGN2021+SCOTLANDRGN
         input_segments: [sic_1_digit]
+
+    # implied change in soc splits (soc 1-3) between base and forecast year
+    # 0.05 would mean that combination increases by 5% (e.g., 30% to 35%) 
+    # note this does not includes a gender split (as employment is not reported by gender)
+    soc_targets:
+        file_path: soc_targets.hdf
+        geographical_level: RGN2021+SCOTLANDRGN
+        input_segments: [soc]
