@@ -21,6 +21,20 @@ EMP_ANALYSIS_DIR = Path(
 pop_years_to_extract = [2033, 2038, 2043, 2048, 2053]
 emp_years_to_extract = [2033, 2038, 2043, 2048, 2053]
 
+rgn_code_to_desc = {
+    "E12000001": "NE",
+    "E12000002": "NW",
+    "E12000003": "YH",
+    "E12000004": "EM",
+    "E12000005": "WM",
+    "E12000006": "EoE",
+    "E12000007": "Lon",
+    "E12000008": "SE",
+    "E12000009": "SW",
+    "S92000003": "Scotland",
+    "W92000004": "Wales",
+}
+
 
 def summarise_population_outputs(output_file_name: str):
     # Create a summary table of the output hdfs from the main process
@@ -365,23 +379,52 @@ def summarise_emp_targets_output(output_file_name: str):
     final_output.to_csv(EMP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
 
+def summarise_household_outputs(output_file_name: str, years_to_extract: list):
+    # Create a summary table of the output hdfs from the main process
+
+    final_dfs = []
+    for year in years_to_extract:
+        for rgn in constants.GORS + ["Scotland"]:
+            print(f"Summarising for {year}, {rgn}")
+            if year == 2023:
+                dv = DVector.load(
+                    Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{rgn}.hdf"))
+            else:
+                dv = DVector.load(
+                    Path(fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files\Households_{rgn}_{year}.hdf"))
+
+            dv_translated = dv.translate_zoning(
+                new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.SPATIAL,
+                check_totals=False
+            )
+
+            for seg in dv_translated.segmentation.names:
+                print(seg)
+                # aggregate segmentation
+                df = dv_translated.aggregate([seg])
+                df = df.data.reset_index()
+
+                df["seg"] = seg
+                df = df.rename(columns={seg: "seg_value"})
+
+                df = df.rename(columns=rgn_code_to_desc)
+                df_long = df.melt(id_vars=["seg", "seg_value"], var_name="rgn")
+
+                df_long["year"] = year
+
+                final_dfs.append(df_long)
+
+    final_output = pd.concat(final_dfs)
+
+    final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
+
+
 def dvector_segment_comparisons(
     dvector_dict: dict, output_file_name: Path, forecast_type: str
 ):
     # %%
-    rgn_code_to_desc = {
-        "E12000001": "NE",
-        "E12000002": "NW",
-        "E12000003": "YH",
-        "E12000004": "EM",
-        "E12000005": "WM",
-        "E12000006": "EoE",
-        "E12000007": "Lon",
-        "E12000008": "SE",
-        "E12000009": "SW",
-        "S92000003": "Scotland",
-        "W92000004": "Wales",
-    }
     single_seg_totals_and_prop = []
     for dv_name, dv_path in dvector_dict.items():
         dv = DVector.load(Path(dv_path))
@@ -434,10 +477,97 @@ def dvector_segment_comparisons(
     single_seg_df.to_csv(output_file_name)
 
 
+def calculate_occupancies(forecast_pop_path: str, forecast_hh_path: str, forecast_years: int):
+    forecast_years = [2043, 2053]
+    base_pop_path = Path(
+        fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
+    forecast_pop_path = Path(
+        fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files")
+
+    base = []
+    base_rgn = []
+    f_years = []
+    f_years_rgn = []
+    for rgn in constants.GORS + ["Scotland"]:
+        base_pop = DVector.load(base_pop_path / fr"Output P11_{rgn}.hdf")
+        base_hh = DVector.load(base_pop_path / fr"Output P13.3_{rgn}.hdf")
+
+        base_pop_agg = base_pop.aggregate(["accom_h"])
+        base_hh_agg = base_hh.aggregate(["accom_h"])
+
+        base_pop_agg_rgn = base_pop_agg.translate_zoning(
+            new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False
+        )
+        base_hh_agg_rgn = base_hh_agg.translate_zoning(
+            new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False
+        )
+
+        base_occs = base_pop_agg / base_hh_agg
+        base_occs = base_occs.data.T.reset_index(names="LSOA2021")
+        base_occs['year'] = 2023
+
+        base_occs_rgn = base_pop_agg_rgn / base_hh_agg_rgn
+        base_occs_rgn = base_occs_rgn.data.T.reset_index(names="region")
+        base_occs_rgn['year'] = 2023
+
+        base.append(base_occs)
+        base_rgn.append(base_occs_rgn)
+
+        for year in forecast_years:
+            forecast_pop = DVector.load(forecast_pop_path / fr"Population_age_g_soc_{rgn}_{year}.hdf")
+            forecast_hh = DVector.load(forecast_pop_path / fr"Households_{rgn}_{year}.hdf")
+
+            forecast_pop_agg = forecast_pop.aggregate(["accom_h"])
+            forecast_hh_agg = forecast_hh.aggregate(["accom_h"])
+
+            forecast_pop_agg_rgn = forecast_pop_agg.translate_zoning(
+                new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.SPATIAL,
+                check_totals=False
+            )
+            forecast_hh_agg_rgn = forecast_hh_agg.translate_zoning(
+                new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.SPATIAL,
+                check_totals=False
+            )
+
+            forecast_occs = forecast_pop_agg / forecast_hh_agg
+            forecast_occs = forecast_occs.data.T.reset_index(names="LSOA2021")
+            forecast_occs['year'] = year
+
+            forecast_occs_rgn = forecast_pop_agg_rgn / forecast_hh_agg_rgn
+            forecast_occs_rgn = forecast_occs_rgn.data.T.reset_index(names="region")
+            forecast_occs_rgn['year'] = year
+
+            f_years.append(forecast_occs)
+            f_years_rgn.append(forecast_occs_rgn)
+
+    # Format for output
+    output_base = pd.concat(base)
+    output_forecast = pd.concat(f_years)
+    output = pd.concat([output_base, output_forecast])
+    output.to_csv(Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary.csv'))
+
+    output_base_rgn = pd.concat(base_rgn)
+    output_forecast_rgn = pd.concat(f_years_rgn)
+    output_rgn = pd.concat([output_base_rgn, output_forecast_rgn])
+    output_rgn.to_csv(Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn.csv'))
+
+
 # summarise_population_outputs(output_file_name='population_forecast_output_summary_20250321')
 # summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250321')
 # summarise_emp_outputs(output_file_name='employment_forecast_output_summary')
 # summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
+# summarise_household_outputs(output_file_name='household_forecast_output_summary',
+#                             years_to_extract=[2023, 2043, 2053])
 dvector_segment_comparisons(
     dvector_dict={
         "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
