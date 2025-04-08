@@ -181,6 +181,17 @@ def forecast_population_for_gor(
         dfs=differences,
     )
 
+    seg_totals = data_processing.find_segment_totals(
+        dvec=rebalanced_pop, dimension="population"
+    )
+    seg_totals.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE
+        / f"{output_reference}_segment_totals.csv",
+        float_format="%.5f",
+        index=False,
+    )
+
     if output_targets:
         data_processing.save_output(
             output_folder=OUTPUT_DIR,
@@ -321,6 +332,17 @@ def process_households_for_gor(
         output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
         file=f"{output_reference}_VALIDATION.xlsx",
         dfs=differences,
+    )
+
+    seg_totals = data_processing.find_segment_totals(
+        dvec=rebalanced_hhs, dimension="households"
+    )
+    seg_totals.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE
+        / f"{output_reference}_segment_totals.csv",
+        float_format="%.5f",
+        index=False,
     )
 
     if output_targets:
