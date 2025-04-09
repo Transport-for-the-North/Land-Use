@@ -4,8 +4,12 @@ from typing import Literal
 
 import pandas as pd
 import numpy as np
+import os.path
 
 import land_use.preprocessing as pp
+from land_use import constants
+
+from caf.base.data_structures import DVector
 
 # Include the base year in here as we are pivoting from it
 BASE_YEAR = 2023
@@ -54,6 +58,8 @@ CHILDREN_MAPPING = {
 
 # %%
 def main():
+    for rgn in constants.GORS + ["Scotland"]:
+        process_base_to_ntem_age(rgn)
     for forecast_year in range(BASE_YEAR, 2054):
         write_ons_pop_growth_factors_from_base(
             base_year=BASE_YEAR, forecast_year=forecast_year
@@ -702,6 +708,27 @@ def process_and_save_projections_1_adult_hhs():
                 key=f"factors_from_{BASE_YEAR}_to_{year}",
                 mode="a",
             )
+
+
+def process_base_to_ntem_age(rgn: str):
+    input_folder = Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
+    output_folder = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2")
+    output_folder.mkdir(exist_ok=True)
+
+    base_pop_path = input_folder / f"Output P11_{rgn}.hdf"
+    if os.path.exists(output_folder / base_pop_path.name):
+        print(f"Base population file for {rgn} has already been processed to age_ntem and exists in folder")
+    else:
+        print(f"Base population file for {rgn} does not exist, generating now...")
+
+        base_pop = DVector.load(base_pop_path)
+
+        base_pop_ntem_age = base_pop.translate_segment(
+            from_seg="age_9", to_seg="age_ntem", drop_from=True
+        )
+        out_path = output_folder / base_pop_path.name
+
+        base_pop_ntem_age.save(out_path)
 
 
 # %%
