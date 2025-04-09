@@ -104,10 +104,10 @@ parser.add_argument("config_file", type=Path)
 args = parser.parse_args()
 
 with open(args.config_file, "r") as text_file:
-    configuration = yaml.load(text_file, yaml.SafeLoader)
+    config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
-OUTPUT_DIR = Path(configuration["output_directory"])
+OUTPUT_DIR = Path(config["output_directory"])
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 LOGGER = lu_logging.configure_logger(
@@ -120,9 +120,9 @@ shutil.copy(
     dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name,
 )
 
-forecast_years = configuration["forecast_years"]
+forecast_years = config["forecast_years"]
 
-base_emp = fetch_base_emp(config=configuration)
+base_emp = fetch_base_emp(config=config)
 
 for forecast_year in forecast_years:
-    process_forecast_emp(config=configuration, base_emp=base_emp, forecast_year=forecast_year)
+    process_forecast_emp(config=config, base_emp=base_emp, forecast_year=forecast_year)
