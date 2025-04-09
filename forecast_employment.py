@@ -19,6 +19,17 @@ def process_forecast_emp(config: dict, forecast_year: int) -> None:
     base_emp_path = Path(config["base_data"]["base_emp_filepath"])
     base_emp = DVector.load(base_emp_path)
 
+    base_seg_totals = data_processing.find_segment_totals(
+        dvec=base_emp, dimension="employment"
+    )
+    base_seg_totals.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE
+        / "emp_base_segment_totals.csv",
+        float_format="%.5f",
+        index=False,
+    )
+
     # load in sic targets
     sic_targets = data_processing.read_dvector_from_config(
         config=config,
@@ -65,10 +76,10 @@ def process_forecast_emp(config: dict, forecast_year: int) -> None:
         dfs=differences,
     )
 
-    seg_totals = data_processing.find_segment_totals(
+    forecast_seg_totals = data_processing.find_segment_totals(
         dvec=rebalanced_emp, dimension="employment"
     )
-    seg_totals.to_csv(
+    forecast_seg_totals.to_csv(
         OUTPUT_DIR
         / OutputLevel.INTERMEDIATE
         / f"{output_reference}_segment_totals.csv",
