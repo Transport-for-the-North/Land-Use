@@ -12,10 +12,11 @@ from land_use import logging as lu_logging
 from land_use.data_processing import OutputLevel
 
 
-def process_forecast_emp(config: dict, forecast_year: int) -> None:
-
+def fetch_base_emp(config: dict) -> DVector:
     # --- Step 0 --- #
-    # Load in the Base employment output
+    LOGGER.info("--- Step 0 ---")
+    LOGGER.info("Load in the Base employment output")
+    
     base_emp_path = Path(config["base_data"]["base_emp_filepath"])
     base_emp = DVector.load(base_emp_path)
 
@@ -29,8 +30,14 @@ def process_forecast_emp(config: dict, forecast_year: int) -> None:
         float_format="%.5f",
         index=False,
     )
+    return base_emp
 
-    # load in sic targets
+
+def process_forecast_emp(config: dict, base_emp:DVector, forecast_year: int) -> None:
+
+    # --- Step 1 --- #
+    LOGGER.info("--- Step 1 ---")
+    LOGGER.info("load in ipf targets")
     sic_targets = data_processing.read_dvector_from_config(
         config=config,
         data_block="forecast_data",
@@ -38,7 +45,6 @@ def process_forecast_emp(config: dict, forecast_year: int) -> None:
         hdf_key=f"targets_{forecast_year}",
     )
 
-    # load in soc targets
     soc_targets = data_processing.read_dvector_from_config(
         config=config,
         data_block="forecast_data",
@@ -46,8 +52,8 @@ def process_forecast_emp(config: dict, forecast_year: int) -> None:
         hdf_key=f"targets_{forecast_year}",
     )
 
-    # --- Step 1 --- #
-    LOGGER.info("--- Step 1 ---")
+    # --- Step 2 --- #
+    LOGGER.info("--- Step 2 ---")
 
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
@@ -116,5 +122,7 @@ shutil.copy(
 
 forecast_years = configuration["forecast_years"]
 
+base_emp = fetch_base_emp(config=configuration)
+
 for forecast_year in forecast_years:
-    process_forecast_emp(config=configuration, forecast_year=forecast_year)
+    process_forecast_emp(config=configuration, base_emp=base_emp, forecast_year=forecast_year)
