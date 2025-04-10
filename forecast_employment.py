@@ -25,7 +25,7 @@ def fetch_base_emp(config: dict) -> DVector:
         dvec=base_emp, dimension="employment"
     )
 
-    dir_out = OUTPUT_DIR / OutputLevel.INTERMEDIATE
+    dir_out = OUTPUT_DIR / OutputLevel.ASSURANCE
     dir_out.mkdir(parents=True, exist_ok=True)
     path_out = dir_out / "emp_base_segment_totals.csv"
 
@@ -69,7 +69,7 @@ def find_regional_seg_totals(dvec: DVector, output_prefix: str) -> None:
             dvec=base_emp_one_rgn, dimension="employment"
         )
         rgn_seg_totals.to_csv(
-            OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_prefix}_{rgn}.csv",
+            OUTPUT_DIR / OutputLevel.ASSURANCE / f"{output_prefix}_{rgn}.csv",
             float_format="%.5f",
             index=False,
         )
@@ -111,7 +111,7 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
         output_reference=output_reference,
         dvector=rebalanced_emp,
         dvector_dimension="jobs",
-        output_level=OutputLevel.INTERMEDIATE,
+        output_level=OutputLevel.FINAL,
     )
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
@@ -129,7 +129,7 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
     )
     forecast_seg_totals.to_csv(
         OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
+        / OutputLevel.ASSURANCE
         / f"{output_reference}_segment_totals.csv",
         float_format="%.5f",
         index=False,
