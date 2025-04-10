@@ -6,6 +6,7 @@ import shutil
 import yaml
 
 from caf.base.data_structures import DVector
+from caf.base.zoning import TranslationWeighting
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
@@ -30,7 +31,47 @@ def fetch_base_emp(config: dict) -> DVector:
         float_format="%.5f",
         index=False,
     )
+
+    # and for the regional ones
+    find_regional_seg_totals(dvec=base_emp, output_prefix="emp_base_segment_totals")
+
     return base_emp
+
+
+def find_regional_seg_totals(dvec:DVector, output_prefix:str) -> None:
+
+    # convert to region zone system (one column for each region)
+    dvec_rgn = dvec.translate_zoning(
+        new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.SPATIAL,
+        check_totals=False,
+    )
+
+    rgns = constants.GORS
+
+    rgns.append("Scotland")
+
+    # and find segment totals for each region
+    for rgn in rgns:
+
+        base_emp_one_rgn = dvec_rgn.translate_zoning(
+            new_zoning=constants.KNOWN_GEOGRAPHIES[f"RGN2021-{rgn}"],
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False,
+        )
+
+        rgn_seg_totals = data_processing.find_segment_totals(
+            dvec=base_emp_one_rgn, dimension="employment"
+        )
+        rgn_seg_totals.to_csv(
+            OUTPUT_DIR
+            / OutputLevel.INTERMEDIATE
+            / f"{output_prefix}_{rgn}.csv",
+            float_format="%.5f",
+            index=False,
+        )
 
 
 def process_forecast_emp(config: dict, base_emp:DVector, forecast_year: int) -> None:
@@ -92,6 +133,9 @@ def process_forecast_emp(config: dict, base_emp:DVector, forecast_year: int) -> 
         float_format="%.5f",
         index=False,
     )
+
+    # and for the regional ones
+    find_regional_seg_totals(dvec=base_emp, output_prefix=output_reference)
 
 
 # %%
