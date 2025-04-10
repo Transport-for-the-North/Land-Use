@@ -105,7 +105,7 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
         cache_folder=constants.CACHE_FOLDER,
     )
 
-    output_reference = f"Output Emp_sic_soc_{forecast_year}"
+    output_reference = f"Output Emp_{forecast_year}"
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=output_reference,
