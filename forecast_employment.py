@@ -17,7 +17,7 @@ def fetch_base_emp(config: dict) -> DVector:
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
     LOGGER.info("Load in the Base employment output")
-    
+
     base_emp_path = Path(config["base_data"]["base_emp_filepath"])
     base_emp = DVector.load(base_emp_path)
 
@@ -25,9 +25,7 @@ def fetch_base_emp(config: dict) -> DVector:
         dvec=base_emp, dimension="employment"
     )
     base_seg_totals.to_csv(
-        OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
-        / "emp_base_segment_totals.csv",
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / "emp_base_segment_totals.csv",
         float_format="%.5f",
         index=False,
     )
@@ -38,7 +36,7 @@ def fetch_base_emp(config: dict) -> DVector:
     return base_emp
 
 
-def find_regional_seg_totals(dvec:DVector, output_prefix:str) -> None:
+def find_regional_seg_totals(dvec: DVector, output_prefix: str) -> None:
 
     # convert to region zone system (one column for each region)
     dvec_rgn = dvec.translate_zoning(
@@ -66,15 +64,13 @@ def find_regional_seg_totals(dvec:DVector, output_prefix:str) -> None:
             dvec=base_emp_one_rgn, dimension="employment"
         )
         rgn_seg_totals.to_csv(
-            OUTPUT_DIR
-            / OutputLevel.INTERMEDIATE
-            / f"{output_prefix}_{rgn}.csv",
+            OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_prefix}_{rgn}.csv",
             float_format="%.5f",
             index=False,
         )
 
 
-def process_forecast_emp(config: dict, base_emp:DVector, forecast_year: int) -> None:
+def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) -> None:
 
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
@@ -135,7 +131,9 @@ def process_forecast_emp(config: dict, base_emp:DVector, forecast_year: int) -> 
     )
 
     # and for the regional ones
-    find_regional_seg_totals(dvec=base_emp, output_prefix=output_reference)
+    find_regional_seg_totals(
+        dvec=rebalanced_emp, output_prefix=f"{output_reference}_segment_totals"
+    )
 
 
 # %%
