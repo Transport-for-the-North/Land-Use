@@ -5,13 +5,22 @@ import logging
 import land_use.preprocessing as pp
 
 
+from caf.base.data_structures import DVector
+from caf.base.zoning import TranslationWeighting
+
+from land_use import constants
+
+
 # Include the base year in here as we are pivoting from it
 BASE_YEAR = 2023
 FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
 
+BASE_EMP_DV = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf")
+
 LOGGER = logging.getLogger(__name__)
 
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
+IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment")
 
 REGION_CORRESPONDENCE = pd.read_csv(
     Path(
@@ -21,12 +30,118 @@ REGION_CORRESPONDENCE = pd.read_csv(
 )
 
 
+def return_base_as_rgn() -> DVector:
+    base_dv = DVector.load(BASE_EMP_DV)
+
+    base_dv_rgn = base_dv.translate_zoning(
+        new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.SPATIAL,
+        check_totals=False,
+    )
+
+    return base_dv_rgn
+
+
 def main():
-    pre_process_lms_sic()
-    pre_process_lms_soc_by_g(separate_by_g=True)
+    IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
+
+    # TODO: consider if to move this to population as it is used there.
+    # pre_process_lms_soc_by_g(separate_by_g=True)
+
+    soc_pp_changes = pre_process_lms_soc_by_g(separate_by_g=False)
+
+    base_dv_rgn = return_base_as_rgn()
+    sic_factors_by_year = pre_process_lms_sic()
+
+    for year in FORECAST_YEARS:
+
+        # common hdf key across all outputs
+        hdf_key = f"targets_{year}"
+
+        # creating sic 1 digit targets, and finding totals
+        sic_factors_for_year = sic_factors_by_year[f"{BASE_YEAR}_to_{year}"]
+
+        sic_targets = calc_sic_targets(
+            base_dv_rgn=base_dv_rgn,
+            sic_factors=sic_factors_for_year,
+            path_out=IPF_TARGET_OUT_DIR / "sic_targets.hdf",
+            hdf_key=hdf_key,
+        )
+
+        yearly_target_total_except_soc_4 = sic_targets.sum()
+
+        # now need to find the soc splits in the base
+        soc_pp_change_for_year = soc_pp_changes[f"{BASE_YEAR}_to_{year}"]
+
+        calc_soc_targets(
+            base_dv=base_dv_rgn,
+            target_total=yearly_target_total_except_soc_4,
+            pp_change_from_base=soc_pp_change_for_year,
+            path_out=IPF_TARGET_OUT_DIR / "soc_targets.hdf",
+            hdf_key=f"targets_{year}",
+        )
 
 
-def pre_process_lms_sic() -> None:
+def calc_soc_targets(
+    base_dv: DVector,
+    target_total: float,
+    pp_change_from_base: pd.DataFrame,
+    path_out: None | Path = None,
+    hdf_key: None | str = "df",
+):
+
+    base_soc_splits = return_base_soc_splits(base_dv)
+
+    target_soc_splits = base_soc_splits + pp_change_from_base
+
+    soc_targets = target_soc_splits * target_total
+
+    if path_out:
+        message = f"writing to {path_out}, with {hdf_key=}"
+        logging.info(message)
+        print(message)
+        soc_targets.to_hdf(path_out, key=hdf_key, mode="a")
+    return soc_targets
+
+
+def calc_sic_targets(
+    base_dv_rgn: DVector,
+    sic_factors: pd.DataFrame,
+    path_out: Path | None = None,
+    hdf_key: None | str = "df",
+) -> DVector:
+    """Calculate the sic targets and return. Optionally write to a hdf (if provided with a path_out).
+    """
+
+    base_dv_rgn_sic_df = base_dv_rgn.aggregate(segs=["sic_1_digit"]).data
+    after_sic_factors = base_dv_rgn_sic_df * sic_factors
+
+    sic_targets = after_sic_factors.groupby(level="sic_1_digit").sum()
+    # remove sic -1, which aligns with soc 4, and also remove 20,21 as they are empty
+    if not path_out:
+        return sic_targets
+
+    sic_targets = sic_targets.loc[list(range(1, 20))]
+    path_out = path_out
+    message = f"writing to {path_out}, with {hdf_key=}"
+    logging.info(message)
+    print(message)
+    sic_targets.to_hdf(path_out, key=hdf_key, mode="a")
+
+    return sic_targets
+
+
+def return_base_soc_splits(base_dv_rgn):
+    base_dv_rgn_soc_df = base_dv_rgn.aggregate(segs=["soc"]).data
+
+    base_dv_rgn_soc_exc_4_df = base_dv_rgn_soc_df.loc[[1, 2, 3]]
+
+    base_soc_splits = base_dv_rgn_soc_exc_4_df / base_dv_rgn_soc_exc_4_df.sum()
+    return base_soc_splits
+
+
+def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
     """
     Function to read in and pre-process the Labour Market & Skills dataset for SIC Industry Table 2
     Outputs totals for each year, based on LM&S growths
@@ -92,7 +207,8 @@ def pre_process_lms_sic() -> None:
         )
     )
 
-    # Output as hdf, ready to be read in as DVector
+    # Output as dictionary, separated by years
+    dfs_wide = {}
     for year in FORECAST_YEARS:
         sic_output = sic_rgns
         # Check for negatives
@@ -126,20 +242,12 @@ def pre_process_lms_sic() -> None:
         )
 
         # infill the nas with 1 (this will be dividing by zero, coming from the static sic levels -1, 20, 21)
-        print("infilled with 1's")
         df_wide = df_wide.fillna(1)
 
-        pp.save_preprocessed_hdf(
-            source_file_path=LMS_INPUT_DIR
-            / "LMS_SIC_Ind2"
-            / f"LMS_SIC_1_digit_Ind2_from_{BASE_YEAR}_factors.hdf",
-            df=df_wide,
-            key=f"factors_from_{BASE_YEAR}_to_{year}",
-            mode="a",
-        )
+        dfs_wide[f"{BASE_YEAR}_to_{year}"] = df_wide
+    return dfs_wide
 
-
-def pre_process_lms_soc_by_g(separate_by_g: bool) -> None:
+def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
     soc = []
     # Read in and format the LM&S data for each region
     for region in REGION_CORRESPONDENCE["RGN21NM"]:
@@ -212,7 +320,8 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> None:
             soc_rgns.groupby(["region"])[BASE_YEAR].transform("sum")
         )
 
-    # Output as hdf, ready to be read in as DVector
+    # Output as dictionary, separated by years
+    dfs_wide = {}
     for year in FORECAST_YEARS:
 
         if separate_by_g:
@@ -220,13 +329,11 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> None:
                 soc_rgns.groupby(["region", "g"])[year].transform("sum")
             )
             index_columns = ["g", "soc"]
-            out_stem = f"soc_pp_change_from_{BASE_YEAR}.hdf"
         else:
             soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
                 soc_rgns.groupby(["region"])[year].transform("sum")
             )
             index_columns = ["soc"]
-            out_stem = f"soc_no_g_pp_change_from_{BASE_YEAR}.hdf"
 
         soc_rgns[f"soc_pp_change_from_{BASE_YEAR}_to_{year}"] = (
             soc_rgns[f"soc_prop_{year}"] - soc_rgns[f"soc_prop_{BASE_YEAR}"]
@@ -246,13 +353,9 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> None:
             index_cols=index_columns,
             value_column=f"soc_pp_change_from_{BASE_YEAR}_to_{year}",
         )
-        pp.save_preprocessed_hdf(
-            source_file_path=LMS_INPUT_DIR / "LMS_SOC" / out_stem,
-            df=df_wide,
-            key=f"change_from_{BASE_YEAR}_to_{year}",
-            mode="a",
-        )
-        print(f"written for {year=}")
+        dfs_wide[f"{BASE_YEAR}_to_{year}"] = df_wide
+
+    return dfs_wide
 
 
 if __name__ == "__main__":
