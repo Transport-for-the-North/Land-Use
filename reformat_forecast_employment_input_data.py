@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import pandas as pd
 import logging
@@ -28,6 +29,16 @@ REGION_CORRESPONDENCE = pd.read_csv(
         "GOR2021_CD_NM_EWS.csv",
     )
 )
+
+# write a read me with reference to the location of the above parameters
+with open(IPF_TARGET_OUT_DIR / "read_me.txt", "w") as f:
+    f.write("Files in this folder created by reformat_forecast_employment_input_data.py\n")
+    f.write(f"Run on {datetime.now()}\n")
+    f.write(f"With the following parameters\n")
+    f.write(f"BASE_YEAR : {BASE_YEAR}\n")
+    f.write(f"FORECAST_YEARS : {FORECAST_YEARS}\n")
+    f.write(f"LMS_INPUT_DIR : {LMS_INPUT_DIR}\n")
+    f.write(f"IPF_TARGET_OUT_DIR : {IPF_TARGET_OUT_DIR}\n")
 
 
 def return_base_as_rgn() -> DVector:
