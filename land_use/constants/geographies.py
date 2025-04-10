@@ -349,6 +349,15 @@ lad19_zone_system = generate_zoning_system(
 )
 LADS19_BY_GOR[lad19_zone_name] = lad19_zone_system
 
+# Generate for Scotland LAD2021
+lad21_zone_name = f'LAD2021-Scotland'
+lad21_zone_system = generate_zoning_system(
+    name=lad21_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2021)' / f'LAD_2021_EWS_Scotland.shp',
+    id_col='lad21cd', desc_col='lad21nm'
+)
+LADS_BY_GOR[lad21_zone_name] = lad21_zone_system
+
 # Expand regions to include a Scotland 'subset' which is the whole of Scotland
 rgn_zone_name = f'RGN2021-Scotland'
 rgn_zone_system = generate_zoning_system(
