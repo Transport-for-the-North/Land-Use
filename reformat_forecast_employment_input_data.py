@@ -36,6 +36,7 @@ with open(IPF_TARGET_OUT_DIR / "read_me.txt", "w") as f:
     f.write(f"Run on {datetime.now()}\n")
     f.write(f"With the following parameters\n")
     f.write(f"BASE_YEAR : {BASE_YEAR}\n")
+    f.write(f"BASE EMP DV : {BASE_EMP_DV}")
     f.write(f"FORECAST_YEARS : {FORECAST_YEARS}\n")
     f.write(f"LMS_INPUT_DIR : {LMS_INPUT_DIR}\n")
     f.write(f"IPF_TARGET_OUT_DIR : {IPF_TARGET_OUT_DIR}\n")
