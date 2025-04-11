@@ -6,23 +6,27 @@ import logging
 import land_use.preprocessing as pp
 
 
+from land_use import logging as lu_logging
+
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
 from land_use import constants
 
-
-# Include the base year in here as we are pivoting from it
+# Parameters
 BASE_YEAR = 2023
+# Include the base year in here as we are pivoting from it
 FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
-
-BASE_EMP_DV = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf")
-
-LOGGER = logging.getLogger(__name__)
-
+# Location of base employment devector which we are pivoting from
+BASE_EMP_DV = Path(
+    r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf"
+)
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
-IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment")
+IPF_TARGET_OUT_DIR = Path(
+    r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test"
+)
 
+# This is fairly fixed and maps the GOR/RGN ONS codes to land use (NE, NW, ...., Lon, Scotland, Wales)
 REGION_CORRESPONDENCE = pd.read_csv(
     Path(
         r"I:\NorMITs Land Use\2023\import\ONS\Correspondence_lists",
@@ -30,16 +34,21 @@ REGION_CORRESPONDENCE = pd.read_csv(
     )
 )
 
-# write a read me with reference to the location of the above parameters
-with open(IPF_TARGET_OUT_DIR / "read_me.txt", "w") as f:
-    f.write("Files in this folder created by reformat_forecast_employment_input_data.py\n")
-    f.write(f"Run on {datetime.now()}\n")
-    f.write(f"With the following parameters\n")
-    f.write(f"BASE_YEAR : {BASE_YEAR}\n")
-    f.write(f"BASE EMP DV : {BASE_EMP_DV}")
-    f.write(f"FORECAST_YEARS : {FORECAST_YEARS}\n")
-    f.write(f"LMS_INPUT_DIR : {LMS_INPUT_DIR}\n")
-    f.write(f"IPF_TARGET_OUT_DIR : {IPF_TARGET_OUT_DIR}\n")
+# Set up logging of key inputs as this helps audit trail
+LOGGER = logging.getLogger(__name__)
+LOGGER = lu_logging.configure_logger(
+    output_dir=IPF_TARGET_OUT_DIR, log_name="reformat_employment_generation_log"
+)
+
+LOGGER.info(f"Process run on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+LOGGER.info(f"{BASE_YEAR=}")
+LOGGER.info(f"{FORECAST_YEARS=}")
+LOGGER.info(f"{BASE_EMP_DV=}")
+LOGGER.info(f"{LMS_INPUT_DIR=}")
+LOGGER.info(f"{IPF_TARGET_OUT_DIR=}")
+
+# REGION_CORRESPONDENCE doesn't need to be logged as it is fairly fixed over time.
+IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
 
 
 def return_base_as_rgn() -> DVector:
@@ -111,8 +120,7 @@ def calc_soc_targets(
 
     if path_out:
         message = f"writing to {path_out}, with {hdf_key=}"
-        logging.info(message)
-        print(message)
+        LOGGER.info(message)
         soc_targets.to_hdf(path_out, key=hdf_key, mode="a")
     return soc_targets
 
@@ -123,8 +131,7 @@ def calc_sic_targets(
     path_out: Path | None = None,
     hdf_key: None | str = "df",
 ) -> DVector:
-    """Calculate the sic targets and return. Optionally write to a hdf (if provided with a path_out).
-    """
+    """Calculate the sic targets and return. Optionally write to a hdf (if provided with a path_out)."""
 
     base_dv_rgn_sic_df = base_dv_rgn.aggregate(segs=["sic_1_digit"]).data
     after_sic_factors = base_dv_rgn_sic_df * sic_factors
@@ -137,8 +144,7 @@ def calc_sic_targets(
     sic_targets = sic_targets.loc[list(range(1, 20))]
     path_out = path_out
     message = f"writing to {path_out}, with {hdf_key=}"
-    logging.info(message)
-    print(message)
+    LOGGER.info(message)
     sic_targets.to_hdf(path_out, key=hdf_key, mode="a")
 
     return sic_targets
@@ -259,6 +265,7 @@ def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
         dfs_wide[f"{BASE_YEAR}_to_{year}"] = df_wide
     return dfs_wide
 
+
 def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
     soc = []
     # Read in and format the LM&S data for each region
@@ -310,7 +317,6 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
 
     # prepare for export
     soc_rgns = soc_rgns.astype({"SOC": "int"}).rename(columns={"SOC": "soc"})
-
 
     # Remap region back to codes
     soc_rgns["region"] = soc_rgns["region"].map(
