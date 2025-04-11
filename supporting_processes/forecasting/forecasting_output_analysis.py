@@ -477,23 +477,23 @@ def dvector_segment_comparisons(
     single_seg_df.to_csv(output_file_name)
 
 
-def calculate_occupancies(forecast_pop_path: str, forecast_hh_path: str, forecast_years: int):
-    forecast_years = [2043, 2053]
-    base_pop_path = Path(
-        fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
-    forecast_pop_path = Path(
-        fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files")
-
+def calculate_occupancies(
+        base_pop_path: Path,
+        forecast_pop_path: Path,
+        forecast_years: list,
+        agg_segment: str
+):
     base = []
     base_rgn = []
     f_years = []
     f_years_rgn = []
     for rgn in constants.GORS + ["Scotland"]:
+        print(fr"Calculating for {rgn}")
         base_pop = DVector.load(base_pop_path / fr"Output P11_{rgn}.hdf")
         base_hh = DVector.load(base_pop_path / fr"Output P13.3_{rgn}.hdf")
 
-        base_pop_agg = base_pop.aggregate(["accom_h"])
-        base_hh_agg = base_hh.aggregate(["accom_h"])
+        base_pop_agg = base_pop.aggregate([agg_segment])
+        base_hh_agg = base_hh.aggregate([agg_segment])
 
         base_pop_agg_rgn = base_pop_agg.translate_zoning(
             new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -520,11 +520,12 @@ def calculate_occupancies(forecast_pop_path: str, forecast_hh_path: str, forecas
         base_rgn.append(base_occs_rgn)
 
         for year in forecast_years:
+            print(fr"Calculating for {year}")
             forecast_pop = DVector.load(forecast_pop_path / fr"Population_age_g_soc_{rgn}_{year}.hdf")
             forecast_hh = DVector.load(forecast_pop_path / fr"Households_{rgn}_{year}.hdf")
 
-            forecast_pop_agg = forecast_pop.aggregate(["accom_h"])
-            forecast_hh_agg = forecast_hh.aggregate(["accom_h"])
+            forecast_pop_agg = forecast_pop.aggregate([agg_segment])
+            forecast_hh_agg = forecast_hh.aggregate([agg_segment])
 
             forecast_pop_agg_rgn = forecast_pop_agg.translate_zoning(
                 new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -554,12 +555,20 @@ def calculate_occupancies(forecast_pop_path: str, forecast_hh_path: str, forecas
     output_base = pd.concat(base)
     output_forecast = pd.concat(f_years)
     output = pd.concat([output_base, output_forecast])
-    output.to_csv(Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary.csv'))
+    output.to_csv(
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_{agg_segment}.csv'),
+        index=False,
+        header=True
+    )
 
     output_base_rgn = pd.concat(base_rgn)
     output_forecast_rgn = pd.concat(f_years_rgn)
     output_rgn = pd.concat([output_base_rgn, output_forecast_rgn])
-    output_rgn.to_csv(Path(r'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn.csv'))
+    output_rgn.to_csv(
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn_{agg_segment}.csv'),
+        index=False,
+        header=True
+    )
 
 
 # summarise_population_outputs(output_file_name='population_forecast_output_summary_20250321')
@@ -568,6 +577,12 @@ def calculate_occupancies(forecast_pop_path: str, forecast_hh_path: str, forecas
 # summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
 # summarise_household_outputs(output_file_name='household_forecast_output_summary',
 #                             years_to_extract=[2023, 2043, 2053])
+calculate_occupancies(forecast_years=[2033, 2038, 2043, 2048, 2053],
+                      base_pop_path=Path(
+                          fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+                      forecast_pop_path=Path(
+                          fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files"),
+                      agg_segment="ns_sec")
 dvector_segment_comparisons(
     dvector_dict={
         "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
