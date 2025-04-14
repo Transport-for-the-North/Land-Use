@@ -7,8 +7,7 @@ from caf.base.zoning import TranslationWeighting
 
 from land_use import constants
 
-POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_population")
-# POP_OUTPUT_DIR = Path(r'F:\Working\Land-Use\temp_forecast_population_testing\20250321')
+POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 POP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop"
@@ -35,6 +34,20 @@ rgn_code_to_desc = {
     "W92000004": "Wales",
 }
 
+region_mapping = {
+        "W92000004": "Wales",
+        "E12000008": "South East",
+        "E12000004": "East Midlands",
+        "E12000005": "West Midlands",
+        "E12000002": "North West",
+        "E12000009": "South West",
+        "E12000007": "London",
+        "E12000003": "Yorkshire and The Humber",
+        "E12000001": "North East",
+        "E12000006": "East of England",
+        "S92000003": "Scotland",
+    }
+
 
 def summarise_population_outputs(output_file_name: str):
     # Create a summary table of the output hdfs from the main process
@@ -54,126 +67,19 @@ def summarise_population_outputs(output_file_name: str):
                 weighting=TranslationWeighting.SPATIAL,
                 check_totals=False,
             )
-            # aggregate segmentation
-            dv1 = dv_translated.aggregate(["age_ntem"])
-            dv2 = dv_translated.aggregate(["g"])
-            dv3 = dv_translated.aggregate(["age_ntem", "g"])
-            dv4 = dv_translated.aggregate(["soc"])
-            # dv5 = dv_translated.aggregate(['children'])
+            for seg in dv_translated.segmentation.names:
+                print(seg)
+                dv_seg = dv_translated.aggregate([seg])
 
-            # stack columns and format
-            dv1 = (
-                dv1.data.stack()
-                .reset_index()
-                .set_axis(["segment", "region", "value"], axis=1)
-            )
-            dv1["segmentation"] = "age_ntem"
-            dv1["filename"] = "population"
-            dv1["output code"] = "population"
-            dv1 = dv1[
-                [
-                    "filename",
-                    "segmentation",
-                    "output code",
-                    "region",
-                    "segment",
-                    "value",
-                ]
-            ]
-            dv1["year"] = year
+                df = dv_seg.data.stack().reset_index()
+                df["seg"] = seg
+                df = df.rename(columns={seg: "seg_value"}).set_axis(["seg_value", "region", "value", "seg"], axis=1)
 
-            # stack columns and format
-            dv2 = (
-                dv2.data.stack()
-                .reset_index()
-                .set_axis(["segment", "region", "value"], axis=1)
-            )
-            dv2["segmentation"] = "g"
-            dv2["filename"] = "population"
-            dv2["output code"] = "population"
-            dv2 = dv2[
-                [
-                    "filename",
-                    "segmentation",
-                    "output code",
-                    "region",
-                    "segment",
-                    "value",
-                ]
-            ]
-            dv2["year"] = year
-
-            dv3 = (
-                dv3.data.stack()
-                .reset_index()
-                .set_axis(["age_ntem", "g", "region", "value"], axis="columns")
-            )
-            dv3["age_ntem"] = dv3["age_ntem"].astype(str)
-            dv3["g"] = dv3["g"].astype(str)
-            dv3["segment"] = dv3["age_ntem"] + "_" + dv3["g"]
-            dv3["segmentation"] = "age_g"
-            dv3["filename"] = "population"
-            dv3["output code"] = "population"
-            dv3 = dv3[
-                [
-                    "filename",
-                    "segmentation",
-                    "output code",
-                    "region",
-                    "segment",
-                    "value",
-                ]
-            ]
-            dv3["year"] = year
-
-            dv4 = (
-                dv4.data.stack()
-                .reset_index()
-                .set_axis(["segment", "region", "value"], axis=1)
-            )
-            dv4["segmentation"] = "soc"
-            dv4["filename"] = "population"
-            dv4["output code"] = "population"
-            dv4 = dv4[
-                [
-                    "filename",
-                    "segmentation",
-                    "output code",
-                    "region",
-                    "segment",
-                    "value",
-                ]
-            ]
-            dv4["year"] = year
-
-            # dv5 = dv5.data.stack().reset_index().set_axis(['segment', 'region', 'value'], axis=1)
-            # dv5['segmentation'] = 'children'
-            # dv5['filename'] = 'population'
-            # dv5['output code'] = 'population'
-            # dv5 = dv5[['filename', 'segmentation', 'output code', 'region', 'segment', 'value']]
-            # dv5['year'] = year
-
-            final_dfs.append(dv1)
-            final_dfs.append(dv2)
-            final_dfs.append(dv3)
-            final_dfs.append(dv4)
-            # final_dfs.append(dv5)
+                df["year"] = year
+                final_dfs.append(df)
 
     final_output = pd.concat(final_dfs)
     # redefine the region names
-    region_mapping = {
-        "W92000004": "Wales",
-        "E12000008": "South East",
-        "E12000004": "East Midlands",
-        "E12000005": "West Midlands",
-        "E12000002": "North West",
-        "E12000009": "South West",
-        "E12000007": "London",
-        "E12000003": "Yorkshire and The Humber",
-        "E12000001": "North East",
-        "E12000006": "East of England",
-        "S92000003": "Scotland",
-    }
     final_output["region"] = final_output["region"].map(region_mapping)
     final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
@@ -183,7 +89,7 @@ def summarise_population_targets_output(output_file_name: str):
     targets_dfs = []
     for year in pop_years_to_extract:
         for rgn in constants.GORS + ["Scotland"]:
-            for output in ["pop_targets", "soc_targets"]:
+            for output in ["pop_targets", "soc_targets", "hh_adults_targets"]:
                 print(f"Summarising for {year}, {rgn}, {output}")
                 dv = DVector.load(
                     Path(
@@ -216,11 +122,11 @@ def summarise_population_targets_output(output_file_name: str):
                             "value",
                         ]
                     ]
-                else:
+                elif output == "soc_targets":
                     dv2 = (
                         dv.data.stack()
                         .reset_index()
-                        .set_axis(["soc", "region", "value"], axis="columns")
+                        .set_axis(["g", "soc", "region", "value"], axis="columns")
                     )
                     dv2["filename"] = f"{output}"
                     dv2["output code"] = f"{output}"
@@ -228,24 +134,23 @@ def summarise_population_targets_output(output_file_name: str):
                     dv2 = dv2[
                         ["filename", "year", "output code", "region", "soc", "value"]
                     ]
+                else:
+                    dv2 = (
+                        dv.data.stack()
+                        .reset_index()
+                        .set_axis(["1_adults_hh", "region", "value"], axis="columns")
+                    )
+                    dv2["filename"] = f"{output}"
+                    dv2["output code"] = f"{output}"
+                    dv2["year"] = year
+                    dv2 = dv2[
+                        ["filename", "year", "output code", "region", "1_adults_hh", "value"]
+                    ]
 
                 targets_dfs.append(dv2)
 
     final_output = pd.concat(targets_dfs)
     # redefine the region names
-    region_mapping = {
-        "W92000004": "Wales",
-        "E12000008": "South East",
-        "E12000004": "East Midlands",
-        "E12000005": "West Midlands",
-        "E12000002": "North West",
-        "E12000009": "South West",
-        "E12000007": "London",
-        "E12000003": "Yorkshire and The Humber",
-        "E12000001": "North East",
-        "E12000006": "East of England",
-        "S92000003": "Scotland",
-    }
     final_output["region"] = final_output["region"].map(region_mapping)
     final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
@@ -390,8 +295,7 @@ def summarise_household_outputs(output_file_name: str, years_to_extract: list):
                 dv = DVector.load(
                     Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{rgn}.hdf"))
             else:
-                dv = DVector.load(
-                    Path(fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files\Households_{rgn}_{year}.hdf"))
+                dv = DVector.load(POP_OUTPUT_DIR / fr"01_Intermediate Files\Households_{rgn}_{year}.hdf")
 
             dv_translated = dv.translate_zoning(
                 new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -571,12 +475,12 @@ def calculate_occupancies(
     )
 
 
-# summarise_population_outputs(output_file_name='population_forecast_output_summary_20250321')
-# summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250321')
+# summarise_population_outputs(output_file_name='population_forecast_output_summary_20250410')
+# summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250410')
 # summarise_emp_outputs(output_file_name='employment_forecast_output_summary')
 # summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
-# summarise_household_outputs(output_file_name='household_forecast_output_summary',
-#                             years_to_extract=[2023, 2043, 2053])
+# summarise_household_outputs(output_file_name='household_forecast_output_summary_20250410',
+#                             years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 calculate_occupancies(forecast_years=[2033, 2038, 2043, 2048, 2053],
                       base_pop_path=Path(
                           fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
