@@ -13,75 +13,105 @@ from land_use import logging as lu_logging
 from land_use.data_processing import OutputLevel
 
 
-def process_forecast_emp(config: dict, base_year: int, forecast_year: int) -> None:
-
-    output_targets = config["output_targets"]
-
+def fetch_base_emp(config: dict) -> DVector:
     # --- Step 0 --- #
     LOGGER.info("--- Step 0 ---")
-    # Read in the data
-    LOGGER.info("Reading in the forecasting data")
+    LOGGER.info("Load in the Base employment output")
 
-    sic_growth_factors = data_processing.read_dvector_from_config(
-        config=config,
-        data_block="forecast_data",
-        key="sic_employment_growth_factor",
-        hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
-    )
-
-    # Load in the Base employment output
     base_emp_path = Path(config["base_data"]["base_emp_filepath"])
     base_emp = DVector.load(base_emp_path)
 
-    # --- Step 1 --- #
-    LOGGER.info("--- Step 1 ---")
-    # Prepare the base files into forecasting segmentation and calculate the growth targets
-    LOGGER.info(
-        "Prepare base files into forecasting segmentations and calculate growth targets"
+    base_seg_totals = data_processing.find_segment_totals(
+        dvec=base_emp, dimension="employment"
     )
 
-    # Translate Base Emp DVector into region zoning (England, Scotland, Wales)
-    base_emp_rgn = base_emp.translate_zoning(
+    dir_out = OUTPUT_DIR / OutputLevel.ASSURANCE
+    dir_out.mkdir(parents=True, exist_ok=True)
+    path_out = dir_out / "emp_base_segment_totals.csv"
+
+    base_seg_totals.to_csv(
+        path_out,
+        float_format="%.5f",
+        index=False,
+    )
+
+    # and for the regional ones
+    find_regional_seg_totals(dvec=base_emp, output_prefix="emp_base_segment_totals")
+
+    return base_emp
+
+
+def find_regional_seg_totals(dvec: DVector, output_prefix: str) -> None:
+
+    # convert to region zone system (one column for each region)
+    dvec_rgn = dvec.translate_zoning(
         new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
         check_totals=False,
     )
 
-    base_emp_agg = base_emp_rgn.aggregate(segs=["sic_1_digit"])
+    rgns = constants.GORS
 
-    sic_1_digit_targets = base_emp_agg * sic_growth_factors
-    # Drop targets for SIC level -1, 20, 21 (potentially move this to the reformatting script)
-    sic_1_digit_targets = drop_seg_values(
-        sic_1_digit_targets, "sic_1_digit", [-1, 20, 21]
+    rgns.append("Scotland")
+
+    # and find segment totals for each region
+    for rgn in rgns:
+
+        base_emp_one_rgn = dvec_rgn.translate_zoning(
+            new_zoning=constants.KNOWN_GEOGRAPHIES[f"RGN2021-{rgn}"],
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.SPATIAL,
+            check_totals=False,
+        )
+
+        rgn_seg_totals = data_processing.find_segment_totals(
+            dvec=base_emp_one_rgn, dimension="employment"
+        )
+        rgn_seg_totals.to_csv(
+            OUTPUT_DIR / OutputLevel.ASSURANCE / f"{output_prefix}_{rgn}.csv",
+            float_format="%.5f",
+            index=False,
+        )
+
+
+def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) -> None:
+
+    # --- Step 1 --- #
+    LOGGER.info("--- Step 1 ---")
+    LOGGER.info("load in ipf targets")
+
+    emp_targets = data_processing.read_dvector_from_config(
+        config=config,
+        data_block="forecast_data",
+        key="targets",
+        hdf_key=f"targets_{forecast_year}",
     )
 
-    if output_targets:
-        data_processing.save_output(
-            output_folder=OUTPUT_DIR,
-            output_reference=f"sic_1_digit_targets_{forecast_year}",
-            dvector=sic_1_digit_targets,
-            dvector_dimension="jobs",
-            output_level=OutputLevel.INTERMEDIATE,
-        )
+    # fix target_dvectors to be a list
+    if isinstance(emp_targets, list):
+        target_dvectors = emp_targets
+    else:
+        target_dvectors = [emp_targets]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
-    # Apply the IPF to targets based on SIC 1 digit
-    LOGGER.info("Apply the IPF")
+
+    # Apply the IPF to targets
+    LOGGER.info("Apply the IPF to targets")
     rebalanced_emp, summary, differences = data_processing.apply_ipf(
         seed_data=base_emp,
-        target_dvectors=[sic_1_digit_targets],
+        target_dvectors=target_dvectors,
         cache_folder=constants.CACHE_FOLDER,
     )
 
-    output_reference = f"Output Emp_SIC_1_digit_{forecast_year}"
+    output_reference = f"Output Emp_{forecast_year}"
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=output_reference,
         dvector=rebalanced_emp,
         dvector_dimension="jobs",
-        output_level=OutputLevel.INTERMEDIATE,
+        output_level=OutputLevel.FINAL,
     )
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
@@ -94,23 +124,21 @@ def process_forecast_emp(config: dict, base_year: int, forecast_year: int) -> No
         dfs=differences,
     )
 
+    forecast_seg_totals = data_processing.find_segment_totals(
+        dvec=rebalanced_emp, dimension="employment"
+    )
+    forecast_seg_totals.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.ASSURANCE
+        / f"{output_reference}_segment_totals.csv",
+        float_format="%.5f",
+        index=False,
+    )
 
-# --- Useful function that probably should be DVector method --- #
-def drop_seg_values(
-    dvec: DVector, segment_name: str, drop_values: list[int]
-) -> DVector:
-    """Drop rows with provided seg values for the given segmentation, keep other rows
-    Args:
-        dvec (DVector): DVector function will be applied to
-        segment_name (str): The name of the segment to filter by.
-        drop_values (list[int]): Segment values to drop
-    Returns:
-        DVector: Dvector with values removed for the given segment
-    """
-
-    current_values = dvec.data.index.get_level_values(segment_name).tolist()
-    keep_values = list(set(current_values) - set(drop_values))
-    return dvec.filter_segment_value(segment_name, keep_values)
+    # and for the regional ones
+    find_regional_seg_totals(
+        dvec=rebalanced_emp, output_prefix=f"{output_reference}_segment_totals"
+    )
 
 
 # %%
@@ -123,14 +151,11 @@ parser.add_argument("config_file", type=Path)
 args = parser.parse_args()
 
 with open(args.config_file, "r") as text_file:
-    configuration = yaml.load(text_file, yaml.SafeLoader)
+    config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
-OUTPUT_DIR = Path(configuration["output_directory"])
+OUTPUT_DIR = Path(config["output_directory"])
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
-
-# Define whether to output intermediate outputs, recommended to not output loads if debugging
-generate_summary_outputs = bool(configuration["output_intermediate_outputs"])
 
 LOGGER = lu_logging.configure_logger(
     OUTPUT_DIR / OutputLevel.SUPPORTING, log_name="employment"
@@ -142,10 +167,9 @@ shutil.copy(
     dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name,
 )
 
-base_year = configuration["base_year"]
-forecast_years = configuration["forecast_years"]
+forecast_years = config["forecast_years"]
+
+base_emp = fetch_base_emp(config=config)
 
 for forecast_year in forecast_years:
-    process_forecast_emp(
-        config=configuration, base_year=base_year, forecast_year=forecast_year
-    )
+    process_forecast_emp(config=config, base_emp=base_emp, forecast_year=forecast_year)
