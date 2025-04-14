@@ -29,6 +29,7 @@ POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_proj
 HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
 OBR_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\OBR")
+
 IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2")
 
 ENGLAND_CODE = "E92000001"
@@ -99,11 +100,24 @@ def main():
     # PROCESSES FOR THE TARGETS
     for gor in constants.GORS + ["Scotland"]:
         # creating population targets
-        calc_and_output_targets(
+        calc_and_output_pop_targets(
             base_dv_rgn=BASE_POP_DV / f"Output P11_{gor}.hdf",
             age_g_factors=POPULATION_DIR / r"preprocessing\pop_growth_factors_from_2023.hdf",
             soc_change=LMS_INPUT_DIR / r"LMS_SOC\preprocessing\soc_pp_change_from_2023.hdf",
             g_adults_growth_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_g_from_2023_factors.hdf",
+            base_year=BASE_YEAR,
+            forecast_years=FORECAST_YEARS,
+            gor=gor,
+            path_out=IPF_TARGET_OUT_DIR
+        )
+
+        # creating household targets
+        calc_and_output_hh_targets(
+            base_dv_rgn=Path(
+                fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{gor}.hdf"),
+            hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
+            hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
+            hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
             base_year=BASE_YEAR,
             forecast_years=FORECAST_YEARS,
             gor=gor,
@@ -135,7 +149,7 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
     )
 
 
-def calc_and_output_targets(
+def calc_and_output_pop_targets(
         base_dv_rgn: Path,
         age_g_factors: Path,
         soc_change: Path,
@@ -143,8 +157,7 @@ def calc_and_output_targets(
         base_year: int,
         forecast_years: list,
         gor: str,
-        path_out: None | Path = None,
-        hdf_key: None | str = "df"
+        path_out: None | Path = None
 ):
     """Calculate the population targets and returns. Optionally write to a hdf (if provided with a path_out).
     """
@@ -227,7 +240,8 @@ def calc_and_output_targets(
 
         pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors
 
-        # and the lad targets need to be converted to a compatible 2021 zone system, being a combination of lsoa 2021 zones
+        # and the lad targets need to be converted to a compatible 2021 zone system,
+        # being a combination of lsoa 2021 zones
         pop_g_adults_targets = pop_g_adults_targets.translate_zoning(
             new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
             cache_path=constants.CACHE_FOLDER,
@@ -277,6 +291,108 @@ def calc_and_output_targets(
         pop_g_adults_targets_df.to_hdf(path_out / f"pop_g_adults_{gor}_targets.hdf", key=hdf_key, mode="a")
 
         # return pop_targets, soc_targets, pop_g_adults_targets
+
+
+def calc_and_output_hh_targets(
+        base_dv_rgn: Path,
+        hh_totals_factors: Path,
+        hh_children_factors: Path,
+        hh_single_adult_no_g_factors: Path,
+        base_year: int,
+        forecast_years: list,
+        gor: str,
+        path_out: None | Path = None,
+        hdf_key: None | str = "df"
+):
+
+    # --------------------------------------------------------
+    # Reading in the Base data and the growth factors
+    base_dv = DVector.load(base_dv_rgn)
+
+    for forecast_year in forecast_years:
+        # common hdf key across all outputs
+        hdf_key = f"targets_{forecast_year}"
+
+        totals_growth_factor = data_processing.read_dvector_data(
+            file_path=hh_totals_factors,
+            geographical_level="RGN2021",
+            input_segments=["total"],
+            geography_subset=gor,
+            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
+        )
+
+        children_growth_factor = data_processing.read_dvector_data(
+            file_path=hh_children_factors,
+            geographical_level="RGN2021",
+            input_segments=["children"],
+            geography_subset=gor,
+            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
+        )
+
+        single_adults_growth_factors = data_processing.read_dvector_data(
+            file_path=hh_single_adult_no_g_factors,
+            geographical_level="LAD2019_EWS",
+            input_segments=["adults"],
+            geography_subset=gor,
+            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
+        )
+
+        # --------------------------------------------------------
+        # Formatting and calculating targets
+
+        if "total" in base_dv.segmentation.names:
+            base_dv_totals = base_dv.aggregate(segs=["total"])
+        else:
+            base_dv_totals = base_dv.add_segments(new_segs=["total"]).aggregate(
+                segs=["total"]
+            )
+
+        # Children targets
+        base_dv_children = base_dv.aggregate(segs=["children"])
+        base_dv_children_gor = base_dv_children.translate_zoning(
+            new_zoning=children_growth_factor.zoning_system,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.NO_WEIGHT,
+        )
+        hh_children_targets = base_dv_children_gor * children_growth_factor
+
+        # Totals targets
+        base_dv_totals_gor = base_dv_totals.translate_zoning(
+            new_zoning=totals_growth_factor.zoning_system,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.NO_WEIGHT,
+        )
+        hh_totals_targets = base_dv_totals_gor * totals_growth_factor
+
+        # Single adult household targets
+        base_dv_single_adults = base_dv.aggregate(segs=["adults"]).filter_segment_value(
+            "adults", [1]
+            )
+        base_dv_single_adults_lad19 = base_dv_single_adults.translate_zoning(
+            new_zoning=single_adults_growth_factors.zoning_system,
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.NO_WEIGHT,
+        )
+        hh_single_adults_targets = base_dv_single_adults_lad19 * single_adults_growth_factors
+        # and the lad targets need to be converted to a compatible 2021 zone system,
+        # being a combination of lsoa 2021 zones
+        hh_adults_targets = hh_single_adults_targets.translate_zoning(
+            new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
+            cache_path=constants.CACHE_FOLDER,
+            weighting=TranslationWeighting.NO_WEIGHT,
+        )
+
+        # --------------------------------------------------------
+        # Outputting
+        children_targets_df = hh_children_targets.data
+        totals_targets_df = hh_totals_targets.data
+        single_adults_targets_df = hh_adults_targets.data
+
+        message = f"writing to {path_out}, with {hdf_key=}"
+        print(message)
+        children_targets_df.to_hdf(path_out / f"household_children_{gor}_targets.hdf", key=hdf_key, mode="a")
+        totals_targets_df.to_hdf(path_out / f"household_totals_{gor}_targets.hdf", key=hdf_key, mode="a")
+        single_adults_targets_df.to_hdf(path_out / f"household_single_adults_{gor}_targets.hdf", key=hdf_key, mode="a")
 
 
 # %%
