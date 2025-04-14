@@ -1,6 +1,6 @@
-file_path: I:\NorMITs NorCOM\Import\NTS\nts_hh_data_v6.csv
+file_path: I:\NorMITs NorCOM\Import\NTS\Census validation\nts_hh_data_v6_w2adjusted.csv
 folder_path: null
-output_path: I:\NorMITs NorCOM\AECOM working\v38\1v2+
+output_path: I:\NorMITs NorCOM\AECOM working\v38_w2adjusted\1v2+
 validation_path: null
 
 target_column: "car_availability"
@@ -41,7 +41,7 @@ numerical_features:
 #  - total_cost
 #  - deflated_total_cost
 #  - gdp_pc
-weight_column: "w2"
+weight_column: "w2_adjusted"
 classification_prediction: [1, 2]
 split_by_value: null
 split_size: 0.2
