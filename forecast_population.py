@@ -19,7 +19,7 @@ def fetch_base_pop(config: dict, gor: str) -> DVector:
     LOGGER.info("--- Step 0 ---")
     LOGGER.info("Load in the Base population output")
 
-    base_pop_directory = Path(config["base_data"]["output_directory"])
+    base_pop_directory = Path(config["base_data"]["pop_output_directory"])
     base_pop_file_stem = config["base_data"]["base_pop_file_stem"]
     filepath = base_pop_directory / f"{base_pop_file_stem}_{gor}.hdf"
     base_pop = DVector.load(filepath)
@@ -42,6 +42,36 @@ def fetch_base_pop(config: dict, gor: str) -> DVector:
     # find_regional_seg_totals(dvec=base_pop, output_prefix="pop_base_segment_totals")
 
     return base_pop
+
+
+def fetch_base_households(config: dict, gor: str) -> DVector:
+    # --- Step 0 --- #
+    # Load in the Base households output
+    # LOGGER.info("--- Step 0 ---")
+    # LOGGER.info("Load in the Base households output")
+    base_households_directory = Path(config["base_data"]["household_output_directory"])
+    base_hh_file_stem = config["base_data"]["base_households_file_stem"]
+    filepath = base_households_directory / f"{base_hh_file_stem}_{gor}.hdf"
+    base_hhs = DVector.load(filepath)
+
+    base_seg_totals = data_processing.find_segment_totals(
+        dvec=base_hhs, dimension="households"
+    )
+
+    dir_out = OUTPUT_DIR / OutputLevel.ASSURANCE
+    dir_out.mkdir(parents=True, exist_ok=True)
+    path_out = dir_out / "households_base_segment_totals.csv"
+
+    base_seg_totals.to_csv(
+        path_out,
+        float_format="%.5f",
+        index=False,
+    )
+
+    # # and for the regional ones
+    # find_regional_seg_totals(dvec=base_hhs, output_prefix="households_base_segment_totals")
+
+    return base_hhs
 
 
 # %%
