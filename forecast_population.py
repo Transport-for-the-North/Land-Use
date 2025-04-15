@@ -13,6 +13,37 @@ from land_use import logging as lu_logging
 from land_use.data_processing import OutputLevel
 
 
+def fetch_base_pop(config: dict, gor: str) -> DVector:
+    # --- Step 0 --- #
+    # Load in the Base population output
+    LOGGER.info("--- Step 0 ---")
+    LOGGER.info("Load in the Base population output")
+
+    base_pop_directory = Path(config["base_data"]["output_directory"])
+    base_pop_file_stem = config["base_data"]["base_pop_file_stem"]
+    filepath = base_pop_directory / f"{base_pop_file_stem}_{gor}.hdf"
+    base_pop = DVector.load(filepath)
+
+    base_seg_totals = data_processing.find_segment_totals(
+        dvec=base_pop, dimension="population"
+    )
+
+    dir_out = OUTPUT_DIR / OutputLevel.ASSURANCE
+    dir_out.mkdir(parents=True, exist_ok=True)
+    path_out = dir_out / "pop_base_segment_totals.csv"
+
+    base_seg_totals.to_csv(
+        path_out,
+        float_format="%.5f",
+        index=False,
+    )
+
+    # # and for the regional ones
+    # find_regional_seg_totals(dvec=base_pop, output_prefix="pop_base_segment_totals")
+
+    return base_pop
+
+
 # %%
 def forecast_population_for_gor(
     config: dict, base_year: int, forecast_year: int, gor: str
@@ -403,6 +434,9 @@ shutil.copy(
 base_year = config["base_year"]
 forecast_years = config["forecast_years"]
 run_for_regions = config["run_for_regions"]
+
+# for region in run_for_regions:
+#     base_pop = fetch_base_pop(config=config, gor=region)
 
 for forecast_year in forecast_years:
     for region in run_for_regions:
