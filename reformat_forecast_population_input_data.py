@@ -98,31 +98,28 @@ def main():
     pre_process_obr()
 
     # PROCESSES FOR THE TARGETS
-    for gor in constants.GORS + ["Scotland"]:
-        # creating population targets
-        calc_and_output_pop_targets(
-            base_dv_rgn=BASE_POP_DV / f"Output P11_{gor}.hdf",
-            age_g_factors=POPULATION_DIR / r"preprocessing\pop_growth_factors_from_2023.hdf",
-            soc_change=LMS_INPUT_DIR / r"LMS_SOC\preprocessing\soc_pp_change_from_2023.hdf",
-            g_adults_growth_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_g_from_2023_factors.hdf",
-            base_year=BASE_YEAR,
-            forecast_years=FORECAST_YEARS,
-            gor=gor,
-            path_out=IPF_TARGET_OUT_DIR
-        )
+    # creating population targets
+    calc_and_output_pop_targets(
+        base_dv_path=BASE_POP_DV,
+        age_g_factors=POPULATION_DIR / r"preprocessing\pop_growth_factors_from_2023.hdf",
+        soc_change=LMS_INPUT_DIR / r"LMS_SOC\preprocessing\soc_pp_change_from_2023.hdf",
+        g_adults_growth_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_g_from_2023_factors.hdf",
+        base_year=BASE_YEAR,
+        forecast_years=FORECAST_YEARS,
+        path_out=IPF_TARGET_OUT_DIR
+    )
 
-        # creating household targets
-        calc_and_output_hh_targets(
-            base_dv_rgn=Path(
-                fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{gor}.hdf"),
-            hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
-            hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
-            hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
-            base_year=BASE_YEAR,
-            forecast_years=FORECAST_YEARS,
-            gor=gor,
-            path_out=IPF_TARGET_OUT_DIR
-        )
+    # creating household targets
+    calc_and_output_hh_targets(
+        base_dv_path=Path(
+            fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+        hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
+        hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
+        hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
+        base_year=BASE_YEAR,
+        forecast_years=FORECAST_YEARS,
+        path_out=IPF_TARGET_OUT_DIR
+    )
 
 
 def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -> None:
@@ -150,13 +147,12 @@ def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -
 
 
 def calc_and_output_pop_targets(
-        base_dv_rgn: Path,
+        base_dv_path: Path,
         age_g_factors: Path,
         soc_change: Path,
         g_adults_growth_factors: Path,
         base_year: int,
         forecast_years: list,
-        gor: str,
         path_out: None | Path = None
 ):
     """Calculate the population targets and returns. Optionally write to a hdf (if provided with a path_out).
@@ -164,121 +160,137 @@ def calc_and_output_pop_targets(
     # TODO think about changing the inputs to flow through in one script
     # --------------------------------------------------------
     # Reading in the Base data and the growth factors
-    base_dv = DVector.load(base_dv_rgn)
-
     for forecast_year in forecast_years:
+        pop_dfs = []
+        soc_dfs = []
+        pop_g_adults_dfs = []
         # common hdf key across all outputs
         hdf_key = f"targets_{forecast_year}"
+        for gor in constants.GORS + ["Scotland"]:
+            base_dv = DVector.load(base_dv_path / f"Output P11_{gor}.hdf")
 
-        pop_growth_factor = data_processing.read_dvector_data(
-            file_path=age_g_factors,
-            geographical_level="RGN2021",
-            input_segments=["age_ntem", "g"],
-            geography_subset=gor,
-            hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
-        )
-
-        soc_splits_change = data_processing.read_dvector_data(
-            file_path=soc_change,
-            geographical_level="RGN2021",
-            input_segments=["g", "soc"],
-            geography_subset=gor,
-            hdf_key=f"change_from_{base_year}_to_{forecast_year}"
-        )
-
-        pop_g_adults_growth_factors = data_processing.read_dvector_data(
-            file_path=g_adults_growth_factors,
-            geographical_level="LAD2019_EWS",
-            input_segments=["g", "adults"],
-            geography_subset=gor,
-            hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
-        )
-
-        # --------------------------------------------------------
-        # Formatting and calculating targets
-        base_pop_age_ntem_g = base_dv.aggregate(segs=["age_ntem", "g", "soc"])
-
-        base_pop_age_ntem_g_gor = base_pop_age_ntem_g.translate_zoning(
-            new_zoning=pop_growth_factor.zoning_system,
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-
-        # -- POPULATION AGE AND GENDER --
-        pop_targets = base_pop_age_ntem_g_gor * pop_growth_factor
-
-        base_pop_age_ntem_g_gor = pop_targets.translate_zoning(
-            new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-
-        # -- POPULATION SOC (EXCLUDING SOC 4) --
-        # also need to have a total for SOC excluding SOC 4
-        base_pop_soc = base_pop_age_ntem_g_gor.aggregate(["soc"])
-
-        base_pop_soc_exc_4 = base_pop_soc.filter_segment_value("soc", [1, 2, 3])
-
-        base_pop_soc_exc_4_total = base_pop_soc_exc_4.add_segments(["total"]).aggregate(
-            ["total"]
-        )
-
-        base_pop_soc_exc_4_total = base_pop_soc_exc_4_total.add_segments(
-            ["soc"]
-        ).filter_segment_value("soc", [1, 2, 3])
-
-        # -- POPULATION GENDER AND ADULTS --
-        base_pop_g_adults = base_dv.aggregate(segs=["g", "adults"]).filter_segment_value(
-            "adults", [1]
-        )
-
-        base_pop_g_adults_lad19 = base_pop_g_adults.translate_zoning(
-            new_zoning=pop_g_adults_growth_factors.zoning_system,
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-
-        pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors
-
-        # and the lad targets need to be converted to a compatible 2021 zone system,
-        # being a combination of lsoa 2021 zones
-        pop_g_adults_targets = pop_g_adults_targets.translate_zoning(
-            new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-
-        # Calculate new SOC splits
-        base_pop_gor = base_dv.translate_zoning(pop_growth_factor.zoning_system)
-
-        base_pop_gor = base_pop_gor.aggregate(["g", "soc"]).filter_segment_value(
-            "soc", [1, 2, 3]
-        )
-        base_pop_soc_totals = (
-            base_pop_gor.add_segments(["total"])
-            .aggregate(["total"])
-            .add_segments(["soc"])
-            .filter_segment_value("soc", [1, 2, 3])
-        )
-
-        base_pop_soc_splits = base_pop_gor / base_pop_soc_totals
-
-        # work out the new targets splits
-        soc_target_splits = base_pop_soc_splits + soc_splits_change
-        # check for negative splits
-        if (soc_target_splits.data < 0).any().any():
-            raise ValueError(
-                f"New SOC target splits calculated contain negatives for {forecast_year} - {gor}"
+            pop_growth_factor = data_processing.read_dvector_data(
+                file_path=age_g_factors,
+                geographical_level="RGN2021",
+                input_segments=["age_ntem", "g"],
+                geography_subset=gor,
+                hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
             )
 
-        # the totals here should be the pop_targets without soc 4
-        soc_targets = (soc_target_splits * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
+            soc_splits_change = data_processing.read_dvector_data(
+                file_path=soc_change,
+                geographical_level="RGN2021",
+                input_segments=["g", "soc"],
+                geography_subset=gor,
+                hdf_key=f"change_from_{base_year}_to_{forecast_year}"
+            )
+
+            pop_g_adults_growth_factors = data_processing.read_dvector_data(
+                file_path=g_adults_growth_factors,
+                geographical_level="LAD2019_EWS",
+                input_segments=["g", "adults"],
+                geography_subset=gor,
+                hdf_key=f"factors_from_{base_year}_to_{forecast_year}",
+            )
+
+            # --------------------------------------------------------
+            # Formatting and calculating targets
+            base_pop_age_ntem_g = base_dv.aggregate(segs=["age_ntem", "g", "soc"])
+
+            base_pop_age_ntem_g_gor = base_pop_age_ntem_g.translate_zoning(
+                new_zoning=pop_growth_factor.zoning_system,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+
+            # -- POPULATION AGE AND GENDER --
+            pop_targets = base_pop_age_ntem_g_gor * pop_growth_factor
+
+            base_pop_age_ntem_g_gor = pop_targets.translate_zoning(
+                new_zoning=pop_growth_factor.zoning_system,  # fix zoning system to match
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+
+            # -- POPULATION SOC (EXCLUDING SOC 4) --
+            # also need to have a total for SOC excluding SOC 4
+            base_pop_soc = base_pop_age_ntem_g_gor.aggregate(["soc"])
+
+            base_pop_soc_exc_4 = base_pop_soc.filter_segment_value("soc", [1, 2, 3])
+
+            base_pop_soc_exc_4_total = base_pop_soc_exc_4.add_segments(["total"]).aggregate(
+                ["total"]
+            )
+
+            base_pop_soc_exc_4_total = base_pop_soc_exc_4_total.add_segments(
+                ["soc"]
+            ).filter_segment_value("soc", [1, 2, 3])
+
+            # -- POPULATION GENDER AND ADULTS --
+            base_pop_g_adults = base_dv.aggregate(segs=["g", "adults"]).filter_segment_value(
+                "adults", [1]
+            )
+
+            base_pop_g_adults_lad19 = base_pop_g_adults.translate_zoning(
+                new_zoning=pop_g_adults_growth_factors.zoning_system,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+
+            pop_g_adults_targets = base_pop_g_adults_lad19 * pop_g_adults_growth_factors
+
+            # and the lad targets need to be converted to a compatible 2021 zone system,
+            # being a combination of lsoa 2021 zones
+            pop_g_adults_targets = pop_g_adults_targets.translate_zoning(
+                new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+
+            # Calculate new SOC splits
+            base_pop_gor = base_dv.translate_zoning(pop_growth_factor.zoning_system)
+
+            base_pop_gor = base_pop_gor.aggregate(["g", "soc"]).filter_segment_value(
+                "soc", [1, 2, 3]
+            )
+            base_pop_soc_totals = (
+                base_pop_gor.add_segments(["total"])
+                .aggregate(["total"])
+                .add_segments(["soc"])
+                .filter_segment_value("soc", [1, 2, 3])
+            )
+
+            base_pop_soc_splits = base_pop_gor / base_pop_soc_totals
+
+            # work out the new targets splits
+            soc_target_splits = base_pop_soc_splits + soc_splits_change
+            # check for negative splits
+            if (soc_target_splits.data < 0).any().any():
+                raise ValueError(
+                    f"New SOC target splits calculated contain negatives for {forecast_year} - {gor}"
+                )
+
+            # the totals here should be the pop_targets without soc 4
+            soc_targets = (soc_target_splits * base_pop_soc_exc_4_total).aggregate(["g", "soc"])
+
+            pop_targets_df = pop_targets.data
+            soc_targets_df = soc_targets.data
+            pop_g_adults_targets_df = pop_g_adults_targets.data
+
+            # Make sure that all dfs are in the same index order (for concatenation)
+            pop_targets_df = pop_targets_df.reorder_levels(["age_ntem", "g", "soc"])
+            soc_targets_df = soc_targets_df.reorder_levels(["g", "soc"])
+            pop_g_adults_targets_df = pop_g_adults_targets_df.reorder_levels(["g", "adults"])
+
+            pop_dfs.append(pop_targets_df)
+            soc_dfs.append(soc_targets_df)
+            pop_g_adults_dfs.append(pop_g_adults_targets_df)
 
         # --------------------------------------------------------
         # Outputting
-        pop_targets_df = pop_targets.data
-        soc_targets_df = soc_targets.data
-        pop_g_adults_targets_df = pop_g_adults_targets.data
+        pop_dfs_output = pd.concat(pop_dfs, axis=1)
+        soc_dfs_output = pd.concat(soc_dfs, axis=1)
+        pop_g_adults_dfs_output = pd.concat(pop_g_adults_dfs, axis=1)
 
         # if not path_out:
         #     return pop_targets, soc_targets, pop_g_adults_targets
@@ -286,113 +298,125 @@ def calc_and_output_pop_targets(
         path_out = path_out
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
-        pop_targets_df.to_hdf(path_out / f"pop_{gor}_targets.hdf", key=hdf_key, mode="a")
-        soc_targets_df.to_hdf(path_out / f"soc_{gor}_targets.hdf", key=hdf_key, mode="a")
-        pop_g_adults_targets_df.to_hdf(path_out / f"pop_g_adults_{gor}_targets.hdf", key=hdf_key, mode="a")
+        pop_dfs_output.to_hdf(path_out / f"pop_targets.hdf", key=hdf_key, mode="a")
+        soc_dfs_output.to_hdf(path_out / f"soc_targets.hdf", key=hdf_key, mode="a")
+        pop_g_adults_dfs_output.to_hdf(path_out / f"pop_g_adults_targets.hdf", key=hdf_key, mode="a")
 
         # return pop_targets, soc_targets, pop_g_adults_targets
 
 
 def calc_and_output_hh_targets(
-        base_dv_rgn: Path,
+        base_dv_path: Path,
         hh_totals_factors: Path,
         hh_children_factors: Path,
         hh_single_adult_no_g_factors: Path,
         base_year: int,
         forecast_years: list,
-        gor: str,
         path_out: None | Path = None,
         hdf_key: None | str = "df"
 ):
 
     # --------------------------------------------------------
     # Reading in the Base data and the growth factors
-    base_dv = DVector.load(base_dv_rgn)
-
     for forecast_year in forecast_years:
+        children_dfs = []
+        totals_dfs = []
+        adults_dfs = []
         # common hdf key across all outputs
         hdf_key = f"targets_{forecast_year}"
+        for gor in constants.GORS + ["Scotland"]:
+            base_dv = DVector.load(base_dv_path / f"Output P13.3_{gor}.hdf")
 
-        totals_growth_factor = data_processing.read_dvector_data(
-            file_path=hh_totals_factors,
-            geographical_level="RGN2021",
-            input_segments=["total"],
-            geography_subset=gor,
-            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
-        )
-
-        children_growth_factor = data_processing.read_dvector_data(
-            file_path=hh_children_factors,
-            geographical_level="RGN2021",
-            input_segments=["children"],
-            geography_subset=gor,
-            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
-        )
-
-        single_adults_growth_factors = data_processing.read_dvector_data(
-            file_path=hh_single_adult_no_g_factors,
-            geographical_level="LAD2019_EWS",
-            input_segments=["adults"],
-            geography_subset=gor,
-            hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
-        )
-
-        # --------------------------------------------------------
-        # Formatting and calculating targets
-
-        if "total" in base_dv.segmentation.names:
-            base_dv_totals = base_dv.aggregate(segs=["total"])
-        else:
-            base_dv_totals = base_dv.add_segments(new_segs=["total"]).aggregate(
-                segs=["total"]
+            totals_growth_factor = data_processing.read_dvector_data(
+                file_path=hh_totals_factors,
+                geographical_level="RGN2021",
+                input_segments=["total"],
+                geography_subset=gor,
+                hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
             )
 
-        # Children targets
-        base_dv_children = base_dv.aggregate(segs=["children"])
-        base_dv_children_gor = base_dv_children.translate_zoning(
-            new_zoning=children_growth_factor.zoning_system,
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-        hh_children_targets = base_dv_children_gor * children_growth_factor
-
-        # Totals targets
-        base_dv_totals_gor = base_dv_totals.translate_zoning(
-            new_zoning=totals_growth_factor.zoning_system,
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-        hh_totals_targets = base_dv_totals_gor * totals_growth_factor
-
-        # Single adult household targets
-        base_dv_single_adults = base_dv.aggregate(segs=["adults"]).filter_segment_value(
-            "adults", [1]
+            children_growth_factor = data_processing.read_dvector_data(
+                file_path=hh_children_factors,
+                geographical_level="RGN2021",
+                input_segments=["children"],
+                geography_subset=gor,
+                hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
             )
-        base_dv_single_adults_lad19 = base_dv_single_adults.translate_zoning(
-            new_zoning=single_adults_growth_factors.zoning_system,
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
-        hh_single_adults_targets = base_dv_single_adults_lad19 * single_adults_growth_factors
-        # and the lad targets need to be converted to a compatible 2021 zone system,
-        # being a combination of lsoa 2021 zones
-        hh_adults_targets = hh_single_adults_targets.translate_zoning(
-            new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
-            cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
-        )
+
+            single_adults_growth_factors = data_processing.read_dvector_data(
+                file_path=hh_single_adult_no_g_factors,
+                geographical_level="LAD2019_EWS",
+                input_segments=["adults"],
+                geography_subset=gor,
+                hdf_key=f"factors_from_{base_year}_to_{forecast_year}"
+            )
+
+            # --------------------------------------------------------
+            # Formatting and calculating targets
+            if "total" in base_dv.segmentation.names:
+                base_dv_totals = base_dv.aggregate(segs=["total"])
+            else:
+                base_dv_totals = base_dv.add_segments(new_segs=["total"]).aggregate(
+                    segs=["total"]
+                )
+
+            # Children targets
+            base_dv_children = base_dv.aggregate(segs=["children"])
+            base_dv_children_gor = base_dv_children.translate_zoning(
+                new_zoning=children_growth_factor.zoning_system,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+            hh_children_targets = base_dv_children_gor * children_growth_factor
+
+            # Totals targets
+            base_dv_totals_gor = base_dv_totals.translate_zoning(
+                new_zoning=totals_growth_factor.zoning_system,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+            hh_totals_targets = base_dv_totals_gor * totals_growth_factor
+
+            # Single adult household targets
+            base_dv_single_adults = base_dv.aggregate(segs=["adults"]).filter_segment_value(
+                "adults", [1]
+                )
+            base_dv_single_adults_lad19 = base_dv_single_adults.translate_zoning(
+                new_zoning=single_adults_growth_factors.zoning_system,
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+            hh_single_adults_targets = base_dv_single_adults_lad19 * single_adults_growth_factors
+            # and the lad targets need to be converted to a compatible 2021 zone system,
+            # being a combination of lsoa 2021 zones
+            hh_adults_targets = hh_single_adults_targets.translate_zoning(
+                new_zoning=constants.KNOWN_GEOGRAPHIES.get(f"LAD2021-{gor}"),
+                cache_path=constants.CACHE_FOLDER,
+                weighting=TranslationWeighting.NO_WEIGHT,
+            )
+
+            children_targets_df = hh_children_targets.data
+            totals_targets_df = hh_totals_targets.data
+            single_adults_targets_df = hh_adults_targets.data
+
+            children_dfs.append(children_targets_df)
+            totals_dfs.append(totals_targets_df)
+            adults_dfs.append(single_adults_targets_df)
 
         # --------------------------------------------------------
         # Outputting
-        children_targets_df = hh_children_targets.data
-        totals_targets_df = hh_totals_targets.data
-        single_adults_targets_df = hh_adults_targets.data
+        children_dfs_output = pd.concat(children_dfs, axis=1)
+        totals_dfs_output = pd.concat(totals_dfs, axis=1)
+        adults_dfs_output = pd.concat(adults_dfs, axis=1)
+
+        # if not path_out:
+        #     return pop_targets, soc_targets, pop_g_adults_targets
 
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
-        children_targets_df.to_hdf(path_out / f"household_children_{gor}_targets.hdf", key=hdf_key, mode="a")
-        totals_targets_df.to_hdf(path_out / f"household_totals_{gor}_targets.hdf", key=hdf_key, mode="a")
-        single_adults_targets_df.to_hdf(path_out / f"household_single_adults_{gor}_targets.hdf", key=hdf_key, mode="a")
+        children_dfs_output.to_hdf(path_out / f"household_children_targets.hdf", key=hdf_key, mode="a")
+        totals_dfs_output.to_hdf(path_out / f"household_totals_targets.hdf", key=hdf_key, mode="a")
+        adults_dfs_output.to_hdf(path_out / f"household_single_adults_targets.hdf", key=hdf_key, mode="a")
 
 
 # %%
