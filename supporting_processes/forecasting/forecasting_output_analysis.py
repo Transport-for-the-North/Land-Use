@@ -396,6 +396,13 @@ def calculate_occupancies(
         base_pop = DVector.load(base_pop_path / fr"Output P11_{rgn}.hdf")
         base_hh = DVector.load(base_pop_path / fr"Output P13.3_{rgn}.hdf")
 
+        # Add total segment to base population
+        if agg_segment == "total":
+            base_pop = base_pop.add_segments(["total"])
+
+            if rgn == "Scotland":
+                base_hh = base_hh.add_segments(["total"])
+
         base_pop_agg = base_pop.aggregate([agg_segment])
         base_hh_agg = base_hh.aggregate([agg_segment])
 
@@ -427,6 +434,9 @@ def calculate_occupancies(
             print(fr"Calculating for {year}")
             forecast_pop = DVector.load(forecast_pop_path / fr"Population_age_g_soc_{rgn}_{year}.hdf")
             forecast_hh = DVector.load(forecast_pop_path / fr"Households_{rgn}_{year}.hdf")
+            # Add total segment to base population
+            if agg_segment == "total":
+                forecast_pop = forecast_pop.add_segments(["total"])
 
             forecast_pop_agg = forecast_pop.aggregate([agg_segment])
             forecast_hh_agg = forecast_hh.aggregate([agg_segment])
@@ -486,7 +496,7 @@ calculate_occupancies(forecast_years=[2033, 2038, 2043, 2048, 2053],
                           fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
                       forecast_pop_path=Path(
                           fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files"),
-                      agg_segment="ns_sec")
+                      agg_segment="total")
 dvector_segment_comparisons(
     dvector_dict={
         "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
