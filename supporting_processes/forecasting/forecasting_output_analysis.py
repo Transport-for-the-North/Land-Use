@@ -8,6 +8,7 @@ from caf.base.zoning import TranslationWeighting
 from land_use import constants
 
 POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config")
+# POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_no_soc")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 POP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop"
@@ -57,7 +58,8 @@ def summarise_population_outputs(output_file_name: str):
             print(f"Summarising for {year}, {rgn}")
             dv = DVector.load(
                 Path(
-                    POP_OUTPUT_DIR / rf"01_Intermediate Files\Population_age_g_soc_"
+                    # POP_OUTPUT_DIR / rf"01_Intermediate Files\Population_age_g_soc_"
+                    POP_OUTPUT_DIR / rf"02_Final Outputs\Output Pop_"
                     rf"{rgn}_{year}.hdf"
                 )
             )
@@ -150,6 +152,58 @@ def summarise_population_targets_output(output_file_name: str):
                 targets_dfs.append(dv2)
 
     final_output = pd.concat(targets_dfs)
+    # redefine the region names
+    final_output["region"] = final_output["region"].map(region_mapping)
+    final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
+
+
+def summarise_pop_and_hh_outputs_adults_nssec(output_file_name: str):
+    # Create a summary table of the output hdfs from the main process
+    final_dfs = []
+    for file in ["Population_age_g_soc", "Households"]:
+        print(f"Summarising for {file}")
+        for year in [2023, 2033, 2038, 2043, 2048, 2053]:
+            print(f"Summarising for {year}")
+            for rgn in constants.GORS + ["Scotland"]:
+                print(f"Summarising for {year}, {rgn}")
+                if year == 2023:
+                    if file == "Population_age_g_soc":
+                        dv = DVector.load(
+                            Path(fr"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2\Output P11_{rgn}.hdf"
+                                )
+                        )
+                    else:
+                        dv = DVector.load(
+                            Path(
+                                fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{rgn}.hdf"
+                                )
+                        )
+                else:
+                    dv = DVector.load(
+                        Path(
+                            POP_OUTPUT_DIR / rf"01_Intermediate Files\{file}_"
+                            # POP_OUTPUT_DIR / rf"02_Final Outputs\Output {file}_"
+                                             rf"{rgn}_{year}.hdf"
+                        )
+                    )
+                dv_translated = dv.translate_zoning(
+                    new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+                    cache_path=constants.CACHE_FOLDER,
+                    weighting=TranslationWeighting.SPATIAL,
+                    check_totals=False,
+                )
+
+                print("Aggregating for adults, ns_sec")
+                dv_seg = dv_translated.aggregate(["adults", "ns_sec"])
+
+                df = dv_seg.data.stack().reset_index()
+                df = df.set_axis(["ns_sec", "adults", "region", "value"], axis=1)
+
+                df["output"] = file
+                df["year"] = year
+                final_dfs.append(df)
+
+    final_output = pd.concat(final_dfs)
     # redefine the region names
     final_output["region"] = final_output["region"].map(region_mapping)
     final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
@@ -295,7 +349,7 @@ def summarise_household_outputs(output_file_name: str, years_to_extract: list):
                 dv = DVector.load(
                     Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P13.3_{rgn}.hdf"))
             else:
-                dv = DVector.load(POP_OUTPUT_DIR / fr"01_Intermediate Files\Households_{rgn}_{year}.hdf")
+                dv = DVector.load(POP_OUTPUT_DIR / fr"02_Final Outputs\Output Households_{rgn}_{year}.hdf")
 
             dv_translated = dv.translate_zoning(
                 new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -485,11 +539,12 @@ def calculate_occupancies(
     )
 
 
-# summarise_population_outputs(output_file_name='population_forecast_output_summary_20250410')
+# summarise_population_outputs(output_file_name='population_forecast_output_summary_no_soc')
 # summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250410')
+# summarise_pop_and_hh_outputs_adults_nssec(output_file_name="pop_hh_adults_nssec_summary2")
 # summarise_emp_outputs(output_file_name='employment_forecast_output_summary')
 # summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
-# summarise_household_outputs(output_file_name='household_forecast_output_summary_20250410',
+# summarise_household_outputs(output_file_name='household_forecast_output_summary_no_soc',
 #                             years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 calculate_occupancies(forecast_years=[2033, 2038, 2043, 2048, 2053],
                       base_pop_path=Path(
