@@ -97,6 +97,16 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
 
+    base_emp.save(OUTPUT_DIR / OutputLevel.ASSURANCE / "seed_data.hdf")
+
+    for idx, target_dv in enumerate(target_dvectors):
+        target_dv.save(OUTPUT_DIR / OutputLevel.ASSURANCE / f"target_dvector_{idx}.hdf")
+
+    # filter to not have certain zero segments in here
+    # TODO: work out why it struggles with 20, 21 when it works with different targets
+    base_emp = base_emp.filter_segment_value(
+        segment_name="sic_1_digit", segment_values=list(range(1, 20))
+    )
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
     rebalanced_emp, summary, differences = data_processing.apply_ipf(

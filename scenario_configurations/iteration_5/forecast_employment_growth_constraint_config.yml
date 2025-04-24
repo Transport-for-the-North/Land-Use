@@ -1,0 +1,27 @@
+# Configuration file specifying the segmentation and geographical level of the input data.
+# All files here are assumed to be in a format ready for DVectors.
+# As the config is likely to be used for multiple files then the key will include the forecast year
+
+input_root_directory: F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth
+output_directory: F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config_with_ons_pop_growth
+
+base_year: 2023
+forecast_years: 
+- 2033
+- 2053
+- 2048
+- 2043
+- 2038
+
+base_data:
+    base_emp_filepath: F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf
+
+forecast_data:
+    targets:
+        - file_path: sic_targets.hdf
+          geographical_level: RGN2021+SCOTLANDRGN
+          input_segments: [sic_1_digit]
+
+        - file_path: soc_targets.hdf
+          geographical_level: RGN2021+SCOTLANDRGN
+          input_segments: [soc]
