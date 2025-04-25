@@ -7,6 +7,7 @@ from caf.base.zoning import TranslationWeighting
 
 from land_use import constants
 
+# Output directories
 POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config")
 # POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_no_soc")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
@@ -16,10 +17,6 @@ POP_ANALYSIS_DIR = Path(
 EMP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\emp"
 )
-
-
-pop_years_to_extract = [2033, 2038, 2043, 2048, 2053]
-emp_years_to_extract = [2033, 2038, 2043, 2048, 2053]
 
 rgn_code_to_desc = {
     "E12000001": "NE",
@@ -50,10 +47,19 @@ region_mapping = {
     }
 
 
-def summarise_population_outputs(output_file_name: str):
-    # Create a summary table of the output hdfs from the main process
+def summarise_population_outputs(output_file_name: str, years_to_extract: list):
+    """
+    Function to summarise the hdf outputs from the forecast population process in "forecast_population.py"
+
+    Parameters
+    ----------
+    output_file_name: string
+        Name of the csv file to output to
+    years_to_extract: list
+        Forecast years to analyse
+    """
     final_dfs = []
-    for year in pop_years_to_extract:
+    for year in years_to_extract:
         for rgn in constants.GORS + ["Scotland"]:
             print(f"Summarising for {year}, {rgn}")
             dv = DVector.load(
@@ -86,92 +92,39 @@ def summarise_population_outputs(output_file_name: str):
     final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
 
-def summarise_population_targets_output(output_file_name: str):
-    # Create a summary table of the targets output from the main process
-    targets_dfs = []
-    for year in pop_years_to_extract:
-        for rgn in constants.GORS + ["Scotland"]:
-            for output in ["pop_targets", "soc_targets", "hh_adults_targets"]:
-                print(f"Summarising for {year}, {rgn}, {output}")
-                dv = DVector.load(
-                    Path(
-                        POP_OUTPUT_DIR
-                        / f"01_Intermediate Files/{output}_{rgn}_{year}.hdf"
-                    )
-                )
+def summarise_pop_and_hh_outputs_multi_segments(
+        output_file_name: str,
+        segments_to_summarise: list,
+        years_to_summarise: list,
+        output_file_prefixes: list
+):
+    """
+    Function to summarise the hdf outputs from the forecast population process across multiple segments,
+    useful for cross-table analysis
 
-                if output == "pop_targets":
-                    # stack columns and format
-                    dv2 = (
-                        dv.data.stack()
-                        .reset_index()
-                        .set_axis(
-                            ["age_ntem", "g", "soc", "region", "value"], axis="columns"
-                        )
-                    )
-                    dv2["filename"] = f"{output}"
-                    dv2["output code"] = f"{output}"
-                    dv2["year"] = year
-                    dv2 = dv2[
-                        [
-                            "filename",
-                            "year",
-                            "output code",
-                            "region",
-                            "age_ntem",
-                            "g",
-                            "soc",
-                            "value",
-                        ]
-                    ]
-                elif output == "soc_targets":
-                    dv2 = (
-                        dv.data.stack()
-                        .reset_index()
-                        .set_axis(["g", "soc", "region", "value"], axis="columns")
-                    )
-                    dv2["filename"] = f"{output}"
-                    dv2["output code"] = f"{output}"
-                    dv2["year"] = year
-                    dv2 = dv2[
-                        ["filename", "year", "output code", "region", "soc", "value"]
-                    ]
-                else:
-                    dv2 = (
-                        dv.data.stack()
-                        .reset_index()
-                        .set_axis(["1_adults_hh", "region", "value"], axis="columns")
-                    )
-                    dv2["filename"] = f"{output}"
-                    dv2["output code"] = f"{output}"
-                    dv2["year"] = year
-                    dv2 = dv2[
-                        ["filename", "year", "output code", "region", "1_adults_hh", "value"]
-                    ]
-
-                targets_dfs.append(dv2)
-
-    final_output = pd.concat(targets_dfs)
-    # redefine the region names
-    final_output["region"] = final_output["region"].map(region_mapping)
-    final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
-
-
-def summarise_pop_and_hh_outputs_adults_nssec(output_file_name: str):
-    # Create a summary table of the output hdfs from the main process
+    Parameters
+    ----------
+    output_file_name: string
+        Name of the csv file to output to
+    segments_to_summarise: list
+        Segments in the output data to summarise
+    years_to_summarise: list
+        Forecast years to analyse
+    output_file_prefixes: list
+        Prefix of the population output files e.g. population, households
+    """
     final_dfs = []
-    for file in ["Population_age_g_soc", "Households"]:
+    for file in output_file_prefixes:
         print(f"Summarising for {file}")
-        for year in [2023, 2033, 2038, 2043, 2048, 2053]:
+        for year in years_to_summarise:
             print(f"Summarising for {year}")
             for rgn in constants.GORS + ["Scotland"]:
                 print(f"Summarising for {year}, {rgn}")
                 if year == 2023:
                     if file == "Population_age_g_soc":
+                        base_pop_age_ntem_path = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM")
                         dv = DVector.load(
-                            Path(fr"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2\Output P11_{rgn}.hdf"
-                                )
-                        )
+                            Path(base_pop_age_ntem_path / fr"based_on_241220_Populationv2\Output P11_{rgn}.hdf"))
                     else:
                         dv = DVector.load(
                             Path(
@@ -193,11 +146,11 @@ def summarise_pop_and_hh_outputs_adults_nssec(output_file_name: str):
                     check_totals=False,
                 )
 
-                print("Aggregating for adults, ns_sec")
-                dv_seg = dv_translated.aggregate(["adults", "ns_sec"])
+                print(f"Aggregating for {segments_to_summarise}")
+                dv_seg = dv_translated.aggregate(segments_to_summarise)
 
                 df = dv_seg.data.stack().reset_index()
-                df = df.set_axis(["ns_sec", "adults", "region", "value"], axis=1)
+                df = df.set_axis(segments_to_summarise + ["region", "value"], axis=1)
 
                 df["output"] = file
                 df["year"] = year
@@ -209,10 +162,19 @@ def summarise_pop_and_hh_outputs_adults_nssec(output_file_name: str):
     final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
 
-def summarise_emp_outputs(output_file_name: str):
-    # Create a summary table of the output hdfs from the main process
+def summarise_emp_outputs(output_file_name: str, years_to_extract: list):
+    """
+    Function to summarise the hdf outputs from the forecast employment process in "forecast_employment.py"
+
+    Parameters
+    ----------
+    output_file_name: string
+        Name of the csv file to output to
+    years_to_extract: list
+        Forecast years to analyse
+    """
     final_dfs = []
-    for year in emp_years_to_extract:
+    for year in years_to_extract:
         print(f"Summarising for {year}")
         dv = DVector.load(
             Path(
@@ -281,66 +243,21 @@ def summarise_emp_outputs(output_file_name: str):
 
     final_output = pd.concat(final_dfs)
     # redefine the region names
-    region_mapping = {
-        "W92000004": "Wales",
-        "E12000008": "South East",
-        "E12000004": "East Midlands",
-        "E12000005": "West Midlands",
-        "E12000002": "North West",
-        "E12000009": "South West",
-        "E12000007": "London",
-        "E12000003": "Yorkshire and The Humber",
-        "E12000001": "North East",
-        "E12000006": "East of England",
-        "S92000003": "Scotland",
-    }
-    final_output["region"] = final_output["region"].map(region_mapping)
-    final_output.to_csv(EMP_ANALYSIS_DIR / f"{output_file_name}.csv")
-
-
-def summarise_emp_targets_output(output_file_name: str):
-    # Create a summary table of the targets output from the main process
-    targets_dfs = []
-    for year in emp_years_to_extract:
-        print(f"Summarising for {year}")
-        dv = DVector.load(
-            Path(
-                EMP_OUTPUT_DIR / f"01_Intermediate Files/sic_1_digit_targets_{year}.hdf"
-            )
-        )
-        dv2 = (
-            dv.data.stack()
-            .reset_index()
-            .set_axis(["segment", "region", "value"], axis="columns")
-        )
-        dv2["segmentation"] = "sic_1_digit"
-        dv2["year"] = year
-        dv2 = dv2[["year", "segmentation", "region", "segment", "value"]]
-
-        targets_dfs.append(dv2)
-
-    final_output = pd.concat(targets_dfs)
-    # redefine the region names
-    region_mapping = {
-        "W92000004": "Wales",
-        "E12000008": "South East",
-        "E12000004": "East Midlands",
-        "E12000005": "West Midlands",
-        "E12000002": "North West",
-        "E12000009": "South West",
-        "E12000007": "London",
-        "E12000003": "Yorkshire and The Humber",
-        "E12000001": "North East",
-        "E12000006": "East of England",
-        "S92000003": "Scotland",
-    }
     final_output["region"] = final_output["region"].map(region_mapping)
     final_output.to_csv(EMP_ANALYSIS_DIR / f"{output_file_name}.csv")
 
 
 def summarise_household_outputs(output_file_name: str, years_to_extract: list):
-    # Create a summary table of the output hdfs from the main process
+    """
+    Function to summarise the hdf outputs from the forecast households process in "forecast_population.py"
 
+    Parameters
+    ----------
+    output_file_name: string
+        Name of the csv file to output to
+    years_to_extract: list
+        Forecast years to analyse
+    """
     final_dfs = []
     for year in years_to_extract:
         for rgn in constants.GORS + ["Scotland"]:
@@ -380,8 +297,20 @@ def summarise_household_outputs(output_file_name: str, years_to_extract: list):
 
 
 def dvector_segment_comparisons(
-    dvector_dict: dict, output_file_name: Path, forecast_type: str
+        dvector_dict: dict,
+        output_file_name: Path,
+        forecast_type: str
 ):
+    """
+    Function to compare segment proportions between multiple DVectors
+
+    Parameters
+    ----------
+    dvector_dict: dictionary
+        DVectors for comparison, includes full path to the DVector
+    output_file_name: Path
+        Name of the csv file to output to
+    """
     # %%
     single_seg_totals_and_prop = []
     for dv_name, dv_path in dvector_dict.items():
@@ -441,6 +370,22 @@ def calculate_occupancies(
         forecast_years: list,
         agg_segment: str
 ):
+    """
+    Function to calculate occupancies (population / households) for a defined segment
+    Outputs at LSOA level and at GOR level
+
+    Parameters
+    ----------
+    base_pop_path: Path
+        Base population DVector output path
+    forecast_pop_path: Path
+        Forecast population DVector output path
+    forecast_years: list
+        Forecast years to analyse
+    agg_segment:
+        Segment to aggregate the data and outputs to
+    """
+
     base = []
     base_rgn = []
     f_years = []
@@ -539,34 +484,39 @@ def calculate_occupancies(
     )
 
 
-# summarise_population_outputs(output_file_name='population_forecast_output_summary_no_soc')
-# summarise_population_targets_output(output_file_name='population_forecast_targets_summary_20250410')
-# summarise_pop_and_hh_outputs_adults_nssec(output_file_name="pop_hh_adults_nssec_summary2")
-# summarise_emp_outputs(output_file_name='employment_forecast_output_summary')
-# summarise_emp_targets_output(output_file_name='employment_forecast_targets_summary')
-# summarise_household_outputs(output_file_name='household_forecast_output_summary_no_soc',
-#                             years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
-calculate_occupancies(forecast_years=[2033, 2038, 2043, 2048, 2053],
-                      base_pop_path=Path(
-                          fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
-                      forecast_pop_path=Path(
-                          fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files"),
-                      agg_segment="total")
-dvector_segment_comparisons(
-    dvector_dict={
-        "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
-        "2043": r"F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config"
-        r"\01_Intermediate Files\Output Emp_SIC_1_digit_2043.hdf",
-    },
-    output_file_name=Path(
-        r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"
-    ),
-    forecast_type="emp",
-)
+# summarise_population_outputs(
+#     output_file_name='population_forecast_output_summary_no_soc',
+#     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
-# dvector_segment_comparisons(dvector_dict={
-#     "2023_LU_Base": r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs\Output P11_EM.hdf",
-#     "2043": r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config"
-#             r"\01_Intermediate Files\forecast_population_age_g_soc_children_EM_2043.hdf"},
-#     output_file_name=Path(r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"),
-#     forecast_type="pop")
+# summarise_pop_and_hh_outputs_multi_segments(
+#     output_file_name="pop_hh_adults_soc",
+#     segments_to_summarise=["adults", "soc"],
+#     years_to_summarise=[2023, 2038, 2053],
+#     output_file_prefixes=["Population_age_g_soc"])
+
+# summarise_emp_outputs(
+#     output_file_name='employment_forecast_output_summary',
+#     years_to_extract=[2033, 2038, 2043, 2048, 2053])
+
+# summarise_household_outputs(
+#     output_file_name='household_forecast_output_summary_no_soc',
+#     years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
+
+calculate_occupancies(
+    forecast_years=[2033, 2038, 2043, 2048, 2053],
+    base_pop_path=Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+    forecast_pop_path=Path(
+        fr"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config\01_Intermediate Files"),
+    agg_segment="total")
+
+# dvector_segment_comparisons(
+#     dvector_dict={
+#         "2023_LU_Base": r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf",
+#         "2043": r"F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config"
+#         r"\01_Intermediate Files\Output Emp_SIC_1_digit_2043.hdf",
+#     },
+#     output_file_name=Path(
+#         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"
+#     ),
+#     forecast_type="emp"
+# )
