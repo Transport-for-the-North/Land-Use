@@ -1,6 +1,7 @@
 # %%
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Optional
 import shutil
 
 import yaml
@@ -78,7 +79,9 @@ def process_forecast_pop_by_gor(
         config: dict,
         base_pop: DVector,
         forecast_year: int,
-        gor: str) -> None:
+        gor: str,
+        maintain_base_distriutions: bool,
+        segments_to_maintain: Optional[list] = None) -> None:
 
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
@@ -98,6 +101,25 @@ def process_forecast_pop_by_gor(
     else:
         target_dvectors = [pop_targets]
 
+    # Get base distribution targets if maintaining
+    if maintain_base_distriutions:
+        added_targets = []
+        for segmentation in segments_to_maintain:
+            if isinstance(segmentation, list):
+                target = base_pop.aggregate(segs=segmentation)
+            else:
+                target = base_pop.aggregate(segs=[segmentation])
+
+            added_targets.append(target)
+
+        target_dvectors = added_targets + target_dvectors
+
+        # TODO make this flexible
+        match_totals_dvector = target_dvectors[3]
+
+    else:
+        match_totals_dvector = target_dvectors[0]
+
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
 
@@ -108,6 +130,8 @@ def process_forecast_pop_by_gor(
         seed_data=base_pop,
         target_dvectors=target_dvectors,
         cache_folder=constants.CACHE_FOLDER,
+        # use pop targets as the target dvector to "match totals to"
+        target_dvector=match_totals_dvector
     )
 
     output_reference = f"Output Pop_{gor}_{forecast_year}"
@@ -146,7 +170,9 @@ def process_forecast_households_by_gor(
         config: dict,
         base_households: DVector,
         forecast_year: int,
-        gor: str
+        gor: str,
+        maintain_base_distriutions: bool,
+        segments_to_maintain: Optional[list] = None
 ):
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
@@ -166,6 +192,25 @@ def process_forecast_households_by_gor(
     else:
         target_dvectors = [household_targets]
 
+    # Get base distribution targets if maintaining
+    if maintain_base_distriutions:
+        added_targets = []
+        for segmentation in segments_to_maintain:
+            if isinstance(segmentation, list):
+                target = base_pop.aggregate(segs=segmentation)
+            else:
+                target = base_pop.aggregate(segs=[segmentation])
+
+            added_targets.append(target)
+
+        target_dvectors = added_targets + target_dvectors
+
+        # TODO make this flexible
+        match_totals_dvector = target_dvectors[3]
+
+    else:
+        match_totals_dvector = target_dvectors[2]
+
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
 
@@ -173,9 +218,11 @@ def process_forecast_households_by_gor(
     LOGGER.info("Apply the IPF to targets")
     # TODO think about order of targets applied (order defined in the config file)
     rebalanced_hhs, summary, differences = data_processing.apply_ipf(
-        seed_data=base_households,
+        seed_data=base_hhs,
         target_dvectors=target_dvectors,
         cache_folder=constants.CACHE_FOLDER,
+        # use household totals targets as the target dvector to "match totals to"
+        target_dvector=match_totals_dvector
     )
 
     output_reference = f"Output Households_{gor}_{forecast_year}"
@@ -248,9 +295,11 @@ for region in run_for_regions:
 
     for forecast_year in forecast_years:
         process_forecast_pop_by_gor(
-            config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region
+           config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region,
+           maintain_base_distriutions=True, segments_to_maintain=config["population_segments_to_maintain"]
         )
 
         process_forecast_households_by_gor(
-            config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region
+            config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region,
+            maintain_base_distriutions=True, segments_to_maintain=config["household_segments_to_maintain"]
         )
