@@ -14,6 +14,16 @@ from land_use.data_processing import OutputLevel
 
 
 def fetch_base_pop(config: dict, gor: str) -> DVector:
+    """
+    Function to fetch the base population, using population directory defined in the config file
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the base population path and file name
+    gor: str
+        region to fetch base population for, as base outputs are separated by region
+    """
     # --- Step 0 --- #
     # Load in the Base population output
     LOGGER.info("--- Step 0 ---")
@@ -45,6 +55,16 @@ def fetch_base_pop(config: dict, gor: str) -> DVector:
 
 
 def fetch_base_households(config: dict, gor: str) -> DVector:
+    """
+    Function to fetch the base households, using households directory defined in the config file
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the base households path and file name
+    gor: str
+        region to fetch base households for, as base outputs are separated by region
+    """
     # --- Step 0 --- #
     # Load in the Base households output
     LOGGER.info("--- Step 0 ---")
@@ -80,12 +100,31 @@ def process_forecast_pop_by_gor(
         base_pop: DVector,
         forecast_year: int,
         gor: str,
-        maintain_base_distriutions: bool,
+        maintain_base_distributions: bool,
         segments_to_maintain: Optional[list] = None) -> None:
+    """
+    Function to process and generate forecast population by regions
+    Reads in from the config file, with IPF targets defined in the config
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the targets (e.g. population projections by age, soc projections)
+    base_pop: DVector
+        base population DVector that has been read in previously using "fetch_base_pop" function
+    forecast_year: int
+        year to calculate forecasts for
+    gor: str
+        region to calculate forecasts for
+    maintain_base_distributions: bool
+        whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
+    segments_to_maintain: Optional[list]
+        option defining which segments to maintain from the base, defined in the config
+    """
 
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
-    LOGGER.info("load in ipf targets")
+    LOGGER.info("Load in IPF targets")
 
     pop_targets = data_processing.read_dvector_from_config(
         config=config,
@@ -102,7 +141,7 @@ def process_forecast_pop_by_gor(
         target_dvectors = [pop_targets]
 
     # Get base distribution targets if maintaining
-    if maintain_base_distriutions:
+    if maintain_base_distributions:
         added_targets = []
         for segmentation in segments_to_maintain:
             if isinstance(segmentation, list):
@@ -114,8 +153,8 @@ def process_forecast_pop_by_gor(
 
         target_dvectors = added_targets + target_dvectors
 
-        # TODO make this flexible
-        match_totals_dvector = target_dvectors[3]
+        # TODO make this flexible (pop targets)
+        match_totals_dvector = target_dvectors[1]
 
     else:
         match_totals_dvector = target_dvectors[0]
@@ -171,12 +210,31 @@ def process_forecast_households_by_gor(
         base_households: DVector,
         forecast_year: int,
         gor: str,
-        maintain_base_distriutions: bool,
+        maintain_base_distributions: bool,
         segments_to_maintain: Optional[list] = None
 ):
+    """
+    Function to process and generate forecast households by regions
+    Reads in from the config file, with IPF targets defined in the config
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the targets (e.g. total household projections)
+    base_households: DVector
+        base households DVector that has been read in previously using "fetch_base_households" function
+    forecast_year: int
+        year to calculate forecasts for
+    gor: str
+        region to calculate forecasts for
+    maintain_base_distributions: bool
+        whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
+    segments_to_maintain: Optional[list]
+        option defining which segments to maintain from the base, defined in the config
+    """
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
-    LOGGER.info("load in ipf targets")
+    LOGGER.info("Load in IPF targets")
 
     household_targets = data_processing.read_dvector_from_config(
         config=config,
@@ -193,7 +251,7 @@ def process_forecast_households_by_gor(
         target_dvectors = [household_targets]
 
     # Get base distribution targets if maintaining
-    if maintain_base_distriutions:
+    if maintain_base_distributions:
         added_targets = []
         for segmentation in segments_to_maintain:
             if isinstance(segmentation, list):
@@ -256,6 +314,7 @@ def process_forecast_households_by_gor(
         index=False,
     )
 
+
 # %%
 # python forecast_population.py "path/to_file/forecast_population_config.yml"
 
@@ -296,10 +355,10 @@ for region in run_for_regions:
     for forecast_year in forecast_years:
         process_forecast_pop_by_gor(
            config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region,
-           maintain_base_distriutions=True, segments_to_maintain=config["population_segments_to_maintain"]
+           maintain_base_distributions=True, segments_to_maintain=config["population_segments_to_maintain"]
         )
 
         process_forecast_households_by_gor(
             config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region,
-            maintain_base_distriutions=True, segments_to_maintain=config["household_segments_to_maintain"]
+            maintain_base_distributions=False
         )

@@ -3,7 +3,7 @@
 # As the config is likely to be used for multiple files then the key will include the forecast year
 
 input_root_directory: F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2
-output_directory: F:\Working\Land-Use\forecast_population_test_20250424
+output_directory: F:\Working\Land-Use\forecast_population_test_20250430
 output_intermediate_outputs: False
 
 base_year: 2023
@@ -69,7 +69,7 @@ forecast_data:
 population_segments_to_maintain:
 # - accom_h
 # - pop_emp
-# - ns_sec
+- ns_sec
 
 household_segments_to_maintain:
 # - ns_sec
