@@ -1,6 +1,5 @@
 # %%
 from pathlib import Path
-from typing import Literal
 from datetime import datetime
 
 import pandas as pd
@@ -83,6 +82,10 @@ LOGGER.info(f"{IPF_TARGET_OUT_DIR=}")
 
 # %%
 def main():
+    """
+    Main function which generates the forecast targets
+    Calls various functions which can be included/excluded depending on what needs generating
+    """
     IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
 
     # PROCESSES FOR THE GROWTH FACTORS
@@ -95,7 +98,6 @@ def main():
     process_and_save_hh_projections_children()
     process_and_save_projections_1_adult_hhs()
     process_and_save_hh_projections()
-    pre_process_obr()
 
     # PROCESSES FOR THE TARGETS
     # creating population targets
@@ -118,6 +120,16 @@ def main():
         hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
         base_year=BASE_YEAR,
         forecast_years=FORECAST_YEARS,
+        path_out=IPF_TARGET_OUT_DIR
+    )
+
+    # creating ns-sec household targets (based on the outputs from forecast population)
+    calc_and_output_nssec_hh_targets(
+        base_pop_dv_path=BASE_POP_DV,
+        base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+        forecast_dv_path=Path(
+            r"F:\Working\Land-Use\forecast_population_test_20250424\02_Final Outputs"),
+        forecast_years=[2033, 2038, 2043, 2048, 2053],
         path_out=IPF_TARGET_OUT_DIR
     )
 
@@ -155,7 +167,25 @@ def calc_and_output_pop_targets(
         forecast_years: list,
         path_out: None | Path = None
 ):
-    """Calculate the population targets and returns. Optionally write to a hdf (if provided with a path_out).
+    """
+    Calculate the population targets and writes to a hdf (if provided with a path_out)
+
+    Parameters
+    ----------
+    base_dv_path: Path
+        Base population DVectors path
+    age_g_factors: Path
+        Factors derived from ONS population projections data (can be updated if reading in different targets)
+    soc_change: Path
+        Proportion split changes derived from LM&S data (can be updated if reading in different targets)
+    g_adults_growth_factors: Path
+        Factors derived from ONS household projections data (single adult households by gender)
+    base_year: int
+        Base year of Land Use
+    forecast_years: list
+        Years to generate forecasts for
+    path_out: Path
+        Location to output the DVector targets to
     """
     # TODO think about changing the inputs to flow through in one script
     # --------------------------------------------------------
@@ -312,9 +342,28 @@ def calc_and_output_hh_targets(
         hh_single_adult_no_g_factors: Path,
         base_year: int,
         forecast_years: list,
-        path_out: None | Path = None,
-        hdf_key: None | str = "df"
+        path_out: None | Path = None
 ):
+    """
+    Calculate the household targets and writes to a hdf (if provided with a path_out)
+
+    Parameters
+    ----------
+    base_dv_path: Path
+        Base population DVectors path
+    hh_totals_factors: Path
+        Factors derived from ONS household projections data (can be updated if reading in different targets)
+    hh_children_factors: Path
+        Factors derived from ONS household projections data
+    hh_single_adult_no_g_factors: Path
+        Factors derived from ONS household projections data (single adult households by gender)
+    base_year: int
+        Base year of Land Use
+    forecast_years: list
+        Years to generate forecasts for
+    path_out: Path
+        Location to output the DVector targets to
+    """
 
     # --------------------------------------------------------
     # Reading in the Base data and the growth factors
@@ -417,6 +466,83 @@ def calc_and_output_hh_targets(
         children_dfs_output.to_hdf(path_out / f"household_children_targets.hdf", key=hdf_key, mode="a")
         totals_dfs_output.to_hdf(path_out / f"household_totals_targets.hdf", key=hdf_key, mode="a")
         adults_dfs_output.to_hdf(path_out / f"household_single_adults_targets.hdf", key=hdf_key, mode="a")
+
+
+def calc_and_output_nssec_hh_targets(
+        base_pop_dv_path: Path,
+        base_hhs_dv_path: Path,
+        forecast_dv_path: Path,
+        forecast_years: list,
+        path_out: None | Path = None
+):
+    """
+    Testing...
+    Function to maintain the NS-SEC changes in the household data based on the outcome of the NS-SEC in the population
+    Keep separate for now as the NS-SEC household targets are based off the forecast population outputs
+
+    Parameters
+    ----------
+    base_pop_dv_path: Path
+        Base population DVectors path
+    base_hhs_dv_path: Path
+        Base household DVectors path
+    forecast_dv_path: Path
+        Forecast population DVectors output
+    forecast_years: list
+        Years to generate forecasts for
+    path_out: Path
+        Location to output the DVector targets to
+    """
+
+    # Reading in the Base and Forecast population data
+    # Also read in the Base household data for later on in the function
+    for forecast_year in forecast_years:
+        nssec_hh_targets = []
+        hdf_key = f"targets_{forecast_year}"
+        for gor in constants.GORS + ["Scotland"]:
+            print(f"Processing for {forecast_year}, {gor}")
+            base_pop_dv = DVector.load(base_pop_dv_path / f"Output P11_{gor}.hdf")
+            base_pop_dv_nssec = base_pop_dv.aggregate(segs=["ns_sec"])
+
+            base_hhs_dv = DVector.load(base_hhs_dv_path / f"Output P13.3_{gor}.hdf")
+            base_hhs_dv_nssec = base_hhs_dv.aggregate(segs=["ns_sec"])
+
+            forecast_dv = DVector.load(forecast_dv_path / f"Output Pop_{gor}_{forecast_year}.hdf")
+            forecast_dv_nssec = forecast_dv.aggregate(segs=["ns_sec"])
+
+            # Calculate base population NS-SEC % splits
+            base_nssec = base_pop_dv_nssec.data
+            base_total = base_nssec.sum()
+            base_nssec_splits = (base_nssec / base_total)
+
+            # Calculate forecast population NS-SEC % splits
+            forecast_nssec = forecast_dv_nssec.data
+            forecast_total = forecast_nssec.sum()
+            forecast_nssec_splits = (forecast_nssec / forecast_total)
+
+            # Calculate change in NS-SEC splits between base and forecast year for population
+            split_change = forecast_nssec_splits - base_nssec_splits
+
+            # Now apply these splits to the household data to get targets
+            # TODO potentially change this method to a growth percentage of the base to forecast
+            base_hh_nssec = base_hhs_dv_nssec.data
+            base_hh_total = base_hh_nssec.sum()
+            base_hh_nssec_splits = (base_hh_nssec / base_hh_total)
+
+            new_hh_splits = base_hh_nssec_splits + split_change
+
+            # TODO apply to the base households or a version of the forecast households
+            #  (e.g. total household projections)?
+            hh_nssec_targets = base_hh_total * new_hh_splits
+
+            nssec_hh_targets.append(hh_nssec_targets)
+
+        # Output and save as targets
+        nssec_targets_output = pd.concat(nssec_hh_targets, axis=1)
+
+        message = f"writing to {path_out}, with {hdf_key=}"
+        print(message)
+        nssec_targets_output.to_hdf(path_out / f"hh_ns-sec_targets.hdf", key=hdf_key, mode="a")
 
 
 # %%
