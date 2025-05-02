@@ -8,7 +8,7 @@ from caf.base.zoning import TranslationWeighting
 from land_use import constants
 
 # Output directories
-POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_moving_to_config")
+POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_test_20250430")
 # POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_no_soc")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 POP_ANALYSIS_DIR = Path(
@@ -484,9 +484,9 @@ def calculate_occupancies(
     )
 
 
-# summarise_population_outputs(
-#     output_file_name='population_forecast_output_summary_no_soc',
-#     years_to_extract=[2033, 2038, 2043, 2048, 2053])
+summarise_population_outputs(
+    output_file_name='population_forecast_output_summary_20250430_nssec_retained',
+    years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
 # summarise_pop_and_hh_outputs_multi_segments(
 #     output_file_name="pop_hh_adults_soc",
@@ -498,9 +498,9 @@ def calculate_occupancies(
 #     output_file_name='employment_forecast_output_summary',
 #     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
-# summarise_household_outputs(
-#     output_file_name='household_forecast_output_summary_no_soc',
-#     years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
+summarise_household_outputs(
+    output_file_name='household_forecast_output_summary_20250430_nssec_retained',
+    years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 
 calculate_occupancies(
     forecast_years=[2033, 2038, 2043, 2048, 2053],
