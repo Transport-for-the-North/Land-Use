@@ -42,6 +42,15 @@ multiple_car_ownership = NorCOMResult.from_coefficients_csv(
 # expand the results to have all three probability levels in one dataframe
 result = any_car_ownership * multiple_car_ownership
 
+# 0v1+ Model Correction (applied relative to 0 cars category)
+_0_v_1 = -0.1
+
+# 1v2+ Model Correction (applied relative to the 1 car category)
+_1_v_2 = -0.2
+
+# infill factor in case of negative households in a zone
+fudge = 0.5
+
 result_dict = {}
 all_applied, all_expected = [], []
 # loop through regions
@@ -61,6 +70,64 @@ for GOR in GORS:
     # aggregate the post-norcom data to just car availability by zone
     validation = apply_norcom.aggregate(['car_availability'])
 
+    # TODO some discussion on caf.base about translate_segments etc. Have asked for a NORCOM_0V1 segment to be added so this can be translated in proper DVector format, current merge doesn't let me do the next line so have commented on the PR
+    # model_0v1 = validation.translate_segment('car_availability', 'norcom_0v1+')
+
+    # TODO basically all of this now uses pandas stuff when it should be DVector
+    # get results of 0v1+ model
+    model_0v1 = validation.data.reset_index()
+    model_0v1['norcom_0v1+'] = model_0v1['car_availability'].map({1: 1, 2: 2, 3: 2})
+    model_0v1 = model_0v1.groupby('norcom_0v1+').sum().drop(columns=['car_availability'])
+    model_0v1 = model_0v1.reset_index().melt(
+        id_vars='norcom_0v1+', value_name='households'
+    ).pivot(
+        index=LSOA_NAME, columns='norcom_0v1+', values='households'
+    ).reset_index()
+    model_0v1.columns = [LSOA_NAME, '0_cars', '1+_cars']
+
+    # get results of 1v2+ model
+    model_1v2 = validation.data.filter(items=[2, 3], axis=0).reset_index().melt(
+        id_vars='index', value_name='households'
+    ).pivot(
+        index=LSOA_NAME, columns='index', values='households'
+    ).reset_index()
+    model_1v2.columns = [LSOA_NAME, '1_cars', '2+_cars']
+
+    # combine the two models as in the spreadsheet example
+    combo = pd.merge(model_0v1, model_1v2, on=LSOA_NAME, how='left')
+
+    # step 1: shift households between 0and1+ model, infill negatives with fudge
+    combo['0_cars_step1'] = combo['0_cars'] + (_0_v_1 * combo['1+_cars'])
+    combo['0_cars_step1'] = combo['0_cars_step1'].where(combo['0_cars_step1'] > 0, fudge * combo['0_cars'])
+    combo['1+_cars_step1'] = combo['1+_cars'] - (_0_v_1 * combo['1+_cars'])
+
+    # step 2: calculate new 1v2+ car numbers based on expected proportions of 1v2+ from the original model
+    combo['1_car_step2'] = combo['1+_cars_step1'] * (combo['1_cars'] / (combo['1_cars'] + combo['2+_cars']))
+    combo['2+_cars_step2'] = combo['1+_cars_step1'] * (combo['2+_cars'] / (combo['1_cars'] + combo['2+_cars']))
+
+    # step 3: shift households between 1and2+ model, infill negatives with fudge
+    combo['1_car_step3'] = combo['1_car_step2'] + (_1_v_2 * combo['2+_cars_step2'])
+    combo['1_car_step3'] = combo['1_car_step3'].where(combo['1_car_step3'] > 0, fudge * combo['1_car_step2'])
+    combo['2+_cars_step3'] = combo['2+_cars_step2'] - (_1_v_2 * combo['2+_cars_step2'])
+
+    # step 4: isolate the required outputs for 0, 1, 2+ cars
+    combo[1] = combo['0_cars_step1']
+    combo[2] = combo['1_car_step3']
+    combo[3] = combo['2+_cars_step3']
+
+    # convert back to DVector
+    adjusted_norcom = combo.melt(
+        id_vars=LSOA_NAME, value_vars=[1, 2, 3], value_name='households', var_name='car_availability'
+    ).pivot(
+        index='car_availability', columns=LSOA_NAME, values='households'
+    )
+    adjusted_norcom = create_dvector_from_data(
+        dvector_data=adjusted_norcom, geographical_level=any_car_ownership.zonal_definition,
+        input_segments=['car_availability'], geography_subset=GOR
+    )
+
+    # TODO need to reapply the splits of the household segments ['accom_h', 'ns_sec', 'adults', 'children'] to get back to a fully segmented households dataset
+
     # load the validation DVector, just number of households in each car ownership
     # category by LSOA from the census
     if params.validate():
@@ -72,18 +139,18 @@ for GOR in GORS:
         validation_data = input_data.aggregate(['car_availability'])
 
     # save DVectors of validation
-    validation.save(data_dir / f'applied_{GOR}.hdf')
+    adjusted_norcom.save(data_dir / f'applied_{GOR}.hdf')
     validation_data.save(data_dir / f'expected_{GOR}.hdf')
 
     # calculate DVectors of differences
-    absolute = validation - validation_data
-    incremental = validation / validation_data
+    absolute = adjusted_norcom - validation_data
+    incremental = adjusted_norcom / validation_data
     absolute.save(data_dir / f'absolute_{GOR}.hdf')
     incremental.save(data_dir / f'incremental_{GOR}.hdf')
 
     # add to result dictionnaries to output
-    result_dict[f'{GOR}_APPLIED'] = validation.data.reset_index().melt(
-        id_vars=['car_availability'], value_vars=validation.data.columns,
+    result_dict[f'{GOR}_APPLIED'] = adjusted_norcom.data.reset_index().melt(
+        id_vars=['car_availability'], value_vars=adjusted_norcom.data.columns,
         var_name=LSOA_NAME, value_name='households'
     )
     result_dict[f'{GOR}_EXPECTED'] = validation_data.data.reset_index().melt(

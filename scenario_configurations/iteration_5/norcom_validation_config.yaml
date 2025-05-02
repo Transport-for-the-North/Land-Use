@@ -3,7 +3,7 @@
 # folder name of the actual NorCOM estimation outputs, and the reference that
 # is in the name of the zonal data file
 # (e.g. "I:\NorMITs NorCOM\Import\Zonal Data\zonal_logit_data_v36.csv")
-estimation_version: v38_w2adjusted-v3
+estimation_version: v38
 
 # master folder of all the different versions of the NorCOM estimation results
 results_path: I:\NorMITs NorCOM\AECOM working
@@ -26,4 +26,4 @@ year: 2021
 validation_dvector: I:\NorMITs Land Use\2023\import\ONS-validation\preprocessing\households_cars_lsoa_3.hdf
 
 # path to store any validation outputs
-output_path: I:\NorMITs NorCOM\Validation
+output_path: I:\NorMITs NorCOM\Validation\post-adjustment
