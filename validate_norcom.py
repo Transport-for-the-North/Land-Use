@@ -70,59 +70,47 @@ for GOR in GORS:
     # aggregate the post-norcom data to just car availability by zone
     validation = apply_norcom.aggregate(['car_availability'])
 
-    # TODO some discussion on caf.base about translate_segments etc. Have asked for a NORCOM_0V1 segment to be added so this can be translated in proper DVector format, current merge doesn't let me do the next line so have commented on the PR
-    # model_0v1 = validation.translate_segment('car_availability', 'norcom_0v1+')
+    # get model results
+    # (0v1+)
+    _0_cars = validation.translate_segment('car_availability', 'norcom_0v1+').drop_by_segment_values('norcom_0v1+', [2]).add_segments(['total']).aggregate(['total'])
+    _1plus_cars = validation.translate_segment('car_availability', 'norcom_0v1+').drop_by_segment_values('norcom_0v1+', [1]).add_segments(['total']).aggregate(['total'])
+    # (1v2+)
+    _1_car = validation.drop_by_segment_values('car_availability', [1, 3]).add_segments(['total']).aggregate(['total'])
+    _2plus_cars = validation.drop_by_segment_values('car_availability', [1, 2]).add_segments(['total']).aggregate(['total'])
 
-    # TODO basically all of this now uses pandas stuff when it should be DVector
-    # get results of 0v1+ model
-    model_0v1 = validation.data.reset_index()
-    model_0v1['norcom_0v1+'] = model_0v1['car_availability'].map({1: 1, 2: 2, 3: 2})
-    model_0v1 = model_0v1.groupby('norcom_0v1+').sum().drop(columns=['car_availability'])
-    model_0v1 = model_0v1.reset_index().melt(
-        id_vars='norcom_0v1+', value_name='households'
-    ).pivot(
-        index=LSOA_NAME, columns='norcom_0v1+', values='households'
-    ).reset_index()
-    model_0v1.columns = [LSOA_NAME, '0_cars', '1+_cars']
-
-    # get results of 1v2+ model
-    model_1v2 = validation.data.filter(items=[2, 3], axis=0).reset_index().melt(
-        id_vars='index', value_name='households'
-    ).pivot(
-        index=LSOA_NAME, columns='index', values='households'
-    ).reset_index()
-    model_1v2.columns = [LSOA_NAME, '1_cars', '2+_cars']
-
-    # combine the two models as in the spreadsheet example
-    combo = pd.merge(model_0v1, model_1v2, on=LSOA_NAME, how='left')
+    # create DVectors of the adjustment values
+    # TODO Cant currently multiply a DVector by a number (TypeError: unsupported operand type(s) for *: 'float' and 'DVector')
+    _0_v_1_dvec = _0_cars.copy()
+    _0_v_1_dvec.data.loc[:] = _0_v_1
+    _1_v_2_dvec = _0_cars.copy()
+    _1_v_2_dvec.data.loc[:] = _1_v_2
 
     # step 1: shift households between 0and1+ model, infill negatives with fudge
-    combo['0_cars_step1'] = combo['0_cars'] + (_0_v_1 * combo['1+_cars'])
-    combo['0_cars_step1'] = combo['0_cars_step1'].where(combo['0_cars_step1'] > 0, fudge * combo['0_cars'])
-    combo['1+_cars_step1'] = combo['1+_cars'] - (_0_v_1 * combo['1+_cars'])
+    _0_cars_step_1 = _0_cars + (_0_v_1_dvec * _1plus_cars)
+    _0_cars_step_1.data = _0_cars_step_1.data.where(_0_cars_step_1.data > 0, fudge * _0_cars.data)
+    _1plus_cars_step_1 = _1plus_cars - (_0_v_1_dvec * _1plus_cars)
 
     # step 2: calculate new 1v2+ car numbers based on expected proportions of 1v2+ from the original model
-    combo['1_car_step2'] = combo['1+_cars_step1'] * (combo['1_cars'] / (combo['1_cars'] + combo['2+_cars']))
-    combo['2+_cars_step2'] = combo['1+_cars_step1'] * (combo['2+_cars'] / (combo['1_cars'] + combo['2+_cars']))
+    _1_car_step_2 = _1plus_cars_step_1 * (_1_car / (_1_car + _2plus_cars))
+    _2plus_cars_step_2 = _1plus_cars_step_1 * (_2plus_cars / (_1_car + _2plus_cars))
 
     # step 3: shift households between 1and2+ model, infill negatives with fudge
-    combo['1_car_step3'] = combo['1_car_step2'] + (_1_v_2 * combo['2+_cars_step2'])
-    combo['1_car_step3'] = combo['1_car_step3'].where(combo['1_car_step3'] > 0, fudge * combo['1_car_step2'])
-    combo['2+_cars_step3'] = combo['2+_cars_step2'] - (_1_v_2 * combo['2+_cars_step2'])
+    _1_car_step_3 = _1_car_step_2 + (_1_v_2_dvec * _2plus_cars_step_2)
+    _1_car_step_3.data = _1_car_step_3.data.where(_1_car_step_3.data > 0, fudge * _1_car_step_2.data)
+    _2plus_cars_step_3 = _2plus_cars_step_2 - (_1_v_2_dvec * _2plus_cars_step_2)
 
-    # step 4: isolate the required outputs for 0, 1, 2+ cars
-    combo[1] = combo['0_cars_step1']
-    combo[2] = combo['1_car_step3']
-    combo[3] = combo['2+_cars_step3']
-
-    # convert back to DVector
-    adjusted_norcom = combo.melt(
-        id_vars=LSOA_NAME, value_vars=[1, 2, 3], value_name='households', var_name='car_availability'
-    ).pivot(
-        index='car_availability', columns=LSOA_NAME, values='households'
+    # combine output into a single dataframe
+    # TODO ignore_index=True here means that the index will be 0,1,2 in the order in which they are concatenated, and therefore we can do index + 1 to get to car_availability seegmentation.
+    output = pd.concat(
+        [_0_cars_step_1.data, _1_car_step_3.data, _2plus_cars_step_3.data],
+        ignore_index=True
     )
+    output.index = output.index + 1
+    output.index.name = 'car_availability'
+
+    # convert to DVector
     adjusted_norcom = create_dvector_from_data(
-        dvector_data=adjusted_norcom, geographical_level=any_car_ownership.zonal_definition,
+        dvector_data=output, geographical_level=any_car_ownership.zonal_definition,
         input_segments=['car_availability'], geography_subset=GOR
     )
 
@@ -139,17 +127,17 @@ for GOR in GORS:
         validation_data = input_data.aggregate(['car_availability'])
 
     # save DVectors of validation
-    adjusted_norcom.save(data_dir / f'applied_{GOR}.hdf')
+    adjusted_norcom.aggregate(['car_availability']).save(data_dir / f'applied_{GOR}.hdf')
     validation_data.save(data_dir / f'expected_{GOR}.hdf')
 
     # calculate DVectors of differences
-    absolute = adjusted_norcom - validation_data
-    incremental = adjusted_norcom / validation_data
+    absolute = adjusted_norcom.aggregate(['car_availability']) - validation_data
+    incremental = adjusted_norcom.aggregate(['car_availability']) / validation_data
     absolute.save(data_dir / f'absolute_{GOR}.hdf')
     incremental.save(data_dir / f'incremental_{GOR}.hdf')
 
     # add to result dictionnaries to output
-    result_dict[f'{GOR}_APPLIED'] = adjusted_norcom.data.reset_index().melt(
+    result_dict[f'{GOR}_APPLIED'] = adjusted_norcom.aggregate(['car_availability']).data.reset_index().melt(
         id_vars=['car_availability'], value_vars=adjusted_norcom.data.columns,
         var_name=LSOA_NAME, value_name='households'
     )
