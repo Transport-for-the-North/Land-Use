@@ -20,13 +20,12 @@ REGION_CORRESPONDENCE = pd.read_csv(
 BASE_YEAR = 2023
 ONS_CROSSOVER_YEAR = 2043
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
-FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
-FORECAST_YEARS = [2023, 2033]
+FORECAST_YEARS = [2023, 2033, 2038, 2043, 2048, 2053]
 
 ONS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 
 IPF_TARGET_OUT_DIR = Path(
-    r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth"
+    r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth_no_sic_20_21"
 )
 IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
 
@@ -106,9 +105,67 @@ def calc_pop_rgn_factors() -> pd.DataFrame:
 
 
 def calc_english_rgn_pop_factors() -> pd.DataFrame:
+    # this is population bsed on 2018 dataset
     gor_to_crossover = extract_england_region_pop_forecasts(
         filename=Path("2018_based_england_regions_pop_projections.xlsx")
     )
+
+    # Update the english regional growth factors (from 2018 forecast) 
+    # so the total growth matches the 2022 england growth forecast
+    
+    # Calculate england population projections based on 2018 forecast
+    england_totals_in_2018 = gor_to_crossover.sum().reset_index(name=0)
+
+    years_of_interest = [x for x in FORECAST_YEARS if x <= ONS_CROSSOVER_YEAR]
+
+    if ONS_CROSSOVER_YEAR not in years_of_interest:
+        years_of_interest.append(ONS_CROSSOVER_YEAR)
+
+    england_pop_proj_2018 = england_totals_in_2018[
+        england_totals_in_2018["index"].isin(years_of_interest)
+    ]
+    england_pop_proj_2018 = england_totals_in_2018.set_index("index").transpose()
+
+    england_pop_proj_2021 = extract_country_level_pop_forecasts(
+        "2021_based_interim_england_pop_projections.xlsx", country_code="E92000001"
+    )
+
+    england_pop_proj_2018 = england_pop_proj_2018[years_of_interest]
+    england_pop_proj_2021 = england_pop_proj_2021[years_of_interest]
+
+    england_pop_project_adjustment_factors = (
+        england_pop_proj_2021 / england_pop_proj_2018
+    )
+
+    england_pop_project_adjustment_factors = (
+        england_pop_project_adjustment_factors.add_prefix("pop_adjust_factor_")
+    )
+
+    # Add country code to allow safer merging
+    england_pop_project_adjustment_factors["country_code"] = "E92000001"
+
+    factor_columns = [f"factor_{BASE_YEAR}_to_{year}" for year in years_of_interest]
+    gor_factors_to_crossover = gor_to_crossover.copy()
+    keep_cols = ["CODE"]
+
+    keep_cols.extend(factor_columns)
+
+    gor_factors_to_crossover = gor_factors_to_crossover[keep_cols]
+    gor_factors_to_crossover["country_code"] = "E92000001"
+
+    df_with_revised_factors = pd.merge(
+        gor_factors_to_crossover, england_pop_project_adjustment_factors, how="left"
+    )
+
+    # now update with adjustment factors
+    for year in years_of_interest:
+        df_with_revised_factors[f"factor_{BASE_YEAR}_to_{year}"] = (
+            df_with_revised_factors[f"factor_{BASE_YEAR}_to_{year}"]
+            * df_with_revised_factors[f"pop_adjust_factor_{year}"]
+            / df_with_revised_factors[f"pop_adjust_factor_{BASE_YEAR}"]
+        )
+
+    gor_to_crossover = df_with_revised_factors
 
     england_factors_post_crossover = calc_england_factors_post_crossover()
 
@@ -124,6 +181,7 @@ def calc_english_rgn_pop_factors() -> pd.DataFrame:
     england_rgn_factors = england_rgn_factors[keep_cols]
 
     england_rgn_factors = england_rgn_factors.reset_index()
+
     return england_rgn_factors
 
 
@@ -153,7 +211,7 @@ def extract_england_region_pop_forecasts(filename: Path) -> pd.DataFrame:
     # need to be a little bit smarter for which years to calculate factors for,
     # we definitely need up to the crossover
     factor_years = FORECAST_YEARS.copy()
-    if not ONS_CROSSOVER_YEAR in factor_years:
+    if ONS_CROSSOVER_YEAR not in factor_years:
         factor_years.append(ONS_CROSSOVER_YEAR)
 
     # and then we should cap it at the crossover
@@ -203,7 +261,7 @@ def calc_gor_factors_post_crossover(
 
 def calc_non_english_rgn_pop_factors() -> pd.DataFrame:
     scotland_pop_forecast = extract_country_level_pop_forecasts(
-        "2020_based_interim_scotland_pop_projections.xlsx", country_code="S92000003"
+        "2022_based_scotland_pop_projections.xlsx", country_code="S92000003"
     )
     wales_pop_forecast = extract_country_level_pop_forecasts(
         "2021_based_interim_wales_pop_projections.xlsx", country_code="W92000004"
@@ -301,14 +359,13 @@ def calc_sic_targets(
 
     sic_targets_dv_format = sic_targets.transpose()
 
-    # TODO consider if this can be/should be dynamic?
-    # remove sic_1_digit 20 and 21 as they are empty
-    # TODO: testing if removing -1 allows IPF to run
-    sic_targets_dv_format = sic_targets_dv_format.drop(index=[-1, 20, 21])
+    # remove sic 20 and 21 as they are zero which causes the ipf to crash
+    sic_targets_dv_format = sic_targets_dv_format.drop(index=[20, 21])
+
+    sic_targets_dv_format = sic_targets_dv_format.astype(float)
 
     message = f"writing to {path_out}, with {hdf_key=}"
     print(message)
-    # LOGGER.info(message)
     sic_targets_dv_format.to_hdf(path_out, key=hdf_key, mode="a")
 
     return sic_targets_dv_format
@@ -362,7 +419,7 @@ def pre_process_lms_sic():
     # TODO numbers under 10,000?
 
     forecast_years = FORECAST_YEARS
-    if not BASE_YEAR in FORECAST_YEARS:
+    if BASE_YEAR not in FORECAST_YEARS:
         forecast_years.append(BASE_YEAR)
 
     sic_rgns = pp.infill_for_years(
@@ -429,8 +486,7 @@ def create_soc_targets(
 
     soc_targets_dv_format = soc_targets.transpose()
 
-    # TODO: testing if removing soc4 allows IPF to run
-    soc_targets_dv_format = soc_targets_dv_format.drop(index=[4])
+    soc_targets_dv_format = soc_targets_dv_format.astype(float)
 
     message = f"writing to {path_out}, with {hdf_key=}"
     print(message)
