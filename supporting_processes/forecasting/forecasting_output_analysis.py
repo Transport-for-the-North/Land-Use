@@ -5,11 +5,10 @@ import pandas as pd
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
-from land_use import constants
+from land_use import constants, data_processing
 
 # Output directories
-POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_test_20250430")
-# POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_population_testing_no_soc")
+POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_test_20250512")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\OUTPUTS_forecast_employment")
 POP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop"
@@ -64,7 +63,6 @@ def summarise_population_outputs(output_file_name: str, years_to_extract: list):
             print(f"Summarising for {year}, {rgn}")
             dv = DVector.load(
                 Path(
-                    # POP_OUTPUT_DIR / rf"01_Intermediate Files\Population_age_g_soc_"
                     POP_OUTPUT_DIR / rf"02_Final Outputs\Output Pop_"
                     rf"{rgn}_{year}.hdf"
                 )
@@ -135,7 +133,6 @@ def summarise_pop_and_hh_outputs_multi_segments(
                     dv = DVector.load(
                         Path(
                             POP_OUTPUT_DIR / rf"01_Intermediate Files\{file}_"
-                            # POP_OUTPUT_DIR / rf"02_Final Outputs\Output {file}_"
                                              rf"{rgn}_{year}.hdf"
                         )
                     )
@@ -310,6 +307,7 @@ def dvector_segment_comparisons(
         DVectors for comparison, includes full path to the DVector
     output_file_name: Path
         Name of the csv file to output to
+    forecast_type: string
     """
     # %%
     single_seg_totals_and_prop = []
@@ -484,9 +482,46 @@ def calculate_occupancies(
     )
 
 
-summarise_population_outputs(
-    output_file_name='population_forecast_output_summary_20250430_nssec_retained',
-    years_to_extract=[2033, 2038, 2043, 2048, 2053])
+def summarise_hh_nssec_targets():
+    """
+    Function to summarise the household NS-SEC targets generated from the forecast population outputs
+    """
+    final_dfs = []
+    for year in ["2033", "2038", "2043", "2048", "2053"]:
+        print(year)
+        dv = data_processing.read_dvector_data(
+            file_path=Path(
+                r"F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2\hh_ns-sec_targets.hdf"),
+            geographical_level="LSOA2021",
+            input_segments=["ns_sec"],
+            hdf_key=f"targets_{year}"
+        )
+        dv_translated = dv.translate_zoning(new_zoning=constants.KNOWN_GEOGRAPHIES.get("RGN2021"),
+                                            cache_path=constants.CACHE_FOLDER,
+                                            weighting=TranslationWeighting.NO_WEIGHT)
+        for seg in dv_translated.segmentation.names:
+            print(seg)
+            # aggregate segmentation
+            df = dv_translated.aggregate([seg])
+            df = df.data.reset_index()
+
+            df["seg"] = seg
+            df = df.rename(columns={seg: "seg_value"})
+
+            df = df.rename(columns=region_mapping)
+            df_long = df.melt(id_vars=["seg", "seg_value"], var_name="rgn")
+
+            df_long["year"] = year
+
+            final_dfs.append(df_long)
+
+    final_output = pd.concat(final_dfs)
+    final_output.to_csv(POP_ANALYSIS_DIR / f"hh_ns-sec_targets.csv")
+
+
+# summarise_population_outputs(
+#     output_file_name='population_forecast_output_summary_20250430_nssec_retained',
+#     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
 # summarise_pop_and_hh_outputs_multi_segments(
 #     output_file_name="pop_hh_adults_soc",
@@ -498,9 +533,9 @@ summarise_population_outputs(
 #     output_file_name='employment_forecast_output_summary',
 #     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
-summarise_household_outputs(
-    output_file_name='household_forecast_output_summary_20250430_nssec_retained',
-    years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
+# summarise_household_outputs(
+#     output_file_name='household_forecast_output_summary_20250512_nssec_test',
+#     years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 
 calculate_occupancies(
     forecast_years=[2033, 2038, 2043, 2048, 2053],
