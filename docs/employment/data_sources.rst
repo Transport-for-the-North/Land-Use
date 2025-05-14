@@ -1,7 +1,12 @@
 Data Sources
 ############
 
-The data sources used in the employment model are primarily from three sources; BRES 2022 Employment, the Office of National Statistics and the Workforce Jobs Survey 203..
+The data sources used in the employment model are primarily from three sources:
+
+- Business Register and Employment Survey (BRES),
+- the Office of National Statistics, and
+- the Workforce Jobs (WfJ) Survey.
+
 The sections below describe each input dataset with the:
 
 - unit of the data,
@@ -14,10 +19,11 @@ The sections below describe each input dataset with the:
 Base Year Model Data
 ********************
 
-BRES 2022
-============================
-``BRES 2022 Employment LAD`` 
-----------------------------
+2022 BRES Data
+==================================
+
+LAD Employment
+--------------
 
 .. list-table::
    :header-rows: 0
@@ -37,8 +43,8 @@ BRES 2022
    * - Access
      - Freely available to download
 
-``BRES 2022 Employment LSOA`` 
------------------------------
+LSOA Employment
+---------------
 
 .. list-table::
    :header-rows: 0
@@ -58,8 +64,8 @@ BRES 2022
    * - Access
      - Freely available to download
 
-``BRES 2022 Employment MSOA`` 
------------------------------
+MSOA Employment
+---------------
 
 .. list-table::
    :header-rows: 0
@@ -81,8 +87,9 @@ BRES 2022
 
 Office for National Statistics
 ==============================
-``ONS Industry (SIC) to Occupation (SOC)``
-------------------------------------------
+
+ONS Industry (SIC) to Occupation (SOC)
+--------------------------------------
 
 .. list-table::
    :header-rows: 0
@@ -104,8 +111,9 @@ Office for National Statistics
 
 WFJ
 ===
-``WFJ 2023``
-------------
+
+WFJ 2023
+--------
 
 .. list-table::
    :header-rows: 0
@@ -125,8 +133,8 @@ WFJ
    * - Access
      - Freely available to download
 
-``SOC 4 factors``
------------------
+SOC 4 factors
+-------------
 
 .. list-table::
    :header-rows: 0
@@ -145,3 +153,7 @@ WFJ
      - I:/NorMITs Land Use/2023/import/SOC/Table 8 WFJ-adjusted Land Use SOC4.csv
    * - Access
      - TfN internal analysis
+
+
+Forecast Model Data
+********************
