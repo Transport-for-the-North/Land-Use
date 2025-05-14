@@ -533,7 +533,7 @@ def pre_process_lms_soc() -> pd.DataFrame:
     soc_rgns[years] = soc_rgns[years] * 1000
 
     forecast_years_inc_base = FORECAST_YEARS
-    if not BASE_YEAR in FORECAST_YEARS:
+    if BASE_YEAR not in FORECAST_YEARS:
         forecast_years_inc_base.append(BASE_YEAR)
 
     soc_rgns = pp.infill_for_years(
