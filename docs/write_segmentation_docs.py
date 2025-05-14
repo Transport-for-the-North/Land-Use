@@ -169,8 +169,8 @@ if __name__ == '__main__':
     this_folder = Path(__file__).parent
 
     with open(this_folder / 'population' / 'segmentation.rst', 'w', encoding='utf-8') as pop_seg_file:
-        pop_seg_file.write(segmentation_page_from_yaml(args.pop_config.absolute()))
+        pop_seg_file.write(segmentation_page_from_yaml(args.pop_config.absolute(), "Segmentation Definitions"))
     
     with open(this_folder / 'employment' / 'segmentation.rst', 'w', encoding='utf-8') as pop_seg_file:
-        pop_seg_file.write(segmentation_page_from_yaml(args.emp_config.absolute()))
+        pop_seg_file.write(segmentation_page_from_yaml(args.emp_config.absolute(), "Segmentation Definitions"))
 
