@@ -100,6 +100,7 @@ def process_forecast_pop_by_gor(
         base_pop: DVector,
         forecast_year: int,
         gor: str,
+        target_dvector_key: int,
         maintain_base_distributions: bool,
         segments_to_maintain: Optional[list] = None) -> None:
     """
@@ -116,6 +117,8 @@ def process_forecast_pop_by_gor(
         year to calculate forecasts for
     gor: str
         region to calculate forecasts for
+    target_dvector_key: int
+        defines which Dvector that is read in as the targets to take as the total target DVector
     maintain_base_distributions: bool
         whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
     segments_to_maintain: Optional[list]
@@ -153,18 +156,16 @@ def process_forecast_pop_by_gor(
 
         target_dvectors = added_targets + target_dvectors
 
-        # TODO make this flexible (pop targets)
-        match_totals_dvector = target_dvectors[1]
+        match_totals_dvector = target_dvectors[target_dvector_key]
 
     else:
-        match_totals_dvector = target_dvectors[0]
+        match_totals_dvector = target_dvectors[target_dvector_key]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
 
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
-    # TODO think about order of targets applied (order defined in the config file)
     rebalanced_pop, summary, differences = data_processing.apply_ipf(
         seed_data=base_pop,
         target_dvectors=target_dvectors,
@@ -210,6 +211,7 @@ def process_forecast_households_by_gor(
         base_households: DVector,
         forecast_year: int,
         gor: str,
+        target_dvector_key: int,
         maintain_base_distributions: bool,
         segments_to_maintain: Optional[list] = None
 ):
@@ -227,6 +229,8 @@ def process_forecast_households_by_gor(
         year to calculate forecasts for
     gor: str
         region to calculate forecasts for
+    target_dvector_key: int
+        defines which Dvector that is read in as the targets to take as the total target DVector
     maintain_base_distributions: bool
         whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
     segments_to_maintain: Optional[list]
@@ -263,18 +267,16 @@ def process_forecast_households_by_gor(
 
         target_dvectors = added_targets + target_dvectors
 
-        # TODO make this flexible
-        match_totals_dvector = target_dvectors[3]
+        match_totals_dvector = target_dvectors[target_dvector_key]
 
     else:
-        match_totals_dvector = target_dvectors[2]
+        match_totals_dvector = target_dvectors[target_dvector_key]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
 
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
-    # TODO think about order of targets applied (order defined in the config file)
     rebalanced_hhs, summary, differences = data_processing.apply_ipf(
         seed_data=base_hhs,
         target_dvectors=target_dvectors,
@@ -355,10 +357,12 @@ for region in run_for_regions:
     for forecast_year in forecast_years:
         process_forecast_pop_by_gor(
            config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region,
-           maintain_base_distributions=True, segments_to_maintain=config["population_segments_to_maintain"]
+           maintain_base_distributions=config["maintain_population_base_distributions"],
+           target_dvector_key=config["forecast_population_total_target_key"]
         )
 
         process_forecast_households_by_gor(
             config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region,
-            maintain_base_distributions=False
+            maintain_base_distributions=config["maintain_households_base_distributions"],
+            target_dvector_key=config["forecast_household_total_target_key"]
         )
