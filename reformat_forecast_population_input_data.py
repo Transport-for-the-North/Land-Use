@@ -114,7 +114,7 @@ def main():
     # creating household targets
     calc_and_output_hh_targets(
         base_dv_path=Path(
-            fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+            r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
         hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
         hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
         hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
@@ -165,7 +165,7 @@ def calc_and_output_pop_targets(
         g_adults_growth_factors: Path,
         base_year: int,
         forecast_years: list,
-        path_out: None | Path = None
+        path_out: Path
 ):
     """
     Calculate the population targets and writes to a hdf (if provided with a path_out)
@@ -322,15 +322,12 @@ def calc_and_output_pop_targets(
         soc_dfs_output = pd.concat(soc_dfs, axis=1)
         pop_g_adults_dfs_output = pd.concat(pop_g_adults_dfs, axis=1)
 
-        # if not path_out:
-        #     return pop_targets, soc_targets, pop_g_adults_targets
-
         path_out = path_out
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
-        pop_dfs_output.to_hdf(path_out / f"pop_targets.hdf", key=hdf_key, mode="a")
-        soc_dfs_output.to_hdf(path_out / f"soc_targets.hdf", key=hdf_key, mode="a")
-        pop_g_adults_dfs_output.to_hdf(path_out / f"pop_g_adults_targets.hdf", key=hdf_key, mode="a")
+        pop_dfs_output.to_hdf(path_out / "pop_targets.hdf", key=hdf_key, mode="a")
+        soc_dfs_output.to_hdf(path_out / "soc_targets.hdf", key=hdf_key, mode="a")
+        pop_g_adults_dfs_output.to_hdf(path_out / "pop_g_adults_targets.hdf", key=hdf_key, mode="a")
 
         # return pop_targets, soc_targets, pop_g_adults_targets
 
@@ -342,7 +339,7 @@ def calc_and_output_hh_targets(
         hh_single_adult_no_g_factors: Path,
         base_year: int,
         forecast_years: list,
-        path_out: None | Path = None
+        path_out: Path
 ):
     """
     Calculate the household targets and writes to a hdf (if provided with a path_out)
@@ -458,14 +455,11 @@ def calc_and_output_hh_targets(
         totals_dfs_output = pd.concat(totals_dfs, axis=1)
         adults_dfs_output = pd.concat(adults_dfs, axis=1)
 
-        # if not path_out:
-        #     return pop_targets, soc_targets, pop_g_adults_targets
-
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
-        children_dfs_output.to_hdf(path_out / f"household_children_targets.hdf", key=hdf_key, mode="a")
-        totals_dfs_output.to_hdf(path_out / f"household_totals_targets.hdf", key=hdf_key, mode="a")
-        adults_dfs_output.to_hdf(path_out / f"household_single_adults_targets.hdf", key=hdf_key, mode="a")
+        children_dfs_output.to_hdf(path_out / "household_children_targets.hdf", key=hdf_key, mode="a")
+        totals_dfs_output.to_hdf(path_out / "household_totals_targets.hdf", key=hdf_key, mode="a")
+        adults_dfs_output.to_hdf(path_out / "household_single_adults_targets.hdf", key=hdf_key, mode="a")
 
 
 def calc_and_output_nssec_hh_targets(
@@ -473,7 +467,7 @@ def calc_and_output_nssec_hh_targets(
         base_hhs_dv_path: Path,
         forecast_dv_path: Path,
         forecast_years: list,
-        path_out: None | Path = None
+        path_out: Path
 ):
     """
     Testing...
@@ -542,7 +536,7 @@ def calc_and_output_nssec_hh_targets(
 
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
-        nssec_targets_output.to_hdf(path_out / f"hh_ns-sec_targets.hdf", key=hdf_key, mode="a")
+        nssec_targets_output.to_hdf(path_out / "hh_ns-sec_targets.hdf", key=hdf_key, mode="a")
 
 
 # %%
@@ -605,7 +599,7 @@ def fetch_2018_pop_projections(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
         [male_df_country, female_df_country, df_age_g_scotland, df_age_g_wales]
     )
 
-    if not year in gor_df.columns:
+    if year not in gor_df.columns:
         raise NotImplementedError(f"{year} is not included in dataset")
 
     df_gor_wide = pd.pivot(
