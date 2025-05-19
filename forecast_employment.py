@@ -24,8 +24,13 @@ def fetch_base_emp(config: dict) -> DVector:
     base_seg_totals = data_processing.find_segment_totals(
         dvec=base_emp, dimension="employment"
     )
+
+    dir_out = OUTPUT_DIR / OutputLevel.ASSURANCE
+    dir_out.mkdir(parents=True, exist_ok=True)
+    path_out = dir_out / "emp_base_segment_totals.csv"
+
     base_seg_totals.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / "emp_base_segment_totals.csv",
+        path_out,
         float_format="%.5f",
         index=False,
     )
@@ -64,7 +69,7 @@ def find_regional_seg_totals(dvec: DVector, output_prefix: str) -> None:
             dvec=base_emp_one_rgn, dimension="employment"
         )
         rgn_seg_totals.to_csv(
-            OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_prefix}_{rgn}.csv",
+            OUTPUT_DIR / OutputLevel.ASSURANCE / f"{output_prefix}_{rgn}.csv",
             float_format="%.5f",
             index=False,
         )
@@ -75,39 +80,47 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("load in ipf targets")
-    sic_targets = data_processing.read_dvector_from_config(
+
+    emp_targets = data_processing.read_dvector_from_config(
         config=config,
         data_block="forecast_data",
-        key="sic_targets",
+        key="targets",
         hdf_key=f"targets_{forecast_year}",
     )
 
-    soc_targets = data_processing.read_dvector_from_config(
-        config=config,
-        data_block="forecast_data",
-        key="soc_targets",
-        hdf_key=f"targets_{forecast_year}",
-    )
+    # fix target_dvectors to be a list
+    if isinstance(emp_targets, list):
+        target_dvectors = emp_targets
+    else:
+        target_dvectors = [emp_targets]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
+
+    base_emp.save(OUTPUT_DIR / OutputLevel.ASSURANCE / "seed_data.hdf")
+
+    for idx, target_dv in enumerate(target_dvectors):
+        target_dv.save(OUTPUT_DIR / OutputLevel.ASSURANCE / f"target_dvector_{idx}.hdf")
 
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
     rebalanced_emp, summary, differences = data_processing.apply_ipf(
         seed_data=base_emp,
-        target_dvectors=[sic_targets, soc_targets],
+        target_dvectors=target_dvectors,
         cache_folder=constants.CACHE_FOLDER,
     )
 
-    output_reference = f"Output Emp_sic_soc_{forecast_year}"
+    output_reference = f"Output Emp_{forecast_year}"
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
         output_reference=output_reference,
         dvector=rebalanced_emp,
         dvector_dimension="jobs",
-        output_level=OutputLevel.INTERMEDIATE,
+        output_level=OutputLevel.FINAL,
     )
+
+    dir_int = OUTPUT_DIR / OutputLevel.INTERMEDIATE
+    dir_int.mkdir(exist_ok=True)
     summary.to_csv(
         OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
         float_format="%.5f",
@@ -124,7 +137,7 @@ def process_forecast_emp(config: dict, base_emp: DVector, forecast_year: int) ->
     )
     forecast_seg_totals.to_csv(
         OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
+        / OutputLevel.ASSURANCE
         / f"{output_reference}_segment_totals.csv",
         float_format="%.5f",
         index=False,

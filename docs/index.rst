@@ -7,20 +7,31 @@ NorMITS Land Use
 Introduction
 ============
 
-NorMITs Land Use is Transport for the North's (TfN) mainland GB population and 
-employment model. It builds detailed population and employment vectors for a 
-given base year, and can also build a range of scenario specific forecasts.
+Transport for the North (TfN) has developed its Analytical Framework to facilitate
+economic and transport modelling for TfN’s projects and programmes. The Analytical
+Framework provides a suite of models which TfN can use to test the economic and
+operational cases of proposed new transport infrastructure across the North of England.
+
+The Analytical Framework includes the NorMITs (Northern Model Integration Tools)
+suite of tools. NorMITs is a set of Python libraries to provide data-synthesis,
+data-processing, and translation to enable consistent representation of travel
+markets and transport capacity within the two modelling tiers of the Analytical Framework.
+
+This documentation focuses on the NorMITs Land Use models.
+
+These models builds detailed population and employment vectors for a
+given base year, and can also build a range of scenario specific forecasts, for
+mainland Great Britain.
 
 
 Contents
 ========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    
    quick_start
    population
    employment
-   reference
-   base_model_structure
+   norcom
    scenario results/index.rst

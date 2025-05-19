@@ -1,26 +1,14 @@
 from pathlib import Path
+
 import pandas as pd
-import logging
+
+from caf.base.data_structures import DVector
 
 import land_use.preprocessing as pp
 
-
-from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
 from land_use import constants
-
-
-# Include the base year in here as we are pivoting from it
-BASE_YEAR = 2023
-FORECAST_YEARS = [2023, 2028, 2033, 2038, 2043, 2048, 2053]
-
-BASE_EMP_DV = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf")
-
-LOGGER = logging.getLogger(__name__)
-
-LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
-IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment")
 
 REGION_CORRESPONDENCE = pd.read_csv(
     Path(
@@ -29,119 +17,361 @@ REGION_CORRESPONDENCE = pd.read_csv(
     )
 )
 
+BASE_YEAR = 2023
+ONS_CROSSOVER_YEAR = 2043
+LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
+FORECAST_YEARS = [2023, 2033, 2038, 2043, 2048, 2053]
 
-def return_base_as_rgn() -> DVector:
-    base_dv = DVector.load(BASE_EMP_DV)
+ONS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 
-    base_dv_rgn = base_dv.translate_zoning(
-        new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
-        cache_path=constants.CACHE_FOLDER,
-        weighting=TranslationWeighting.SPATIAL,
-        check_totals=False,
-    )
-
-    return base_dv_rgn
+IPF_TARGET_OUT_DIR = Path(
+    r"F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth_no_sic_20_21"
+)
+IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
 
 
 def main():
-    IPF_TARGET_OUT_DIR.mkdir(exist_ok=True)
 
-    # TODO: consider if to move this to population as it is used there.
-    # pre_process_lms_soc_by_g(separate_by_g=True)
+    rgn_factors = calc_pop_rgn_factors()
 
-    soc_pp_changes = pre_process_lms_soc_by_g(separate_by_g=False)
+    base_emp_rgn_dv = fetch_base_emp_in_rgn()
 
-    base_dv_rgn = return_base_as_rgn()
-    sic_factors_by_year = pre_process_lms_sic()
+    base_pop_totals_rgn = calc_base_jobs_totals_rgn(base_emp_rgn=base_emp_rgn_dv)
+
+    forecast_totals_rgn = rgn_factors.copy()
+
+    for year in FORECAST_YEARS:
+        factor_col = f"factor_{BASE_YEAR}_to_{year}"
+        forecast_totals_rgn[f"jobs_target_{year}"] = (
+            base_pop_totals_rgn[f"jobs_{BASE_YEAR}"] * rgn_factors[factor_col]
+        )
 
     for year in FORECAST_YEARS:
 
         # common hdf key across all outputs
         hdf_key = f"targets_{year}"
 
-        # creating sic 1 digit targets, and finding totals
-        sic_factors_for_year = sic_factors_by_year[f"{BASE_YEAR}_to_{year}"]
-
-        sic_targets = calc_sic_targets(
-            base_dv_rgn=base_dv_rgn,
-            sic_factors=sic_factors_for_year,
+        print(f"creating sic targets for {year}")
+        calc_sic_targets(
+            base_emp_rgn_dv=base_emp_rgn_dv,
+            forecast_totals_rgn=forecast_totals_rgn,
+            forecast_year=year,
             path_out=IPF_TARGET_OUT_DIR / "sic_targets.hdf",
             hdf_key=hdf_key,
         )
 
-        yearly_target_total_except_soc_4 = sic_targets.sum()
-
-        # now need to find the soc splits in the base
-        soc_pp_change_for_year = soc_pp_changes[f"{BASE_YEAR}_to_{year}"]
-
-        calc_soc_targets(
-            base_dv=base_dv_rgn,
-            target_total=yearly_target_total_except_soc_4,
-            pp_change_from_base=soc_pp_change_for_year,
+        print(f"creating soc targets for {year}")
+        create_soc_targets(
+            base_emp_rgn_dv=base_emp_rgn_dv,
+            forecast_totals_rgn=forecast_totals_rgn,
+            forecast_year=year,
             path_out=IPF_TARGET_OUT_DIR / "soc_targets.hdf",
-            hdf_key=f"targets_{year}",
+            hdf_key=hdf_key,
         )
 
 
-def calc_soc_targets(
-    base_dv: DVector,
-    target_total: float,
-    pp_change_from_base: pd.DataFrame,
-    path_out: None | Path = None,
-    hdf_key: None | str = "df",
-):
+def calc_base_jobs_totals_rgn(base_emp_rgn: DVector) -> pd.DataFrame:
+    df = base_emp_rgn.add_segments(["total"]).aggregate(["total"]).data
+    df = df.transpose()
+    df = df.reset_index(names="CODE")
+    df = df.set_index("CODE")
+    df = df.rename(columns={1: f"jobs_{BASE_YEAR}"})
+    return df
 
-    base_soc_splits = return_base_soc_splits(base_dv)
 
-    target_soc_splits = base_soc_splits + pp_change_from_base
+def fetch_base_emp_in_rgn() -> DVector:
+    base_emp_path = Path(
+        r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf"
+    )
+    base_emp = DVector.load(base_emp_path)
 
-    soc_targets = target_soc_splits * target_total
+    base_emp_rgn = base_emp.translate_zoning(
+        new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.SPATIAL,
+        check_totals=False,
+    )
+    return base_emp_rgn
 
-    if path_out:
-        message = f"writing to {path_out}, with {hdf_key=}"
-        logging.info(message)
-        print(message)
-        soc_targets.to_hdf(path_out, key=hdf_key, mode="a")
-    return soc_targets
+
+def calc_pop_rgn_factors() -> pd.DataFrame:
+    non_english_rgn_pop_factors = calc_non_english_rgn_pop_factors()
+    english_rgn_pop_factors = calc_english_rgn_pop_factors()
+
+    rgn_factors = pd.concat([english_rgn_pop_factors, non_english_rgn_pop_factors])
+
+    rgn_factors = rgn_factors.set_index(["CODE"])
+    return rgn_factors
+
+
+def calc_english_rgn_pop_factors() -> pd.DataFrame:
+    # this is population bsed on 2018 dataset
+    gor_to_crossover = extract_england_region_pop_forecasts(
+        filename=Path("2018_based_england_regions_pop_projections.xlsx")
+    )
+
+    # Update the english regional growth factors (from 2018 forecast) 
+    # so the total growth matches the 2022 england growth forecast
+    
+    # Calculate england population projections based on 2018 forecast
+    england_totals_in_2018 = gor_to_crossover.sum().reset_index(name=0)
+
+    years_of_interest = [x for x in FORECAST_YEARS if x <= ONS_CROSSOVER_YEAR]
+
+    if ONS_CROSSOVER_YEAR not in years_of_interest:
+        years_of_interest.append(ONS_CROSSOVER_YEAR)
+
+    england_pop_proj_2018 = england_totals_in_2018[
+        england_totals_in_2018["index"].isin(years_of_interest)
+    ]
+    england_pop_proj_2018 = england_totals_in_2018.set_index("index").transpose()
+
+    england_pop_proj_2021 = extract_country_level_pop_forecasts(
+        "2021_based_interim_england_pop_projections.xlsx", country_code="E92000001"
+    )
+
+    england_pop_proj_2018 = england_pop_proj_2018[years_of_interest]
+    england_pop_proj_2021 = england_pop_proj_2021[years_of_interest]
+
+    england_pop_project_adjustment_factors = (
+        england_pop_proj_2021 / england_pop_proj_2018
+    )
+
+    england_pop_project_adjustment_factors = (
+        england_pop_project_adjustment_factors.add_prefix("pop_adjust_factor_")
+    )
+
+    # Add country code to allow safer merging
+    england_pop_project_adjustment_factors["country_code"] = "E92000001"
+
+    factor_columns = [f"factor_{BASE_YEAR}_to_{year}" for year in years_of_interest]
+    gor_factors_to_crossover = gor_to_crossover.copy()
+    keep_cols = ["CODE"]
+
+    keep_cols.extend(factor_columns)
+
+    gor_factors_to_crossover = gor_factors_to_crossover[keep_cols]
+    gor_factors_to_crossover["country_code"] = "E92000001"
+
+    df_with_revised_factors = pd.merge(
+        gor_factors_to_crossover, england_pop_project_adjustment_factors, how="left"
+    )
+
+    # now update with adjustment factors
+    for year in years_of_interest:
+        df_with_revised_factors[f"factor_{BASE_YEAR}_to_{year}"] = (
+            df_with_revised_factors[f"factor_{BASE_YEAR}_to_{year}"]
+            * df_with_revised_factors[f"pop_adjust_factor_{year}"]
+            / df_with_revised_factors[f"pop_adjust_factor_{BASE_YEAR}"]
+        )
+
+    gor_to_crossover = df_with_revised_factors
+
+    england_factors_post_crossover = calc_england_factors_post_crossover()
+
+    england_rgn_factors = calc_gor_factors_post_crossover(
+        gor_to_crossover=gor_to_crossover,
+        england_factors_post_crossover=england_factors_post_crossover,
+    )
+
+    england_rgn_factors = england_rgn_factors.set_index("CODE")
+
+    keep_cols = [f"factor_{BASE_YEAR}_to_{year}" for year in FORECAST_YEARS]
+
+    england_rgn_factors = england_rgn_factors[keep_cols]
+
+    england_rgn_factors = england_rgn_factors.reset_index()
+
+    return england_rgn_factors
+
+
+def extract_england_region_pop_forecasts(filename: Path) -> pd.DataFrame:
+    """Extract persons projects for english regions. Not separated by gender."""
+    df = pd.read_excel(ONS_DIR / filename, sheet_name="Persons", skiprows=6)
+    df = df[~df["AGE GROUP"].isin(["All ages", "90+"])]
+
+    df[["from_age", "to_age"]] = df["AGE GROUP"].str.split("-", expand=True)
+
+    df = df.drop(columns=["AGE GROUP", "AREA"])
+
+    df["from_age"] = df["from_age"].astype(int)
+    df["to_age"] = df["to_age"].astype(int)
+
+    df_15_19 = df[df["from_age"] == 15]
+    df_20_74 = df[(df["from_age"] >= 20) & (df["to_age"] <= 74)]
+
+    df_15_19_totals = df_15_19.groupby("CODE").sum()
+    df_20_74_totals = df_20_74.groupby("CODE").sum()
+
+    # want to remove a fifth of the 15-19 age range
+    df_working_age = df_15_19_totals * 0.8 + df_20_74_totals
+
+    df_working_age = df_working_age.drop(columns=["from_age", "to_age"])
+
+    # need to be a little bit smarter for which years to calculate factors for,
+    # we definitely need up to the crossover
+    factor_years = FORECAST_YEARS.copy()
+    if ONS_CROSSOVER_YEAR not in factor_years:
+        factor_years.append(ONS_CROSSOVER_YEAR)
+
+    # and then we should cap it at the crossover
+    factor_years = [year for year in factor_years if year <= ONS_CROSSOVER_YEAR]
+
+    # get factors from base year
+    for col in factor_years:
+        df_working_age[f"factor_{BASE_YEAR}_to_{col}"] = (
+            df_working_age[col] / df_working_age[BASE_YEAR]
+        )
+    df_working_age = df_working_age.reset_index()
+
+    # remove england as want regions
+    df_working_age = df_working_age[df_working_age["CODE"] != "E92000001"]
+
+    return df_working_age
+
+
+def calc_england_factors_post_crossover() -> pd.DataFrame:
+
+    df = extract_country_level_pop_forecasts(
+        "2021_based_interim_england_pop_projections.xlsx", country_code="E92000001"
+    )
+    df = df.drop(columns=["CODE"])
+    keep_cols = [col for col in df.columns if col >= ONS_CROSSOVER_YEAR]
+    df = df[keep_cols]
+    for year in df:
+        df[f"factor_{ONS_CROSSOVER_YEAR}_to_{year}"] = df[year] / df[ONS_CROSSOVER_YEAR]
+    return df
+
+
+def calc_gor_factors_post_crossover(
+    gor_to_crossover: pd.DataFrame, england_factors_post_crossover: pd.DataFrame
+) -> pd.DataFrame:
+    merged = pd.merge(gor_to_crossover, england_factors_post_crossover, how="cross")
+    # multiply the factor_2043_to_xxxxx by factor_2023_to_2043 to give factor_2023_to_2043
+    post_crossover_cols = [
+        col for col in merged if str(col).startswith(f"factor_{ONS_CROSSOVER_YEAR}")
+    ]
+    for col in post_crossover_cols:
+        year = str(col).split("_")[-1]
+        uplift_to_crossover = f"factor_{BASE_YEAR}_to_{ONS_CROSSOVER_YEAR}"
+        forecast_year_factor = f"factor_{BASE_YEAR}_to_{year}"
+        merged[forecast_year_factor] = merged[col] * merged[uplift_to_crossover]
+    return merged
+
+
+def calc_non_english_rgn_pop_factors() -> pd.DataFrame:
+    scotland_pop_forecast = extract_country_level_pop_forecasts(
+        "2022_based_scotland_pop_projections.xlsx", country_code="S92000003"
+    )
+    wales_pop_forecast = extract_country_level_pop_forecasts(
+        "2021_based_interim_wales_pop_projections.xlsx", country_code="W92000004"
+    )
+
+    combined_pop = pd.concat([scotland_pop_forecast, wales_pop_forecast])
+
+    for col in FORECAST_YEARS:
+        combined_pop[f"factor_{BASE_YEAR}_to_{col}"] = (
+            combined_pop[col] / combined_pop[BASE_YEAR]
+        )
+
+    keep_cols = [f"factor_{BASE_YEAR}_to_{col}" for col in FORECAST_YEARS]
+
+    keep_cols.append("CODE")
+
+    combined_pop = combined_pop[keep_cols]
+
+    return combined_pop
+
+
+def extract_country_level_pop_forecasts(
+    filename: str, country_code: str
+) -> pd.DataFrame:
+    # calculate population growth from ons
+    df = pd.read_excel(ONS_DIR / filename, sheet_name="Population")
+
+    df = df[~df["Age"].isin(["105 - 109", "110 and over"])]
+
+    df["Age"] = df["Age"].astype(int)
+
+    df_working_age = df[(df["Age"] < 75) & (df["Age"] > 15)]
+
+    totals = df_working_age.sum(axis=0).reset_index(name="total")
+    totals = totals.rename(columns={"index": "age"})
+
+    totals = totals[~totals["age"].isin(["Sex", "Age"])]
+    totals = totals.rename(columns={"age": "year", "total": country_code})
+    totals["year"] = totals["year"].astype(int)
+    totals = totals.set_index("year")
+    totals = totals.transpose()
+
+    totals = totals.reset_index(names="CODE")
+
+    return totals
 
 
 def calc_sic_targets(
-    base_dv_rgn: DVector,
-    sic_factors: pd.DataFrame,
-    path_out: Path | None = None,
+    base_emp_rgn_dv: DVector,
+    forecast_totals_rgn: pd.DataFrame,
+    forecast_year: int,
+    path_out: Path,
     hdf_key: None | str = "df",
 ) -> DVector:
-    """Calculate the sic targets and return. Optionally write to a hdf (if provided with a path_out).
-    """
 
-    base_dv_rgn_sic_df = base_dv_rgn.aggregate(segs=["sic_1_digit"]).data
-    after_sic_factors = base_dv_rgn_sic_df * sic_factors
+    base_sic_values = base_emp_rgn_dv.aggregate(["sic_1_digit"]).data
+    base_sic_props = base_sic_values.div(base_sic_values.sum(axis=0), axis=1)
 
-    sic_targets = after_sic_factors.groupby(level="sic_1_digit").sum()
-    # remove sic -1, which aligns with soc 4, and also remove 20,21 as they are empty
-    if not path_out:
-        return sic_targets
+    sic_rgns = pre_process_lms_sic()
 
-    sic_targets = sic_targets.loc[list(range(1, 20))]
-    path_out = path_out
+    forecast_sic_changes = sic_rgns.reset_index()
+
+    for col in forecast_sic_changes.columns:
+        if isinstance(col, int):
+            forecast_sic_changes[col] = forecast_sic_changes.groupby("region")[
+                col
+            ].transform(lambda x: x / x.sum())
+
+    for col in forecast_sic_changes.columns:
+        if isinstance(col, int):
+            forecast_sic_changes[f"{BASE_YEAR}_to_{col}_pp_change"] = (
+                forecast_sic_changes[col] - forecast_sic_changes[BASE_YEAR]
+            )
+
+    sic_changes_wide = pd.pivot(
+        forecast_sic_changes.reset_index(),
+        index="sic_1_digit",
+        columns="region",
+        values=f"{BASE_YEAR}_to_{forecast_year}_pp_change",
+    )
+
+    forecast_sic_prop = base_sic_props + sic_changes_wide
+
+    # infill where the nas are, which will be the missing sic_1_digits from the forecast
+    forecast_sic_prop = forecast_sic_prop.fillna(base_sic_props)
+
+    forecast_sic_prop_t = forecast_sic_prop.transpose()
+
+    sic_targets = forecast_sic_prop_t.copy()
+
+    for col in sic_targets:
+        sic_targets[col] = (
+            sic_targets[col] * forecast_totals_rgn[f"jobs_target_{forecast_year}"]
+        )
+
+    sic_targets_dv_format = sic_targets.transpose()
+
+    # remove sic 20 and 21 as they are zero which causes the ipf to crash
+    sic_targets_dv_format = sic_targets_dv_format.drop(index=[20, 21])
+
+    sic_targets_dv_format = sic_targets_dv_format.astype(float)
+
     message = f"writing to {path_out}, with {hdf_key=}"
-    logging.info(message)
     print(message)
-    sic_targets.to_hdf(path_out, key=hdf_key, mode="a")
+    sic_targets_dv_format.to_hdf(path_out, key=hdf_key, mode="a")
 
-    return sic_targets
-
-
-def return_base_soc_splits(base_dv_rgn):
-    base_dv_rgn_soc_df = base_dv_rgn.aggregate(segs=["soc"]).data
-
-    base_dv_rgn_soc_exc_4_df = base_dv_rgn_soc_df.loc[[1, 2, 3]]
-
-    base_soc_splits = base_dv_rgn_soc_exc_4_df / base_dv_rgn_soc_exc_4_df.sum()
-    return base_soc_splits
+    return sic_targets_dv_format
 
 
-def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
+def pre_process_lms_sic():
     """
     Function to read in and pre-process the Labour Market & Skills dataset for SIC Industry Table 2
     Outputs totals for each year, based on LM&S growths
@@ -181,8 +411,6 @@ def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
         column_mapper[str(y)] = int(y)
     sic_rgns = sic_rgns.rename(columns=column_mapper)
 
-    # Get jobs into 1000s and aggregate any SIC values with multiple LM&S definitions, e.g. SIC 3
-    sic_rgns[years] = sic_rgns[years] * 1000
     sic_rgns = (
         sic_rgns[["LU_SIC_1_digit", "region"] + years]
         .groupby(by=["LU_SIC_1_digit", "region"], as_index=False)[years]
@@ -190,8 +418,12 @@ def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
     )
     # TODO numbers under 10,000?
 
+    forecast_years = FORECAST_YEARS
+    if BASE_YEAR not in FORECAST_YEARS:
+        forecast_years.append(BASE_YEAR)
+
     sic_rgns = pp.infill_for_years(
-        df=sic_rgns, forecast_years=FORECAST_YEARS, extroplate_beyond_end="trend"
+        df=sic_rgns, forecast_years=forecast_years, extroplate_beyond_end="static"
     )
 
     # Prepare for export
@@ -207,64 +439,72 @@ def pre_process_lms_sic() -> dict[str, pd.DataFrame]:
         )
     )
 
-    # Output as dictionary, separated by years
-    dfs_wide = {}
-    for year in FORECAST_YEARS:
-        sic_output = sic_rgns
-        # Check for negatives
-        count = sic_output[year].lt(0).sum()
-        if count > 0:
-            LOGGER.error(
-                f"Extrapolating the LM&S growth to {year} results in negative values"
-            )
+    df_long = sic_rgns.melt(
+        id_vars=["sic_1_digit", "region"], var_name="year", value_name="jobs"
+    )
 
-        # Add rows for SIC levels -1, 20, 21
-        rgns = pd.DataFrame(sic_rgns["region"].drop_duplicates())
-        lvls = []
-        for lvl in [-1, 20, 21]:
-            df = rgns.copy()
-            df["sic_1_digit"] = lvl
-            lvls.append(df)
-        lvls_static = pd.concat(lvls)
-        lvls_static[year] = 0
-        sic_output = pd.concat([sic_output, lvls_static]).sort_values("sic_1_digit")
+    df_wide = df_long.pivot(
+        index=["sic_1_digit", "region"], columns=["year"], values="jobs"
+    )
 
-        sic_output[f"factor_from_{BASE_YEAR}_to_{year}"] = (
-            sic_output[year] / sic_output[BASE_YEAR]
+    return df_wide
+
+
+def create_soc_targets(
+    base_emp_rgn_dv: DVector,
+    forecast_totals_rgn: pd.DataFrame,
+    forecast_year: int,
+    path_out: Path,
+    hdf_key: None | str = "df",
+) -> pd.DataFrame:
+
+    df = pre_process_lms_soc()
+
+    soc_changes = pd.pivot(
+        data=df,
+        index=["soc"],
+        columns=["region"],
+        values=f"soc_pp_change_from_{BASE_YEAR}_to_{forecast_year}",
+    )
+
+    # # work out soc base splits
+    base_soc_values = base_emp_rgn_dv.aggregate(["soc"]).data
+    base_soc_props = base_soc_values.div(base_soc_values.sum(axis=0), axis=1)
+
+    forecast_soc_props = base_soc_props + soc_changes
+
+    forecast_soc_props = forecast_soc_props.fillna(base_soc_props)
+
+    forecast_soc_props_t = forecast_soc_props.transpose()
+
+    soc_targets = forecast_soc_props_t.copy()
+
+    for col in soc_targets:
+        soc_targets[col] = (
+            soc_targets[col] * forecast_totals_rgn[f"jobs_target_{forecast_year}"]
         )
 
-        # Into a wide format for DVector
-        df_wide = pp.pivot_to_dvector(
-            data=sic_output,
-            zoning_column="region",
-            index_cols=["sic_1_digit"],
-            value_column=f"factor_from_{BASE_YEAR}_to_{year}",
-        )
+    soc_targets_dv_format = soc_targets.transpose()
 
-        # infill the nas with 1 (this will be dividing by zero, coming from the static sic levels -1, 20, 21)
-        df_wide = df_wide.fillna(1)
+    soc_targets_dv_format = soc_targets_dv_format.astype(float)
 
-        dfs_wide[f"{BASE_YEAR}_to_{year}"] = df_wide
-    return dfs_wide
+    message = f"writing to {path_out}, with {hdf_key=}"
+    print(message)
+    # LOGGER.info(message)
+    soc_targets_dv_format.to_hdf(path_out, key=hdf_key, mode="a")
 
-def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
+    return soc_targets_dv_format
+
+
+def pre_process_lms_soc() -> pd.DataFrame:
     soc = []
     # Read in and format the LM&S data for each region
     for region in REGION_CORRESPONDENCE["RGN21NM"]:
-        if separate_by_g:
-            for g in ["Males", "Females"]:
-                df = pd.read_csv(
-                    LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{g}_{region}.csv",
-                    header=[0],
-                    skiprows=[1, 11, 12],
-                )
-                df["g"] = g
-        else:
-            df = pd.read_csv(
-                LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{region}.csv",
-                header=[0],
-                skiprows=[1, 11, 12],
-            )
+        df = pd.read_csv(
+            LMS_INPUT_DIR / rf"LMS_SOC\LMS_Occ_T1_{region}.csv",
+            header=[0],
+            skiprows=[1, 11, 12],
+        )
         df["region"] = region
         soc.append(df)
     soc_rgns = pd.concat(soc)
@@ -292,13 +532,18 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
     # Get jobs into 1000s
     soc_rgns[years] = soc_rgns[years] * 1000
 
+    forecast_years_inc_base = FORECAST_YEARS
+    if BASE_YEAR not in FORECAST_YEARS:
+        forecast_years_inc_base.append(BASE_YEAR)
+
     soc_rgns = pp.infill_for_years(
-        df=soc_rgns, forecast_years=FORECAST_YEARS, extroplate_beyond_end="static"
+        df=soc_rgns,
+        forecast_years=forecast_years_inc_base,
+        extroplate_beyond_end="static",
     )
 
     # prepare for export
     soc_rgns = soc_rgns.astype({"SOC": "int"}).rename(columns={"SOC": "soc"})
-
 
     # Remap region back to codes
     soc_rgns["region"] = soc_rgns["region"].map(
@@ -308,54 +553,23 @@ def pre_process_lms_soc_by_g(separate_by_g: bool) -> dict[str, pd.DataFrame]:
         )
     )
 
-    if separate_by_g:
-        soc_rgns["g"] = soc_rgns["g"].map({"Males": 1, "Females": 2})
-        soc_rgns = soc_rgns.groupby(["soc", "region", "g"]).sum().reset_index()
-        soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
-            soc_rgns.groupby(["region", "g"])[BASE_YEAR].transform("sum")
-        )
-    else:
-        soc_rgns = soc_rgns.groupby(["soc", "region"]).sum().reset_index()
-        soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
-            soc_rgns.groupby(["region"])[BASE_YEAR].transform("sum")
-        )
+    soc_rgns = soc_rgns.groupby(["soc", "region"]).sum().reset_index()
+    soc_rgns[f"soc_prop_{BASE_YEAR}"] = soc_rgns[BASE_YEAR] / (
+        soc_rgns.groupby(["region"])[BASE_YEAR].transform("sum")
+    )
 
     # Output as dictionary, separated by years
-    dfs_wide = {}
     for year in FORECAST_YEARS:
 
-        if separate_by_g:
-            soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
-                soc_rgns.groupby(["region", "g"])[year].transform("sum")
-            )
-            index_columns = ["g", "soc"]
-        else:
-            soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
-                soc_rgns.groupby(["region"])[year].transform("sum")
-            )
-            index_columns = ["soc"]
+        soc_rgns[f"soc_prop_{year}"] = soc_rgns[year] / (
+            soc_rgns.groupby(["region"])[year].transform("sum")
+        )
 
         soc_rgns[f"soc_pp_change_from_{BASE_YEAR}_to_{year}"] = (
             soc_rgns[f"soc_prop_{year}"] - soc_rgns[f"soc_prop_{BASE_YEAR}"]
         )
 
-        # Check for negatives
-        count = soc_rgns[year].lt(0).sum()
-        if count > 0:
-            LOGGER.error(
-                f"Extrapolating the LM&S growth to {year} results in negative values"
-            )
-
-        # Into a wide format for DVector
-        df_wide = pp.pivot_to_dvector(
-            data=soc_rgns,
-            zoning_column="region",
-            index_cols=index_columns,
-            value_column=f"soc_pp_change_from_{BASE_YEAR}_to_{year}",
-        )
-        dfs_wide[f"{BASE_YEAR}_to_{year}"] = df_wide
-
-    return dfs_wide
+    return soc_rgns
 
 
 if __name__ == "__main__":
