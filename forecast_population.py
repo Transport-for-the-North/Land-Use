@@ -144,6 +144,7 @@ def process_forecast_pop_by_gor(
         target_dvectors = [pop_targets]
 
     # Get base distribution targets if maintaining
+    # TODO refactor and add warning
     if maintain_base_distributions:
         added_targets = []
         for segmentation in segments_to_maintain:
@@ -154,12 +155,16 @@ def process_forecast_pop_by_gor(
 
             added_targets.append(target)
 
-        target_dvectors = added_targets + target_dvectors
+        # TODO switch the order here?
+        target_dvectors = target_dvectors + added_targets
 
         match_totals_dvector = target_dvectors[target_dvector_key]
 
     else:
-        match_totals_dvector = target_dvectors[target_dvector_key]
+        if target_dvector_key == "None":
+            match_totals_dvector = None
+        else:
+            match_totals_dvector = target_dvectors[target_dvector_key]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")
@@ -208,7 +213,6 @@ def process_forecast_pop_by_gor(
 
 def process_forecast_households_by_gor(
         config: dict,
-        base_households: DVector,
         forecast_year: int,
         gor: str,
         target_dvector_key: int,
@@ -265,12 +269,16 @@ def process_forecast_households_by_gor(
 
             added_targets.append(target)
 
-        target_dvectors = added_targets + target_dvectors
+        # TODO switch the order here?
+        target_dvectors = target_dvectors + added_targets
 
         match_totals_dvector = target_dvectors[target_dvector_key]
 
     else:
-        match_totals_dvector = target_dvectors[target_dvector_key]
+        if target_dvector_key == "None":
+            match_totals_dvector = None
+        else:
+            match_totals_dvector = target_dvectors[target_dvector_key]
 
     # --- Step 2 --- #
     LOGGER.info("--- Step 2 ---")

@@ -128,7 +128,7 @@ def main():
         base_pop_dv_path=BASE_POP_DV,
         base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
         forecast_dv_path=Path(
-            r"F:\Working\Land-Use\forecast_population_test_20250424\02_Final Outputs"),
+            r"F:\Working\Land-Use\forecast_population_20250515\02_Final Outputs"),
         forecast_years=[2033, 2038, 2043, 2048, 2053],
         path_out=IPF_TARGET_OUT_DIR
     )
@@ -495,12 +495,15 @@ def calc_and_output_nssec_hh_targets(
         hdf_key = f"targets_{forecast_year}"
         for gor in constants.GORS + ["Scotland"]:
             print(f"Processing for {forecast_year}, {gor}")
+            # Read in base population
             base_pop_dv = DVector.load(base_pop_dv_path / f"Output P11_{gor}.hdf")
             base_pop_dv_nssec = base_pop_dv.aggregate(segs=["ns_sec"])
 
+            # Read in base households
             base_hhs_dv = DVector.load(base_hhs_dv_path / f"Output P13.3_{gor}.hdf")
             base_hhs_dv_nssec = base_hhs_dv.aggregate(segs=["ns_sec"])
 
+            # Read in forecast population
             forecast_dv = DVector.load(forecast_dv_path / f"Output Pop_{gor}_{forecast_year}.hdf")
             forecast_dv_nssec = forecast_dv.aggregate(segs=["ns_sec"])
 
@@ -518,15 +521,12 @@ def calc_and_output_nssec_hh_targets(
             split_change = forecast_nssec_splits - base_nssec_splits
 
             # Now apply these splits to the household data to get targets
-            # TODO potentially change this method to a growth percentage of the base to forecast
             base_hh_nssec = base_hhs_dv_nssec.data
             base_hh_total = base_hh_nssec.sum()
             base_hh_nssec_splits = (base_hh_nssec / base_hh_total)
 
             new_hh_splits = base_hh_nssec_splits + split_change
 
-            # TODO apply to the base households or a version of the forecast households
-            #  (e.g. total household projections)?
             hh_nssec_targets = base_hh_total * new_hh_splits
 
             nssec_hh_targets.append(hh_nssec_targets)
