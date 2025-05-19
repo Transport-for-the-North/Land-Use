@@ -213,6 +213,7 @@ def process_forecast_pop_by_gor(
 
 def process_forecast_households_by_gor(
         config: dict,
+        base_households: DVector,
         forecast_year: int,
         gor: str,
         target_dvector_key: int,
@@ -286,7 +287,7 @@ def process_forecast_households_by_gor(
     # Apply the IPF to targets
     LOGGER.info("Apply the IPF to targets")
     rebalanced_hhs, summary, differences = data_processing.apply_ipf(
-        seed_data=base_hhs,
+        seed_data=base_households,
         target_dvectors=target_dvectors,
         cache_folder=constants.CACHE_FOLDER,
         # use household totals targets as the target dvector to "match totals to"
