@@ -246,6 +246,15 @@ SCOTLAND_INTZONE_ZONING_SYSTEM = generate_zoning_system(
     id_col="InterZone",
     desc_col="Name",
 )
+
+# Added generating DZ2011+LSOA2021 from new shapefile created
+LSOA_EWS_NAME = "DZ2011+LSOA2021"
+LSOA_EWS_ZONING_SYSTEM = generate_zoning_system(
+    name=LSOA_EWS_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'DZ2011+LSOA2021' / 'DZ2011+LSOA_2021_EnglandWalesScotland.shp',
+    id_col="DZ11LSOA21",
+    desc_col="Desc",
+)
 # --- Combinations of zone systems --- #
 DZ2011_LSOA_NAME = "DZ2011+LSOA"
 DZ2011_LSOA_ZONING_SYSTEM = combine_zoning_systems(
@@ -268,10 +277,11 @@ MSOA_2011_EWS_NAME = "MSOA2011+SCOTLAND-INT-ZONE"
 MSOA_2011_EWS_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_INTZONE_ZONING_SYSTEM, MSOA_2011_ZONING_SYSTEM, 
 )
-LSOA_EWS_NAME = "DZ2011+LSOA2021" 
-LSOA_EWS_ZONING_SYSTEM = combine_zoning_systems(
-    SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_ZONING_SYSTEM
-)
+# Commented out as now generating from shapefile
+# LSOA_EWS_NAME = "DZ2011+LSOA2021"
+# LSOA_EWS_ZONING_SYSTEM = combine_zoning_systems(
+#     SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_ZONING_SYSTEM
+# )
 LSOA_2011_EWS_NAME = "DZ2011+LSOA2011" 
 LSOA_2011_EWS_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_2011_ZONING_SYSTEM
@@ -287,6 +297,7 @@ LADS_BY_GOR = dict()
 LADS23_BY_GOR = dict()
 LADS19_BY_GOR = dict()
 RGNS_BY_GOR = dict()
+LSOA_EWS_BY_GOR = dict()
 for gor in GORS:
     # LSOA CORRESPONDENCES
     lsoa_zone_name = f'LSOA2021-{gor}'
@@ -340,6 +351,15 @@ for gor in GORS:
     )
     RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
 
+    # Added generating DZ2011+LSOA2021 by regions
+    LSOA_EWS_NAME = f'DZ2011+LSOA2021-{gor}'
+    LSOA_EWS_RGN_ZONING_SYSTEM = generate_zoning_system(
+        name=LSOA_EWS_NAME,
+        shapefile_path=SHAPEFILE_DIRECTORY / 'DZ2011+LSOA2021' / f'DZ2011+LSOA_2021_{gor}.shp',
+        id_col='DZ11LSOA21', desc_col='Desc'
+    )
+    LSOA_EWS_BY_GOR[LSOA_EWS_NAME] = LSOA_EWS_RGN_ZONING_SYSTEM
+
 # Generate for Scotland LAD2019
 lad19_zone_name = f'LAD2019_EWS-Scotland'
 lad19_zone_system = generate_zoning_system(
@@ -358,6 +378,15 @@ lad21_zone_system = generate_zoning_system(
 )
 LADS_BY_GOR[lad21_zone_name] = lad21_zone_system
 
+# Generate for Scotland DZ2011+LSOA2021
+LSOA_EWS_NAME = f'DZ2011+LSOA2021-Scotland'
+LSOA_EWS_RGN_ZONING_SYSTEM = generate_zoning_system(
+    name=LSOA_EWS_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'DZ2011+LSOA2021' / f'DZ2011+LSOA_2021_Scotland.shp',
+    id_col='DZ11LSOA21', desc_col='Desc'
+)
+LSOA_EWS_BY_GOR[LSOA_EWS_NAME] = LSOA_EWS_RGN_ZONING_SYSTEM
+
 # Expand regions to include a Scotland 'subset' which is the whole of Scotland
 rgn_zone_name = f'RGN2021-Scotland'
 rgn_zone_system = generate_zoning_system(
@@ -366,6 +395,10 @@ rgn_zone_system = generate_zoning_system(
     id_col='RGN21CD', desc_col='RGN21NM'
 )
 RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
+
+# Define Scotland geographical subset
+#LSOA_EWS_scot_zone_name = f'DZ2011+LSOA2021-Scotland'
+#LSOA_EWS_BY_GOR[LSOA_EWS_scot_zone_name] = LSOA_EWS_ZONING_SYSTEM
 
 # TODO: think about a different way to implement generate_zoning_system possibly on the fly as needed?
 
@@ -404,7 +437,8 @@ KNOWN_GEOGRAPHIES = {
     **LADS_BY_GOR,
     **LADS23_BY_GOR,
     **LADS19_BY_GOR,
-    **RGNS_BY_GOR
+    **RGNS_BY_GOR,
+    **LSOA_EWS_BY_GOR
 }
 
 # --- GENERATE TRANSLATIONS FOR CACHE --- #

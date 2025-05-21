@@ -528,6 +528,8 @@ def calc_and_output_nssec_hh_targets(
             new_hh_splits = base_hh_nssec_splits + split_change
 
             hh_nssec_targets = base_hh_total * new_hh_splits
+            # Fill na (for the Scotland zones with zeroes)
+            hh_nssec_targets = hh_nssec_targets.fillna(0)
 
             nssec_hh_targets.append(hh_nssec_targets)
 

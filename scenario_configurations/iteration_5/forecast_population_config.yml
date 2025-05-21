@@ -3,7 +3,7 @@
 # As the config is likely to be used for multiple files then the key will include the forecast year
 
 input_root_directory: F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2
-output_directory: F:\Working\Land-Use\forecast_population_20250519
+output_directory: F:\Working\Land-Use\forecast_population_20250520
 output_intermediate_outputs: False
 
 base_year: 2023
@@ -66,7 +66,7 @@ forecast_data:
 
         # Generated from the population forecast process outputs
         - file_path: hh_ns-sec_targets.hdf
-          geographical_level: LSOA2021
+          geographical_level: DZ2011+LSOA2021
           input_segments: [ns_sec]
 
 

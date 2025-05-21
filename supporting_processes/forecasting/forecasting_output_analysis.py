@@ -8,7 +8,7 @@ from caf.base.zoning import TranslationWeighting
 from land_use import constants, data_processing
 
 # Output directories
-POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_20250519")
+POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_20250520")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config_with_ons_pop_growth_all_sic")
 POP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop"
@@ -388,8 +388,7 @@ def calculate_occupancies(
     base_rgn = []
     f_years = []
     f_years_rgn = []
-    # for rgn in constants.GORS + ["Scotland"]:
-    for rgn in constants.GORS:
+    for rgn in constants.GORS + ["Scotland"]:
         print(fr"Calculating for {rgn}")
         base_pop = DVector.load(base_pop_path / fr"Output P11_{rgn}.hdf")
         base_hh = DVector.load(base_pop_path / fr"Output P13.3_{rgn}.hdf")
@@ -468,7 +467,7 @@ def calculate_occupancies(
     output_forecast = pd.concat(f_years)
     output = pd.concat([output_base, output_forecast])
     output.to_csv(
-        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_{agg_segment}_20250519.csv'),
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_{agg_segment}_20250520.csv'),
         index=False,
         header=True
     )
@@ -477,7 +476,7 @@ def calculate_occupancies(
     output_forecast_rgn = pd.concat(f_years_rgn)
     output_rgn = pd.concat([output_base_rgn, output_forecast_rgn])
     output_rgn.to_csv(
-        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn_{agg_segment}_20250519.csv'),
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn_{agg_segment}_20250520.csv'),
         index=False,
         header=True
     )
@@ -521,7 +520,7 @@ def summarise_hh_nssec_targets():
 
 
 summarise_population_outputs(
-    output_file_name='population_forecast_output_summary_20250519',
+    output_file_name='population_forecast_output_summary_20250520',
     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
 # summarise_pop_and_hh_outputs_multi_segments(
@@ -535,7 +534,7 @@ summarise_emp_outputs(
     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
 summarise_household_outputs(
-    output_file_name='household_forecast_output_summary_20250519',
+    output_file_name='household_forecast_output_summary_20250520',
     years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 
 calculate_occupancies(
