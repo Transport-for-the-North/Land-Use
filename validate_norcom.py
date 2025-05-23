@@ -5,8 +5,8 @@ import pandas as pd
 import yaml
 from caf.base import DVector
 
-from land_use.norcom import NorCOMResult, Params
-from land_use.data_processing import create_dvector_from_data, read_dvector_data, write_to_excel
+from land_use.norcom import NorCOMResult, Params, apply_norcom
+from land_use.data_processing import read_dvector_data, write_to_excel
 from land_use.constants import GORS, LSOA_NAME
 
 # TODO: expand on the documentation here
@@ -42,79 +42,42 @@ multiple_car_ownership = NorCOMResult.from_coefficients_csv(
 # expand the results to have all three probability levels in one dataframe
 result = any_car_ownership * multiple_car_ownership
 
-# 0v1+ Model Correction (applied relative to 0 cars category)
-_0_v_1 = -0.1
-
-# 1v2+ Model Correction (applied relative to the 1 car category)
-_1_v_2 = -0.2
-
 # infill factor in case of negative households in a zone
 fudge = 0.5
+
+# 0v1+ Model Correction (applied relative to 0 cars category)
+# 1v2+ Model Correction (applied relative to the 1 car category)
+adjustment_factors = {
+    'NE': {"0_v_1+": -0.05, "1_v_2+": -0.265},
+    'NW': {"0_v_1+": -0.075, "1_v_2+": -0.25},
+    'YH': {"0_v_1+": -0.055, "1_v_2+": -0.245},
+    'Wales': {"0_v_1+": -0.07, "1_v_2+": -0.3},
+    'WM': {"0_v_1+": -0.08, "1_v_2+": -0.27},
+    'EM': {"0_v_1+": -0.05, "1_v_2+": -0.25},
+    'SW': {"0_v_1+": -0.07, "1_v_2+": -0.23},
+    'EoE': {"0_v_1+": -0.065, "1_v_2+": -0.2},
+    'Lon': {"0_v_1+": -0.015, "1_v_2+": -0.23},
+    'SE': {"0_v_1+": -0.06, "1_v_2+": -0.2},
+}
 
 result_dict = {}
 all_applied, all_expected = [], []
 # loop through regions
 for GOR in GORS:
-    # convert to DVector with the right zone system subset
-    probabilities = create_dvector_from_data(
-        dvector_data=result, geographical_level=any_car_ownership.zonal_definition,
-        input_segments=list(result.index.names), geography_subset=GOR
-    )
 
     # define path to region specific input dvector
     input_dvector = params.input_dvectors / f'Output P{params.file_reference}_{GOR}.hdf'
     # load the 2021 household output that we are trying to validate
     input_data = DVector.load(input_dvector)
-    # apply norcom to this modelled output
-    apply_norcom = input_data.aggregate(['accom_h', 'ns_sec', 'adults', 'children']) * probabilities
-    # aggregate the post-norcom data to just car availability by zone
-    validation = apply_norcom.aggregate(['car_availability'])
 
-    # get model results
-    # (0v1+)
-    _0_cars = validation.translate_segment('car_availability', 'norcom_0v1+').drop_by_segment_values('norcom_0v1+', [2]).add_segments(['total']).aggregate(['total'])
-    _1plus_cars = validation.translate_segment('car_availability', 'norcom_0v1+').drop_by_segment_values('norcom_0v1+', [1]).add_segments(['total']).aggregate(['total'])
-    # (1v2+)
-    _1_car = validation.drop_by_segment_values('car_availability', [1, 3]).add_segments(['total']).aggregate(['total'])
-    _2plus_cars = validation.drop_by_segment_values('car_availability', [1, 2]).add_segments(['total']).aggregate(['total'])
-
-    # create DVectors of the adjustment values
-    # TODO Cant currently multiply a DVector by a number (TypeError: unsupported operand type(s) for *: 'float' and 'DVector')
-    _0_v_1_dvec = _0_cars.copy()
-    _0_v_1_dvec.data.loc[:] = _0_v_1
-    _1_v_2_dvec = _0_cars.copy()
-    _1_v_2_dvec.data.loc[:] = _1_v_2
-
-    # step 1: shift households between 0and1+ model, infill negatives with fudge
-    _0_cars_step_1 = _0_cars + (_0_v_1_dvec * _1plus_cars)
-    _0_cars_step_1.data = _0_cars_step_1.data.where(_0_cars_step_1.data > 0, fudge * _0_cars.data)
-    _1plus_cars_step_1 = _1plus_cars - (_0_v_1_dvec * _1plus_cars)
-
-    # step 2: calculate new 1v2+ car numbers based on expected proportions of 1v2+ from the original model
-    _1_car_step_2 = _1plus_cars_step_1 * (_1_car / (_1_car + _2plus_cars))
-    _2plus_cars_step_2 = _1plus_cars_step_1 * (_2plus_cars / (_1_car + _2plus_cars))
-
-    # step 3: shift households between 1and2+ model, infill negatives with fudge
-    _1_car_step_3 = _1_car_step_2 + (_1_v_2_dvec * _2plus_cars_step_2)
-    _1_car_step_3.data = _1_car_step_3.data.where(_1_car_step_3.data > 0, fudge * _1_car_step_2.data)
-    _2plus_cars_step_3 = _2plus_cars_step_2 - (_1_v_2_dvec * _2plus_cars_step_2)
-
-    # combine output into a single dataframe
-    # TODO ignore_index=True here means that the index will be 0,1,2 in the order in which they are concatenated, and therefore we can do index + 1 to get to car_availability seegmentation.
-    output = pd.concat(
-        [_0_cars_step_1.data, _1_car_step_3.data, _2plus_cars_step_3.data],
-        ignore_index=True
+    # apply norcom with adjustments
+    adjusted_norcom = apply_norcom(
+        any_car_ownership_result=any_car_ownership,
+        multiple_car_ownership_result=multiple_car_ownership,
+        input_dvector=input_data,
+        any_car_ownership_correction=adjustment_factors.get(GOR).get("0_v_1+"),
+        multiple_car_ownership_correction=adjustment_factors.get(GOR).get("1_v_2+")
     )
-    output.index = output.index + 1
-    output.index.name = 'car_availability'
-
-    # convert to DVector
-    adjusted_norcom = create_dvector_from_data(
-        dvector_data=output, geographical_level=any_car_ownership.zonal_definition,
-        input_segments=['car_availability'], geography_subset=GOR
-    )
-
-    # TODO need to reapply the splits of the household segments ['accom_h', 'ns_sec', 'adults', 'children'] to get back to a fully segmented households dataset
 
     # load the validation DVector, just number of households in each car ownership
     # category by LSOA from the census

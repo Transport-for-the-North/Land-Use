@@ -26,4 +26,4 @@ year: 2023
 #validation_dvector: I:\NorMITs Land Use\2023\import\ONS-validation\preprocessing\households_cars_lsoa_3.hdf
 
 # path to store any validation outputs
-output_path: I:\NorMITs NorCOM\Validation\post-adjustment
+output_path: I:\NorMITs NorCOM\Validation\post-GOR-adjustment
