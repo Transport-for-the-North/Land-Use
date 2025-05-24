@@ -188,13 +188,15 @@ def process_forecast_pop_by_gor(
         output_level=OutputLevel.FINAL,
     )
 
+    (OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}").mkdir(parents=True, exist_ok=True)
+
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}" / f"{output_reference}_VALIDATION.csv",
         float_format="%.5f",
         index=False,
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}",
         file=f"{output_reference}_VALIDATION.xlsx",
         dfs=differences,
     )
@@ -204,7 +206,7 @@ def process_forecast_pop_by_gor(
     )
     forecast_seg_totals.to_csv(
         OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
+        / OutputLevel.INTERMEDIATE / f"{gor}"
         / f"{output_reference}_segment_totals.csv",
         float_format="%.5f",
         index=False,
@@ -303,13 +305,15 @@ def process_forecast_households_by_gor(
         output_level=OutputLevel.FINAL,
     )
 
+    (OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}").mkdir(parents=True, exist_ok=True)
+
     summary.to_csv(
-        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{output_reference}_VALIDATION.csv",
+        OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}" / f"{output_reference}_VALIDATION.csv",
         float_format="%.5f",
         index=False,
     )
     data_processing.write_to_excel(
-        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE,
+        output_folder=OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}" ,
         file=f"{output_reference}_VALIDATION.xlsx",
         dfs=differences,
     )
@@ -319,7 +323,7 @@ def process_forecast_households_by_gor(
     )
     forecast_seg_totals.to_csv(
         OUTPUT_DIR
-        / OutputLevel.INTERMEDIATE
+        / OutputLevel.INTERMEDIATE / f"{gor}"
         / f"{output_reference}_segment_totals.csv",
         float_format="%.5f",
         index=False,
@@ -334,7 +338,8 @@ parser = ArgumentParser("Land-Use forecast population command line runner")
 parser.add_argument("config_file", type=Path)
 args = parser.parse_args()
 
-with open(args.config_file, "r") as text_file:
+with open(Path(r'C:\OneDrive\OneDrive - AECOM\Code\Land-Use\scenario_configurations\iteration_5\forecast_population_config.yml'), 'r') as text_file:
+# with open(args.config_file, "r") as text_file:
     config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
