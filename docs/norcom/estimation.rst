@@ -78,8 +78,30 @@ this estimation can be found here: :code:`I:/NorMITs NorCOM/AECOM working/Model 
 Estimation Results
 ==================
 
-A number of logit model forms were tested, but the current logit model parameters
-that are used in NorCOM are:
+A number of logit model forms were tested. For this iteration of NorCOM it was
+decided to focus on a logit model form that was easily compatible with the specification
+of the data in the household land-use model. This means that the variables that were tested
+in the logit models were either zonal (i.e. only dependent on model zone) or defined
+in the same dimensions as the segmentations of the household land-use model (i.e.
+see :code:`Population Model/Segmentation Definitions`
+). This makes implementation of the model much simpler, without having to rely on
+population distribution assumptions (such as the prototypical NTS sample used in
+the previous iteration of NorCOM).
+
+The only input variable that is the exception to this rule is "household income".
+This variable has been included because evidence (such as the
+`2024 Car Ownership: Evidence Review by the National Centre for Social Research <https://assets.publishing.service.gov.uk/media/6781339100e3d719f19217f1/dft-car-ownership-evidence-review.pdf>`_
+) shows that income is a significant explanator for car ownership and therefore
+it would be beneficial to include in the model.
+
+More information about data used in the application can be found in :code:`NorCOM Application`
+, but the availability of
+`MSOA-based average income estimates from the ONS for England and Wales <https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/smallareaincomeestimatesformiddlelayersuperoutputareasenglandandwales>`_
+and
+`Data Zone-based average income estimates from the Scottish Government <https://www.gov.scot/publications/banded-income-statistics-2018>`_
+means that income can (at least) be approximated to a zone-level variable.
+
+Based on the testing, the final form of the logit model parameters for NorCOM are:
 
 +-------------+-----------------------------------------+----------------+----------------+
 | Feature     | Category (if relevant)                  | 0v1+ Parameter | 1v2+ Parameter |

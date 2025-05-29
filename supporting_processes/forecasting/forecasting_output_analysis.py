@@ -366,7 +366,8 @@ def calculate_occupancies(
         base_pop_path: Path,
         forecast_pop_path: Path,
         forecast_years: list,
-        agg_segment: str
+        agg_segments: list,
+        output_file_name: str
 ):
     """
     Function to calculate occupancies (population / households) for a defined segment
@@ -380,8 +381,10 @@ def calculate_occupancies(
         Forecast population DVector output path
     forecast_years: list
         Forecast years to analyse
-    agg_segment:
-        Segment to aggregate the data and outputs to
+    agg_segments:
+        Segments to aggregate the data and outputs to (can be 1 segment or 2 segments)
+    output_file_name:
+        Name of the csv file to output to
     """
 
     base = []
@@ -394,14 +397,14 @@ def calculate_occupancies(
         base_hh = DVector.load(base_pop_path / fr"Output P13.3_{rgn}.hdf")
 
         # Add total segment to base population
-        if agg_segment == "total":
+        if "total" in agg_segments:
             base_pop = base_pop.add_segments(["total"])
 
             if rgn == "Scotland":
                 base_hh = base_hh.add_segments(["total"])
 
-        base_pop_agg = base_pop.aggregate([agg_segment])
-        base_hh_agg = base_hh.aggregate([agg_segment])
+        base_pop_agg = base_pop.aggregate(agg_segments)
+        base_hh_agg = base_hh.aggregate(agg_segments)
 
         base_pop_agg_rgn = base_pop_agg.translate_zoning(
             new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -418,10 +421,14 @@ def calculate_occupancies(
 
         base_occs = base_pop_agg / base_hh_agg
         base_occs = base_occs.data.T.reset_index(names="LSOA2021")
+        if len(agg_segments) == 2:
+            base_occs.columns = ["{} / {}".format(x, y) for x, y in base_occs.columns]
         base_occs['year'] = 2023
 
         base_occs_rgn = base_pop_agg_rgn / base_hh_agg_rgn
         base_occs_rgn = base_occs_rgn.data.T.reset_index(names="region")
+        if len(agg_segments) == 2:
+            base_occs_rgn.columns = ["{} / {}".format(x, y) for x, y in base_occs_rgn.columns]
         base_occs_rgn['year'] = 2023
 
         base.append(base_occs)
@@ -432,11 +439,11 @@ def calculate_occupancies(
             forecast_pop = DVector.load(forecast_pop_path / fr"Output Pop_{rgn}_{year}.hdf")
             forecast_hh = DVector.load(forecast_pop_path / fr"Output Households_{rgn}_{year}.hdf")
             # Add total segment to base population
-            if agg_segment == "total":
+            if "total" in agg_segments:
                 forecast_pop = forecast_pop.add_segments(["total"])
 
-            forecast_pop_agg = forecast_pop.aggregate([agg_segment])
-            forecast_hh_agg = forecast_hh.aggregate([agg_segment])
+            forecast_pop_agg = forecast_pop.aggregate(agg_segments)
+            forecast_hh_agg = forecast_hh.aggregate(agg_segments)
 
             forecast_pop_agg_rgn = forecast_pop_agg.translate_zoning(
                 new_zoning=constants.RGN_EWS_ZONING_SYSTEM,
@@ -453,10 +460,14 @@ def calculate_occupancies(
 
             forecast_occs = forecast_pop_agg / forecast_hh_agg
             forecast_occs = forecast_occs.data.T.reset_index(names="LSOA2021")
+            if len(agg_segments) == 2:
+                forecast_occs.columns = ["{} / {}".format(x, y) for x, y in forecast_occs.columns]
             forecast_occs['year'] = year
 
             forecast_occs_rgn = forecast_pop_agg_rgn / forecast_hh_agg_rgn
             forecast_occs_rgn = forecast_occs_rgn.data.T.reset_index(names="region")
+            if len(agg_segments) == 2:
+                forecast_occs_rgn.columns = ["{} / {}".format(x, y) for x, y in forecast_occs_rgn.columns]
             forecast_occs_rgn['year'] = year
 
             f_years.append(forecast_occs)
@@ -467,7 +478,7 @@ def calculate_occupancies(
     output_forecast = pd.concat(f_years)
     output = pd.concat([output_base, output_forecast])
     output.to_csv(
-        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_{agg_segment}_20250520.csv'),
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\{output_file_name}.csv'),
         index=False,
         header=True
     )
@@ -476,7 +487,7 @@ def calculate_occupancies(
     output_forecast_rgn = pd.concat(f_years_rgn)
     output_rgn = pd.concat([output_base_rgn, output_forecast_rgn])
     output_rgn.to_csv(
-        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\occupancies_summary_rgn_{agg_segment}_20250520.csv'),
+        Path(fr'F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\{output_file_name}_rgn.csv'),
         index=False,
         header=True
     )
@@ -541,8 +552,9 @@ calculate_occupancies(
     forecast_years=[2033, 2038, 2043, 2048, 2053],
     base_pop_path=Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
     forecast_pop_path=Path(
-        fr"F:\Working\Land-Use\forecast_population_20250519\02_Final Outputs"),
-    agg_segment="accom_h")
+        fr"F:\Working\Land-Use\forecast_population_20250520\02_Final Outputs"),
+    agg_segments=["adults", "children"],
+    output_file_name=f"occupancies_summary_adults_children_20250520")
 
 # dvector_segment_comparisons(
 #     dvector_dict={
