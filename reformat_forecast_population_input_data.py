@@ -1,6 +1,7 @@
 # %%
 from pathlib import Path
 from datetime import datetime
+from typing import Tuple
 
 import pandas as pd
 import numpy as np
@@ -12,6 +13,7 @@ import land_use.preprocessing as pp
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
 
+from caf.base.segmentation import SegmentsSuper
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
@@ -123,10 +125,19 @@ def main():
         path_out=IPF_TARGET_OUT_DIR
     )
 
+    # Separate steps - the following are calculated based on the forecast population outputs
     # creating ns-sec household targets (based on the outputs from forecast population)
     calc_and_output_nssec_hh_targets(
         base_pop_dv_path=BASE_POP_DV,
         base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+        forecast_dv_path=Path(
+            r"F:\Working\Land-Use\forecast_population_20250515\02_Final Outputs"),
+        forecast_years=[2033, 2038, 2043, 2048, 2053],
+        path_out=IPF_TARGET_OUT_DIR
+    )
+
+    # create household occupancy targets
+    calc_and_output_hh_occupancy_targets(
         forecast_dv_path=Path(
             r"F:\Working\Land-Use\forecast_population_20250515\02_Final Outputs"),
         forecast_years=[2033, 2038, 2043, 2048, 2053],
@@ -470,7 +481,6 @@ def calc_and_output_nssec_hh_targets(
         path_out: Path
 ):
     """
-    Testing...
     Function to maintain the NS-SEC changes in the household data based on the outcome of the NS-SEC in the population
     Keep separate for now as the NS-SEC household targets are based off the forecast population outputs
 
@@ -539,6 +549,239 @@ def calc_and_output_nssec_hh_targets(
         message = f"writing to {path_out}, with {hdf_key=}"
         print(message)
         nssec_targets_output.to_hdf(path_out / "hh_ns-sec_targets.hdf", key=hdf_key, mode="a")
+
+
+def calc_and_output_hh_occupancy_targets(
+        forecast_dv_path: Path,
+        forecast_years: list,
+        path_out: Path
+):
+    """
+    Function to calculate occupancy targets for households, keeping sensible occupancies based on the in the
+    outcome of the forecast population
+    Keep separate for now as the occupancy household targets are based off the forecast population outputs
+
+    Parameters
+    ----------
+    forecast_dv_path: Path
+        Forecast population DVectors output
+    forecast_years: list
+        Years to generate forecasts for
+    path_out: Path
+        Location to output the DVector targets to
+    """
+
+    for forecast_year in forecast_years:
+        occupancy_hh_targets_0 = []
+        occupancy_hh_targets_1 = []
+        occupancy_hh_targets_2 = []
+        occupancy_hh_targets_3 = []
+        hdf_key = f"targets_{forecast_year}"
+        for gor in constants.GORS + ["Scotland"]:
+            print(f"Processing for {forecast_year}, {gor}")
+            # Read in forecast population
+            forecast_dv = DVector.load(forecast_dv_path / f"Output Pop_{gor}_{forecast_year}.hdf")
+
+            occ_targets = derive_household_occupancy_targets_forecasting(population_dvector=forecast_dv)
+
+            # Targets are split out for four segmentations:
+            # 1. adult population in 1 adult households with no children should match
+            # number of households with 1 adult and no children
+            # 2. adult population in 1 adult households with children should match
+            # number of households with 1 adult and children
+            # 3. adult population in 2 adult households with no children should be
+            # double number of households with 2 adult and no children
+            # 4. adult population in 2 adult households with children should be
+            # double number of households with 2 adult and children
+            targets_0 = occ_targets[0].data
+            targets_1 = occ_targets[1].data
+            targets_2 = occ_targets[2].data
+            targets_3 = occ_targets[3].data
+
+            occupancy_hh_targets_0.append(targets_0)
+            occupancy_hh_targets_1.append(targets_1)
+            occupancy_hh_targets_2.append(targets_2)
+            occupancy_hh_targets_3.append(targets_3)
+
+        # Output and save as targets
+        household_adult_1_children_1_target = pd.concat(occupancy_hh_targets_0, axis=1)
+        household_adult_1_children_2_target = pd.concat(occupancy_hh_targets_1, axis=1)
+        household_adult_2_children_1_target = pd.concat(occupancy_hh_targets_2, axis=1)
+        household_adult_2_children_2_target = pd.concat(occupancy_hh_targets_3, axis=1)
+
+        message = f"writing to {path_out}, with {hdf_key=}"
+        print(message)
+        household_adult_1_children_1_target.to_hdf(path_out / "hh_occupancy_adult_1_children_1_target.hdf",
+                                                   key=hdf_key, mode="a")
+        household_adult_1_children_2_target.to_hdf(path_out / "hh_occupancy_adult_1_children_2_target.hdf",
+                                                   key=hdf_key, mode="a")
+        household_adult_2_children_1_target.to_hdf(path_out / "hh_occupancy_2_children_1_target.hdf",
+                                                   key=hdf_key, mode="a")
+        household_adult_2_children_2_target.to_hdf(path_out / "hh_occupancy_adult_2_children_2_target.hdf",
+                                                   key=hdf_key, mode="a")
+
+
+def filter_to_adults_forecasting(
+        dvec: DVector,
+        age_segmentation: str = 'age_ntem',
+        adult_categories: Tuple[int] = (2, 3)
+) -> DVector:
+    """Filter a DVector to the adult age groups. This assumes that
+    age_segmentation (e.g. age_9) is in the current segmentation of the DVector,
+    otherwise this function will have no effect.
+
+    Parameters
+    ----------
+    dvec: DVector
+        Data to filter to only adult age groups. Assumed to have
+        `adult_segmentation` in the dvec.segmentation.names, otherwise this
+        function will return the original DVector.
+    age_segmentation: str, default 'age_ntem'
+        Segmentation name of the age category. Typically defined in SegmentsSuper.
+    adult_categories: Tuple[int], default (2, 3)
+        Values of the Segmentation that relate to the adult age groups of the
+        age_segmentation name. Again, see SegmentsSuper for definitions.
+
+    Returns
+    -------
+    DVector
+        dvec with only `age_segmentation` categories `adult_categories`, or dvec
+        if `age_segmentation` is not in dvec.segmentation.names.
+
+    """
+
+    # check if the segmentation is in the DVector
+    if not age_segmentation in dvec.segmentation.names:
+        LOGGER.warning(
+            f'{age_segmentation} is not in the provided DVector. This function '
+            f'will have no effect. Returning original DVector.'
+        )
+        return dvec
+
+    return dvec.filter_segment_value(
+        segment_name=age_segmentation, segment_values=list(adult_categories)
+    )
+
+
+def derive_household_occupancy_targets_forecasting(
+        population_dvector: DVector,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        ),
+        children_segment_name: str = SegmentsSuper.CHILDREN.value,
+        adult_segment_name: str = SegmentsSuper.ADULTS.value,
+        no_children_hh_index: int = 1,
+        yes_children_hh_index: int = 2,
+        one_adult_hh_index: int = 1,
+        two_adult_hh_index: int = 2
+) -> list:
+    """Derivation of household based targets for the IPF based on logical
+    population and household linkages.
+
+    This will derive IPF targets to ensure:
+    - adult population in 1 adult households with no children should match
+    number of households with 1 adult and no children
+    - adult population in 1 adult households with children should match
+    number of households with 1 adult and children
+    - adult population in 2 adult households with no children should be
+    double number of households with 2 adult and no children
+    - adult population in 2 adult households with children should be
+    double number of households with 2 adult and children
+
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Must have segmentation of *at least* household_segments. Represents
+        total population.
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        )
+        Names of household segments to aggregate the population based targets to
+    children_segment_name: str = SegmentsSuper.CHILDREN.value
+        Name of the segmentation in population_dvector that represents the
+        number of children in a household
+    adult_segment_name: str = SegmentsSuper.ADULTS.value
+        Name of the segmentation in population_dvector that represents the
+        number of adults in a household
+    no_children_hh_index: int = 1
+        Segment value in children_segment_name that represents no children in
+        the household
+    yes_children_hh_index: int = 2
+        Segment value in children_segment_name that represents yes children in
+        the household
+    one_adult_hh_index: int = 1
+        Segment value in adult_segment_name that represents 1 adult in
+        the household
+    two_adult_hh_index: int = 2
+        Segment value in adult_segment_name that represents 2 adults in
+        the household
+
+    Returns
+    -------
+    list
+        Four DVectors that can be used as input targets to the IPF
+    """
+    targets = []
+
+    # adult population in 1 adult households with no children should match
+    # number of households with 1 adult and no children
+    household_adult_1_children_1_target = filter_to_adults_forecasting(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 1 adult households with children should match
+    # number of households with 1 adult and children
+    household_adult_1_children_2_target = filter_to_adults_forecasting(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with no children should be
+    # double number of households with 2 adult and no children
+    household_adult_2_children_1_target = (filter_to_adults_forecasting(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with children should be
+    # double number of households with 2 adult and children
+    household_adult_2_children_2_target = (filter_to_adults_forecasting(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    return [
+        household_adult_1_children_1_target, household_adult_1_children_2_target,
+        household_adult_2_children_1_target, household_adult_2_children_2_target
+        ]
 
 
 # %%
