@@ -94,7 +94,10 @@ def summarise_pop_and_hh_outputs_multi_segments(
         output_file_name: str,
         segments_to_summarise: list,
         years_to_summarise: list,
-        output_file_prefixes: list
+        rgns_to_summarise: list,
+        output_file_prefixes: list,
+        forecast_pop_output_dir: Path,
+        output_dir: Path
 ):
     """
     Function to summarise the hdf outputs from the forecast population process across multiple segments,
@@ -108,18 +111,24 @@ def summarise_pop_and_hh_outputs_multi_segments(
         Segments in the output data to summarise
     years_to_summarise: list
         Forecast years to analyse
+    rgns_to_summarise: list
+        Regions to analyse
     output_file_prefixes: list
-        Prefix of the population output files e.g. population, households
+        Prefix of the population output files e.g. pop, households
+    forecast_pop_output_dir: path
+        Folder of forecast population outputs
+    output_dir: path
+        Folder where to save the csv summaries
     """
     final_dfs = []
     for file in output_file_prefixes:
         print(f"Summarising for {file}")
         for year in years_to_summarise:
             print(f"Summarising for {year}")
-            for rgn in constants.GORS + ["Scotland"]:
+            for rgn in rgns_to_summarise:
                 print(f"Summarising for {year}, {rgn}")
                 if year == 2023:
-                    if file == "Population_age_g_soc":
+                    if file == "Pop":
                         base_pop_age_ntem_path = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM")
                         dv = DVector.load(
                             Path(base_pop_age_ntem_path / fr"based_on_241220_Populationv2\Output P11_{rgn}.hdf"))
@@ -132,8 +141,7 @@ def summarise_pop_and_hh_outputs_multi_segments(
                 else:
                     dv = DVector.load(
                         Path(
-                            POP_OUTPUT_DIR / rf"01_Intermediate Files\{file}_"
-                                             rf"{rgn}_{year}.hdf"
+                            forecast_pop_output_dir / rf"02_Final Outputs\Output {file}_{rgn}_{year}.hdf"
                         )
                     )
                 dv_translated = dv.translate_zoning(
@@ -148,6 +156,7 @@ def summarise_pop_and_hh_outputs_multi_segments(
 
                 df = dv_seg.data.stack().reset_index()
                 df = df.set_axis(segments_to_summarise + ["region", "value"], axis=1)
+                df = df[df["value"] != 0]
 
                 df["output"] = file
                 df["year"] = year
@@ -156,7 +165,7 @@ def summarise_pop_and_hh_outputs_multi_segments(
     final_output = pd.concat(final_dfs)
     # redefine the region names
     final_output["region"] = final_output["region"].map(region_mapping)
-    final_output.to_csv(POP_ANALYSIS_DIR / f"{output_file_name}.csv")
+    final_output.to_csv(output_dir / f"{output_file_name}.csv", index=False)
 
 
 def summarise_emp_outputs(output_file_name: str, years_to_extract: list):
@@ -534,27 +543,31 @@ summarise_population_outputs(
     output_file_name='population_forecast_output_summary_20250520',
     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
-# summarise_pop_and_hh_outputs_multi_segments(
-#     output_file_name="pop_hh_adults_soc",
-#     segments_to_summarise=["adults", "soc"],
-#     years_to_summarise=[2023, 2038, 2053],
-#     output_file_prefixes=["Population_age_g_soc"])
+summarise_pop_and_hh_outputs_multi_segments(
+    output_file_name="Pop_adults_children_summary_subset_targets_2053_The_North",
+    segments_to_summarise=["adults", "children"],
+    years_to_summarise=[2053],
+    rgns_to_summarise=["NW", "NE", "YH"],
+    output_file_prefixes=["Pop", "Households"],
+    forecast_pop_output_dir=Path(r"F:\Working\Land-Use\forecast_population_hh_test_subset_targets_no_cap"),
+    output_dir=Path(r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\adult_children_investigations")
+)
 
 summarise_emp_outputs(
     output_file_name='employment_forecast_output_summary_20250519',
     years_to_extract=[2033, 2038, 2043, 2048, 2053])
 
 summarise_household_outputs(
-    output_file_name='household_forecast_output_summary_20250520',
-    years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
+    output_file_name='household_forecast_output_summary_testing',
+    years_to_extract=[2023, 2033, 2053])
 
 calculate_occupancies(
-    forecast_years=[2033, 2038, 2043, 2048, 2053],
+    forecast_years=[2033, 2053],
     base_pop_path=Path(fr"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
     forecast_pop_path=Path(
-        fr"F:\Working\Land-Use\forecast_population_20250520\02_Final Outputs"),
+        fr"F:\Working\Land-Use\forecast_population_hh_test_subset_targets_no_cap\02_Final Outputs"),
     agg_segments=["adults", "children"],
-    output_file_name=f"occupancies_summary_adults_children_20250520")
+    output_file_name=f"occupancies_summary_adults_children_subset_no_cap_The_North")
 
 # dvector_segment_comparisons(
 #     dvector_dict={
