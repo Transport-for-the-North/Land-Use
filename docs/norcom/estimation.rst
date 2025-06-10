@@ -82,9 +82,9 @@ A number of logit model forms were tested. For this iteration of NorCOM it was
 decided to focus on a logit model form that was easily compatible with the specification
 of the data in the household land-use model. This means that the variables that were tested
 in the logit models were either zonal (i.e. only dependent on model zone) or defined
-in the same dimensions as the segmentations of the household land-use model (i.e.
-see :code:`Population Model/Segmentation Definitions`
-). This makes implementation of the model much simpler, without having to rely on
+in the same dimensions as the segmentations of the household land-use model (found in
+:doc:`/population/segmentation`). This makes implementation of the 
+model much simpler, without having to rely on
 population distribution assumptions (such as the prototypical NTS sample used in
 the previous iteration of NorCOM).
 
@@ -94,8 +94,8 @@ This variable has been included because evidence (such as the
 ) shows that income is a significant explanator for car ownership and therefore
 it would be beneficial to include in the model.
 
-More information about data used in the application can be found in :code:`NorCOM Application`
-, but the availability of
+More information about data used in the application can be found in :doc:`/norcom/application`, 
+but the availability of
 `MSOA-based average income estimates from the ONS for England and Wales <https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/smallareaincomeestimatesformiddlelayersuperoutputareasenglandandwales>`_
 and
 `Data Zone-based average income estimates from the Scottish Government <https://www.gov.scot/publications/banded-income-statistics-2018>`_
