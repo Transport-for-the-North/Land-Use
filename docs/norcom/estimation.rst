@@ -103,6 +103,8 @@ means that income can (at least) be approximated to a zone-level variable.
 
 Based on the testing, the final form of the logit model parameters for NorCOM are:
 
+.. rst-class:: right-align
+
 +-------------+-----------------------------------------+----------------+----------------+
 | Feature     | Category (if relevant)                  | 0v1+ Parameter | 1v2+ Parameter |
 +=============+=========================================+================+================+
