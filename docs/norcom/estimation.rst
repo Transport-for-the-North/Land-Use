@@ -90,15 +90,15 @@ the previous iteration of NorCOM).
 
 The only input variable that is the exception to this rule is "household income".
 This variable has been included because evidence (such as the
-`2024 Car Ownership: Evidence Review by the National Centre for Social Research <https://assets.publishing.service.gov.uk/media/6781339100e3d719f19217f1/dft-car-ownership-evidence-review.pdf>`_
+2024 Car Ownership: Evidence Review by the National Centre for Social Research [#cfsr]_ 
 ) shows that income is a significant explanator for car ownership and therefore
 it would be beneficial to include in the model.
 
 More information about data used in the application can be found in :doc:`/norcom/application`, 
 but the availability of
-`MSOA-based average income estimates from the ONS for England and Wales <https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/smallareaincomeestimatesformiddlelayersuperoutputareasenglandandwales>`_
+MSOA-based average income estimates from the ONS for England and Wales [#ew_income_estimates]_
 and
-`Data Zone-based average income estimates from the Scottish Government <https://www.gov.scot/publications/banded-income-statistics-2018>`_
+Data Zone-based average income estimates from the Scottish Government [#scot_income_estimates]_
 means that income can (at least) be approximated to a zone-level variable.
 
 Based on the testing, the final form of the logit model parameters for NorCOM are:
@@ -155,3 +155,10 @@ Based on the testing, the final form of the logit model parameters for NorCOM ar
 
 Calibration Adjustments
 =======================
+
+
+.. rubric:: Footnotes
+
+.. [#cfsr] `Source (pdf) <https://assets.publishing.service.gov.uk/media/6781339100e3d719f19217f1/dft-car-ownership-evidence-review.pdf>`__
+.. [#ew_income_estimates] `Source (multiple xlsx files) <https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/smallareaincomeestimatesformiddlelayersuperoutputareasenglandandwales>`__
+.. [#scot_income_estimates] `Source (docx) <https://www.gov.scot/publications/banded-income-statistics-2018>`__
