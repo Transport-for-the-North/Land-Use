@@ -75,6 +75,11 @@ TfN's `caf.brain <https://github.com/Transport-for-the-North/caf.brain>`_ reposi
 has been used to estimate these logit models. The exact specification and results of
 this estimation can be found here: :code:`I:/NorMITs NorCOM/AECOM working/Model Comparison v38.xlsx`
 
+.. warning::
+
+    At the time of writing (June 2025) caf.brain is not yet publicly available, though TfN plan to
+    change this in the future.
+
 Estimation Results
 ==================
 
