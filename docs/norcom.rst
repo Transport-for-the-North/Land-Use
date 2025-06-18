@@ -21,6 +21,14 @@ These likelihoods are then applied to the household-level population model outpu
 to approximate the number of households in each zone that have different levels of
 car availability.
 
+:numref:`norcom` shows a summary of the nested structure of the two choice models
+that make up NorCOM.
+
+.. _norcom:
+.. figure:: norcom/figs/NorCOM_Structure.png
+
+   NorCOM Structure
+
 More Information
 ================
 
