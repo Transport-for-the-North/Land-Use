@@ -28,5 +28,6 @@ More Information
    :maxdepth: 1
 
    norcom/estimation
+   norcom/adjustments
    norcom/application
    norcom/assumptions_limitations
