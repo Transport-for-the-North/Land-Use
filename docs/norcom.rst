@@ -29,5 +29,6 @@ More Information
 
    norcom/estimation
    norcom/adjustments
+   norcom/validation
    norcom/application
    norcom/assumptions_limitations
