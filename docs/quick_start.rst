@@ -78,5 +78,5 @@ structure is as follows:
     ├─ 02_Final Outputs/
     ├─ 03_Assurance/
 
-In the main, you should refer to the :doc:`Base Model Structure <base_model_structure.rst>` page to 
+In the main, you should refer to the :doc:`population.rst` and :doc:`employment.rst` pages to
 understand the stage each output exists at within the wider process.
