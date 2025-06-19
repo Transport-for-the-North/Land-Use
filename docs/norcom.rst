@@ -27,7 +27,7 @@ that make up NorCOM.
 .. graphviz::
 
     digraph G {
-      rankdir="LR"
+      rankdir="TB"
       node [shape=rectangle fillcolor="white"]
 
       subgraph cluster_car_owner {
