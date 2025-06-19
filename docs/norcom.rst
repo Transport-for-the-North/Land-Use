@@ -34,7 +34,7 @@ that make up NorCOM.
         style=filled;
         bgcolor="teal";
         label="0 v 1+ Choice Model";
-        labeljust="l";
+        labeljust="r";
         labelloc="b";
         node [style=filled; fillcolor=white]
         no_car [label="No Car Owning"];
@@ -46,7 +46,7 @@ that make up NorCOM.
         style=filled;
         bgcolor="yellow";
         label="1 v 2+ Choice Model";
-        labeljust="l";
+        labeljust="r";
         labelloc="b";
         node [style=filled; fillcolor=white]
         single_car [label="1 Car Owning"];
