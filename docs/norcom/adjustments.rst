@@ -34,31 +34,21 @@ Zonal Shares
 We have also looked at how the predicted probability shares of the model compare
 to the shares observed in the 2021 Census data.
 
-:numref:`2021_ew_01_shares` and :numref:`2021_ew_12_shares` show a comparison of
+:numref:`2021_ew_shares` shows a comparison of
 the zonal (LSOA) shares in car ownership between the 0 vs 1+ car owning, and 1 vs 2+ car
-owning models, respectively. :numref:`2021_north_01_shares` and :numref:`2021_north_12_shares`
-show the same comparison for LSOAs in the three northern regions; Yorkshire and the Humber,
+owning models. :numref:`2021_north_shares`
+shows the same comparison for LSOAs in the three northern regions; Yorkshire and the Humber,
 North East, and North West.
 
-.. _2021_ew_01_shares:
-.. figure:: figs/v38_0v1+shares_EW_2021.png
+.. _2021_ew_shares:
+.. figure:: figs/v38_shares_2021-MODELSHARES.png
 
-   Proportion of Households by LSOA with 0 or 1 or more cars; 2021 Census vs Land Use
+   Proportion of Households by LSOA; 2021 Census vs Land Use
 
-.. _2021_ew_12_shares:
-.. figure:: figs/v38_1v2+shares_EW_2021.png
+.. _2021_north_shares:
+.. figure:: figs/v38_shares_2021-NORTHERNSHARES.png
 
-   Proportion of Households by LSOA with 1 or 2 or more cars; 2021 Census vs Land Use
-
-.. _2021_north_01_shares:
-.. figure:: figs/v38_0v1+shares_north_2021.png
-
-   Proportion of Households by LSOA with 0 or 1 or more cars; 2021 Census vs Land Use (North)
-
-.. _2021_north_12_shares:
-.. figure:: figs/v38_1v2+shares_north_2021.png
-
-   Proportion of Households by LSOA with 1 or 2 or more cars; 2021 Census vs Land Use (North)
+   Proportion of Households by LSOA; 2021 Census vs Land Use (North)
 
 These show that, similarly to :numref:`2021_hh`, the zonal variation in model shares
 is relatively small (shown by the strong :math:`{r}^{2}` values).
