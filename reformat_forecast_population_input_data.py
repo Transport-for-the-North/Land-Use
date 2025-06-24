@@ -615,7 +615,7 @@ def calc_and_output_hh_occupancy_targets(
                                                    key=hdf_key, mode="a")
         household_adult_1_children_2_target.to_hdf(path_out / "hh_occupancy_adult_1_children_2_target.hdf",
                                                    key=hdf_key, mode="a")
-        household_adult_2_children_1_target.to_hdf(path_out / "hh_occupancy_2_children_1_target.hdf",
+        household_adult_2_children_1_target.to_hdf(path_out / "hh_occupancy_adult_2_children_1_target.hdf",
                                                    key=hdf_key, mode="a")
         household_adult_2_children_2_target.to_hdf(path_out / "hh_occupancy_adult_2_children_2_target.hdf",
                                                    key=hdf_key, mode="a")

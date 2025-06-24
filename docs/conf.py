@@ -70,3 +70,6 @@ html_css_files = [
 ]
 
 autodoc_typehints = "description"
+
+# -- Options for captioning
+numfig = True

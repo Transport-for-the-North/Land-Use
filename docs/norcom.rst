@@ -21,6 +21,47 @@ These likelihoods are then applied to the household-level population model outpu
 to approximate the number of households in each zone that have different levels of
 car availability.
 
+The below chart shows a summary of the nested structure of the two choice models
+that make up NorCOM.
+
+.. graphviz::
+
+    digraph G {
+      rankdir="TB"
+      node [shape=rectangle fillcolor="white"]
+
+      subgraph cluster_car_owner {
+        style=filled;
+        bgcolor="teal";
+        label="0 v 1+ Choice Model";
+        labeljust="r";
+        labelloc="b";
+        node [style=filled; fillcolor=white]
+        no_car [label="No Car Owning"];
+        car_owning [label="1+ Car Owning"];
+
+      }
+
+      subgraph cluster_multi_car_owner {
+        style=filled;
+        bgcolor="yellow";
+        label="1 v 2+ Choice Model";
+        labeljust="r";
+        labelloc="b";
+        node [style=filled; fillcolor=white]
+        single_car [label="1 Car Owning"];
+        multi_car [label="2+ Car Owning"];
+      }
+
+      household [label="Household"]
+
+      household -> no_car
+      household -> car_owning
+
+      car_owning -> single_car
+      car_owning -> multi_car
+    }
+
 More Information
 ================
 
@@ -28,5 +69,7 @@ More Information
    :maxdepth: 1
 
    norcom/estimation
+   norcom/adjustments
+   norcom/validation
    norcom/application
    norcom/assumptions_limitations
