@@ -2,7 +2,7 @@
 # All files here are assumed to be in a format ready for DVectors.
 input_root_directory: I:\NorMITs Land Use\2023\import
 output_directory: F:\Deliverables\Land-Use\2025-06 Release\Population
-#base_year_folder: F:\Deliverables\Land-Use\241213_Population
+base_year_folder: F:\Deliverables\Land-Use\2024-12 Release\Population
 output_intermediate_outputs: False
 scotland_donor_regions: [NE, NW, YH]
 run_scotland_only: False
