@@ -881,6 +881,20 @@ def rebase(
         output_level=OutputLevel.FINAL
     )
 
+    # calculate resulting zone occupancies between the "final" population and households
+    occupancies = rebased_pop.aggregate(
+        [nom for nom in rebased_households.segmentation.names if nom in rebased_pop.segmentation.names]
+    ) / rebased_households
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.4_{geography_subset}',
+        dvector=occupancies,
+        dvector_dimension='occupancies',
+        output_level=OutputLevel.FINAL
+    )
+
     # --- Step 14 --- #
     LOGGER.info('--- Step 14 ---')
     LOGGER.info('Getting occupied and unoccupied dwellings')
@@ -1187,6 +1201,20 @@ data_processing.save_output(
     dvector=rebased_households,
     dvector_dimension='households',
     detailed_logs=True,
+    output_level=OutputLevel.FINAL
+)
+
+# calculate resulting zone occupancies between the "final" population and households
+occupancies = scotland_hydrated.aggregate(
+    [nom for nom in rebased_households.segmentation.names if nom in scotland_hydrated.segmentation.names]
+) / rebased_households
+
+# save output to hdf
+data_processing.save_output(
+    output_folder=OUTPUT_DIR,
+    output_reference=f'Output P13.4_Scotland',
+    dvector=occupancies,
+    dvector_dimension='occupancies',
     output_level=OutputLevel.FINAL
 )
 
