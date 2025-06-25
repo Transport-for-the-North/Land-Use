@@ -105,25 +105,22 @@ Post-Adjustment Results
 =======================
 
 Following the implementation of these global bias corrections, the resulting
-comparison of model shares between the Land Use model and the 2021 Census is as
-shown in :numref:`2021_adj_north_01_shares` and :numref:`2021_adj_north_12_shares`.
-Note this is shown for the Northern regions, and hence is directly
-comparable with :numref:`2021_north_01_shares` and :numref:`2021_north_12_shares`
-above.
+comparisons of model shares between the Land Use model and the 2021 Census are
+shown in :numref:`2021_adj_ew_shares` and :numref:`2021_adj_north_shares`.
 
-.. _2021_adj_north_01_shares:
-.. figure:: figs/v38adjusted_0v1+shares_north_2021.png
+.. _2021_adj_ew_shares:
+.. figure:: figs/v38_shares_2021-MODELSHARES-adjusted.png
 
-   Proportion of Households by LSOA with 0 or 1 or more cars; 2021 Census vs Land Use (North)
+   Proportion of Households by LSOA; 2021 Census vs Land Use
 
-.. _2021_adj_north_12_shares:
-.. figure:: figs/v38adjusted_1v2+shares_north_2021.png
+.. _2021_adj_north_shares:
+.. figure:: figs/v38_shares_2021-NORTHERNSHARES-adjusted.png
 
-   Proportion of Households by LSOA with 1 or 2 or more cars; 2021 Census vs Land Use (North)
+   Proportion of Households by LSOA; 2021 Census vs Land Use (North)
 
 :numref:`2021_adj_shares` shows a summary of the percentage point difference in model shares
 by LSOA for the three northern regions between the Land Use model prediction and
-the Census data following these adjustments. Again, this can be compared directly
+the Census data following these adjustments. This can be compared directly
 to :numref:`2021_shares` above.
 
 .. _2021_adj_shares:
