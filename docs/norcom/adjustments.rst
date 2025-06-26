@@ -1,8 +1,6 @@
 Calibration Adjustments
 #######################
 
-# TODO update all figs to something nice!
-
 NorCOM is ultimately a statistical model that results in aggregate estimates of
 how different zonal and household properties cause household car ownership to vary.
 It is almost impossible to generate a statistical model like this that will perfectly
@@ -124,7 +122,7 @@ the Census data following these adjustments. This can be compared directly
 to :numref:`2021_shares` above.
 
 .. _2021_adj_shares:
-.. figure:: figs/v38adjusted_shares_summary_2021.png
+.. figure:: figs/v38_shares_summary_2021-adjusted.png
 
    Percentage Point Difference in Zonal Shares; 2021 Census vs Land Use (North)
 
