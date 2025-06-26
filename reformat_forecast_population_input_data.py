@@ -24,14 +24,15 @@ CROSSOVER_YEAR = 2043
 FORECAST_YEARS = [2023, 2033, 2038, 2043, 2048, 2053]
 # Location of base population folder which we are pivoting from
 BASE_POP_DV = Path(
-    r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2"
+    r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_250625_Population"
 )
 POPULATION_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\pop_projs")
 HOUSEHOLDS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
 LMS_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\Labour Market and Skills")
 OBR_INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import\OBR")
 
-IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2")
+# IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2")
+IPF_TARGET_OUT_DIR = Path(r"F:\Working\Land-Use\POPULATION_TARGETS\based_on_250625_Population")
 
 ENGLAND_CODE = "E92000001"
 
