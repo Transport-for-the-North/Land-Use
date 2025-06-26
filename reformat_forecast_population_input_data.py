@@ -113,36 +113,48 @@ def main():
         path_out=IPF_TARGET_OUT_DIR
     )
 
-    # creating household targets
-    calc_and_output_hh_targets(
-        base_dv_path=Path(
-            r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
-        hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
-        hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
-        hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
-        base_year=BASE_YEAR,
-        forecast_years=FORECAST_YEARS,
-        path_out=IPF_TARGET_OUT_DIR
-    )
+    # Removed below as now forecasting households directly from the forecast population, by maintaining the occupancies
+
+    # # creating household targets
+    # calc_and_output_hh_targets(
+    #     base_dv_path=Path(
+    #         r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+    #     hh_totals_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_totals_from_2023_factors.hdf",
+    #     hh_children_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_children_from_2023_factors.hdf",
+    #     hh_single_adult_no_g_factors=HOUSEHOLDS_DIR / r"preprocessing\hh_1_adult_by_no_g_from_2023_factors.hdf",
+    #     base_year=BASE_YEAR,
+    #     forecast_years=FORECAST_YEARS,
+    #     path_out=IPF_TARGET_OUT_DIR
+    # )
 
     # Separate steps - the following are calculated based on the forecast population outputs
     # creating ns-sec household targets (based on the outputs from forecast population)
-    calc_and_output_nssec_hh_targets(
-        base_pop_dv_path=BASE_POP_DV,
-        base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
-        forecast_dv_path=Path(
-            r"F:\Working\Land-Use\forecast_population_20250515\02_Final Outputs"),
-        forecast_years=[2033, 2038, 2043, 2048, 2053],
-        path_out=IPF_TARGET_OUT_DIR
-    )
+    # calc_and_output_nssec_hh_targets(
+    #     base_pop_dv_path=BASE_POP_DV,
+    #     base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+    #     forecast_dv_path=Path(
+    #         r"F:\Working\Land-Use\forecast_population_20250617\02_Final Outputs"),
+    #     forecast_years=[2033, 2038, 2043, 2048, 2053],
+    #     path_out=IPF_TARGET_OUT_DIR
+    # )
 
     # create household occupancy targets
-    calc_and_output_hh_occupancy_targets(
-        forecast_dv_path=Path(
-            r"F:\Working\Land-Use\forecast_population_20250515\02_Final Outputs"),
-        forecast_years=[2033, 2038, 2043, 2048, 2053],
-        path_out=IPF_TARGET_OUT_DIR
-    )
+    # calc_and_output_hh_occupancy_targets(
+    #     forecast_dv_path=Path(
+    #         r"F:\Working\Land-Use\forecast_population_20250617\02_Final Outputs"),
+    #     forecast_years=[2033, 2038, 2043, 2048, 2053],
+    #     path_out=IPF_TARGET_OUT_DIR
+    # )
+
+    # calc_and_output_hh_total_targets_from_pop(
+    #     base_pop_dv_path=BASE_POP_DV,
+    #     base_hhs_dv_path=Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"),
+    #     forecast_pop_dv_path=Path(
+    #         r"F:\Working\Land-Use\forecast_population_pop_test_20250605\02_Final Outputs"),
+    #     forecast_years=["2053"],
+    #     regions=constants.GORS + ["Scotland"],
+    #     path_out=IPF_TARGET_OUT_DIR
+    # )
 
 
 def write_ons_pop_growth_factors_from_base(base_year: int, forecast_year: int) -> None:
@@ -784,6 +796,62 @@ def derive_household_occupancy_targets_forecasting(
         ]
 
 
+def calc_and_output_hh_total_targets_from_pop(base_pop_dv_path: Path, base_hhs_dv_path: Path,
+                                              forecast_pop_dv_path: Path, forecast_years: list,
+                                              regions: list, path_out: Path):
+    """
+    Function to calculate forecast target totals for households, based on forecast population
+    Keep separate for now as the occupancy household targets are based off the forecast population outputs
+
+    Parameters
+    ----------
+    base_pop_dv_path: Path
+        Base population DVectors output
+    base_hhs_dv_path: Path
+        Base household DVectors output
+    forecast_pop_dv_path: Path
+        Forecast population DVectors output
+    forecast_years: list
+        Years to generate forecasts for
+    regions: list
+        Regions to generate for
+    path_out: Path
+        Location to output the DVector targets to
+    """
+
+    for forecast_year in forecast_years:
+        household_targets = []
+        hdf_key = f"targets_{forecast_year}"
+        for gor in regions:
+            print(f"Processing for {forecast_year}, {gor}")
+            # Read in base population
+            base_pop = DVector.load(base_pop_dv_path / f"Output P11_{gor}.hdf")
+            base_pop_agg = base_pop.aggregate(segs=["adults", "children"])
+
+            # Read in forecast population
+            forecast_pop = DVector.load(forecast_pop_dv_path / f"Output Pop_{gor}_{forecast_year}.hdf")
+            forecast_pop_agg = forecast_pop.aggregate(segs=["adults", "children"])
+
+            # Read in base households
+            base_hhs = DVector.load(base_hhs_dv_path / f"Output P13.3_{gor}.hdf")
+            base_hhs_agg = base_hhs.aggregate(segs=["adults", "children"])
+
+            # Calculate growth between base population and forecast population, by adults and children, by LSOA
+            pop_growth = forecast_pop_agg / base_pop_agg
+
+            # Apply this growth to the base households
+            forecast_hh_targets = base_hhs_agg * pop_growth
+
+            household_targets.append(forecast_hh_targets.data)
+
+        # Output and save as targets
+        household_targets_outputs = pd.concat(household_targets, axis=1)
+
+        message = f"writing to {path_out}, with {hdf_key=}"
+        print(message)
+        household_targets_outputs.to_hdf(path_out / "hh_totals_derived_from_pop.hdf", key=hdf_key, mode="a")
+
+
 # %%
 def fetch_ons_pop_forecasts_up_to_crossover(year: int) -> pd.DataFrame:
 
@@ -1401,8 +1469,10 @@ def process_and_save_projections_1_adult_hhs():
 
 
 def process_base_to_ntem_age(rgn: str):
-    input_folder = Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
-    output_folder = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2")
+    # input_folder = Path(r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs")
+    input_folder = Path(r"F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs")
+    # output_folder = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2")
+    output_folder = Path(r"F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_250625_Population")
     output_folder.mkdir(exist_ok=True)
 
     base_pop_path = input_folder / f"Output P11_{rgn}.hdf"
