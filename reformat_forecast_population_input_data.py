@@ -97,9 +97,9 @@ def main():
         write_ons_pop_growth_factors_from_base(
             base_year=BASE_YEAR, forecast_year=forecast_year
         )
-    process_and_save_hh_projections_children()
-    process_and_save_projections_1_adult_hhs()
-    process_and_save_hh_projections()
+    # process_and_save_hh_projections_children()
+    # process_and_save_projections_1_adult_hhs()
+    # process_and_save_hh_projections()
 
     # PROCESSES FOR THE TARGETS
     # creating population targets
