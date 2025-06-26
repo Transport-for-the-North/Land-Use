@@ -7,6 +7,7 @@ import shutil
 import yaml
 
 from caf.base.data_structures import DVector
+from caf.base.segmentation import SegmentsSuper
 
 from land_use import constants, data_processing
 from land_use import logging as lu_logging
@@ -94,6 +95,30 @@ def fetch_base_households(config: dict, gor: str) -> DVector:
     return base_hhs
 
 
+def fetch_base_occs(config: dict, gor: str) -> DVector:
+    """
+    Function to fetch the base occupancies, using population directory defined in the config file
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the base population path and file name
+    gor: str
+        region to fetch base occupancies for, as base outputs are separated by region
+    """
+    # --- Step 0 --- #
+    # Load in the Base population output
+    LOGGER.info("--- Step 0 ---")
+    LOGGER.info("Load in the Base occupancies output")
+
+    base_occs_directory = Path(config["base_data"]["occs_output_directory"])
+    base_occs_file_stem = config["base_data"]["base_occs_file_stem"]
+    filepath = base_occs_directory / f"{base_occs_file_stem}_{gor}.hdf"
+    base_occs = DVector.load(filepath)
+
+    return base_occs
+
+
 # %%
 def process_forecast_pop_by_gor(
         config: dict,
@@ -179,6 +204,10 @@ def process_forecast_pop_by_gor(
         target_dvector=match_totals_dvector
     )
 
+    # Add "total" segmentation for consistency of outputs
+    if "total" not in rebalanced_pop.segmentation.names:
+        rebalanced_pop = rebalanced_pop.add_segments([SegmentsSuper.get_segment(SegmentsSuper.TOTAL)])
+
     output_reference = f"Output Pop_{gor}_{forecast_year}"
     data_processing.save_output(
         output_folder=OUTPUT_DIR,
@@ -209,7 +238,7 @@ def process_forecast_pop_by_gor(
         / OutputLevel.INTERMEDIATE / f"{gor}"
         / f"{output_reference}_segment_totals.csv",
         float_format="%.5f",
-        index=False,
+        index=False
     )
 
 
@@ -330,6 +359,64 @@ def process_forecast_households_by_gor(
     )
 
 
+def process_forecast_households_based_on_pop(
+        config: dict,
+        base_occs: DVector,
+        forecast_year: int,
+        gor: str
+):
+    """
+    Function to process and generate forecast households by regions, based on the forecast population
+    Reads in from the config file, with IPF targets defined in the config
+
+    Parameters
+    ----------
+    config: dictionary
+        config file including the targets (e.g. total household projections)
+    base_occs: DVector
+        base occupancies DVector that has been read in previously using "fetch_base_occs" function
+    forecast_year: int
+        year to calculate forecasts for
+    gor: str
+        region to calculate forecasts for
+    """
+
+    pop_output_reference = f"Output Pop_{gor}_{forecast_year}.hdf"
+    forecast_pop = DVector.load(OUTPUT_DIR / OutputLevel.FINAL / pop_output_reference)
+    # Aggregate forecast population to same segmentation as base occupancies
+    forecast_pop_agg = forecast_pop.aggregate(
+        [nom for nom in base_occs.segmentation.names if nom in forecast_pop.segmentation.names]
+    )
+
+    forecast_hhs = forecast_pop_agg / base_occs
+
+    # Check for undefined values
+    if forecast_hhs.data.isnull().values.any() is True:
+        LOGGER.warning('Undefined values detected in the forecast household data')
+
+    output_reference = f"Output Households_{gor}_{forecast_year}"
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=output_reference,
+        dvector=forecast_hhs,
+        dvector_dimension="households",
+        output_level=OutputLevel.FINAL,
+    )
+
+    (OUTPUT_DIR / OutputLevel.INTERMEDIATE / f"{gor}").mkdir(parents=True, exist_ok=True)
+
+    forecast_seg_totals = data_processing.find_segment_totals(
+        dvec=forecast_hhs, dimension="households"
+    )
+    forecast_seg_totals.to_csv(
+        OUTPUT_DIR
+        / OutputLevel.INTERMEDIATE / f"{gor}"
+        / f"{output_reference}_segment_totals.csv",
+        float_format="%.5f",
+        index=False,
+    )
+
+
 # %%
 # python forecast_population.py "path/to_file/forecast_population_config.yml"
 
@@ -338,8 +425,7 @@ parser = ArgumentParser("Land-Use forecast population command line runner")
 parser.add_argument("config_file", type=Path)
 args = parser.parse_args()
 
-with open(Path(r'C:\OneDrive\OneDrive - AECOM\Code\Land-Use\scenario_configurations\iteration_5\forecast_population_config.yml'), 'r') as text_file:
-# with open(args.config_file, "r") as text_file:
+with open(args.config_file, "r") as text_file:
     config = yaml.load(text_file, yaml.SafeLoader)
 
 # Get output directory for intermediate outputs from config file
@@ -367,16 +453,25 @@ run_for_regions = config["run_for_regions"]
 for region in run_for_regions:
     base_pop = fetch_base_pop(config=config, gor=region)
     base_hhs = fetch_base_households(config=config, gor=region)
+    base_occs = fetch_base_occs(config=config, gor=region)
 
     for forecast_year in forecast_years:
         process_forecast_pop_by_gor(
-           config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region,
-           maintain_base_distributions=config["maintain_population_base_distributions"],
-           target_dvector_key=config["forecast_population_total_target_key"]
+            config=config, base_pop=base_pop, forecast_year=forecast_year, gor=region,
+            maintain_base_distributions=config["maintain_population_base_distributions"],
+            target_dvector_key=config["forecast_population_total_target_key"]
         )
 
-        process_forecast_households_by_gor(
-            config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region,
-            maintain_base_distributions=config["maintain_households_base_distributions"],
-            target_dvector_key=config["forecast_household_total_target_key"]
-        )
+        if config["forecast_data"]["household_targets"] is None:
+            # Calculate households based off the forecast population and base occupancies
+            process_forecast_households_based_on_pop(
+                config=config, base_occs=base_occs, forecast_year=forecast_year, gor=region
+            )
+
+        else:
+            # Calculate households using the IPF
+            process_forecast_households_by_gor(
+                config=config, base_households=base_hhs, forecast_year=forecast_year, gor=region,
+                maintain_base_distributions=config["maintain_households_base_distributions"],
+                target_dvector_key=config["forecast_household_total_target_key"]
+            )

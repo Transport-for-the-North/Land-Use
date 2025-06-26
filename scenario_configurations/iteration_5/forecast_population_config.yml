@@ -2,8 +2,8 @@
 # All files here are assumed to be in a format ready for DVectors.
 # As the config is likely to be used for multiple files then the key will include the forecast year
 
-input_root_directory: F:\Working\Land-Use\POPULATION_TARGETS\based_on_241220_Populationv2
-output_directory: F:\Working\Land-Use\forecast_population_20250520
+input_root_directory: F:\Working\Land-Use\POPULATION_TARGETS\based_on_250625_Population
+output_directory: F:\Working\Land-Use\forecast_population_20250626
 output_intermediate_outputs: False
 
 base_year: 2023
@@ -29,13 +29,17 @@ run_for_regions:
 
 base_data:
     pop_output_directory:
-        F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_241220_Populationv2
+        F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_250625_Population
+    occs_output_directory:
+        F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs
     household_output_directory:
-        F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs
+        F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs
     base_pop_file_stem:
         Output P11
     base_households_file_stem:
         Output P13.3
+    base_occs_file_stem:
+        Output P13.4
 
 forecast_data:
     population_targets:
@@ -52,24 +56,20 @@ forecast_data:
           input_segments: [g, adults]
 
     household_targets:
-        - file_path: household_totals_targets.hdf
-          geographical_level: RGN2021
-          input_segments: [total]
+        # - file_path: household_totals_targets.hdf
+        #   geographical_level: RGN2021
+        #   input_segments: [total]
 
-        - file_path: household_children_targets.hdf
-          geographical_level: RGN2021
-          input_segments: [children]
+        #- file_path: household_children_targets.hdf
+        #  geographical_level: RGN2021
+        #  input_segments: [children]
 
-        - file_path: household_single_adults_targets.hdf
-          geographical_level: LAD2021
-          input_segments: [adults]
-
-        # Generated from the population forecast process outputs
-        - file_path: hh_ns-sec_targets.hdf
-          geographical_level: DZ2011+LSOA2021
-          input_segments: [ns_sec]
+        #- file_path: household_single_adults_targets.hdf
+        #  geographical_level: LAD2021
+        #  input_segments: [adults]
 
 
+# Toggle option whether to maintain base population / household distributions
 maintain_population_base_distributions: False
 
 # add in order of priority (last being top priority)
@@ -83,6 +83,7 @@ maintain_households_base_distributions: False
 household_segments_to_maintain:
 # - accom_h
 
+# Keys defined to use to match totals to in the IPF
 forecast_population_total_target_key: None
 
 forecast_household_total_target_key: 0  # household total targets
