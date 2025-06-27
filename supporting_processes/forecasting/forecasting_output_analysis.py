@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 
 from caf.base.data_structures import DVector
 from caf.base.zoning import TranslationWeighting
 
 from land_use import constants, data_processing
+import land_use.preprocessing as pp
 
 # Output directories
 POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_20250626")
@@ -16,6 +18,8 @@ POP_ANALYSIS_DIR = Path(
 EMP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\emp"
 )
+
+HOUSEHOLDS_ONS_DIR = Path(r"I:\NorMITs Land Use\2023\import\ONS\forecasting\hh_projs")
 
 rgn_code_to_desc = {
     "E12000001": "NE",
@@ -414,9 +418,10 @@ def calculate_occupancies(
 
         # Add total segment to base population
         if "total" in agg_segments:
-            base_pop = base_pop.add_segments(["total"])
+            if "total" not in base_pop.segmentation.names:
+                base_pop = base_pop.add_segments(["total"])
 
-            if rgn == "Scotland":
+            if "total" not in base_hh.segmentation.names:
                 base_hh = base_hh.add_segments(["total"])
 
         base_pop_agg = base_pop.aggregate(agg_segments)
@@ -456,7 +461,8 @@ def calculate_occupancies(
             forecast_hh = DVector.load(forecast_pop_path / fr"Output Households_{rgn}_{year}.hdf")
             # Add total segment to base population
             if "total" in agg_segments:
-                forecast_pop = forecast_pop.add_segments(["total"])
+                if "total" not in forecast_pop.segmentation.names:
+                    forecast_pop = forecast_pop.add_segments(["total"])
 
             forecast_pop_agg = forecast_pop.aggregate(agg_segments)
             forecast_hh_agg = forecast_hh.aggregate(agg_segments)
@@ -546,6 +552,81 @@ def summarise_hh_nssec_targets():
     final_output.to_csv(POP_ANALYSIS_DIR / f"hh_ns-sec_targets.csv")
 
 
+def fetch_region_correspondence() -> pd.DataFrame:
+
+    return pd.read_csv(
+        Path(
+            r"I:\NorMITs Land Use\2023\import\ONS\Correspondence_lists",
+            "GOR2021_CD_NM_EWS.csv",
+        )
+    )
+
+
+def summarise_ons_hh_projections():
+    rgn_corr = fetch_region_correspondence()
+
+    # ENGLAND
+    hh_eng = pd.read_excel(
+        HOUSEHOLDS_ONS_DIR / "england_LAs_2018_based_hh_projections.xlsx",
+        sheet_name="406",
+        header=4,
+    ).rename(columns={"Area code": "region"})
+    hh_eng = hh_eng.iloc[:, np.r_[0:2, 19:45]]
+    # Filter to the defined regions (2018-based ONS data is available up to 2043)
+    hh_eng = hh_eng[hh_eng["Area name"].isin(rgn_corr["RGN21NM"].tolist())].drop(
+        columns=["Area name"]
+    )
+
+    # SCOTLAND
+    hh_scot = pd.read_excel(
+        HOUSEHOLDS_ONS_DIR / "scotland_2018-based_hh_projections.xlsx",
+        sheet_name="Table 1",
+        header=3,
+        nrows=1,
+    )
+    hh_scot = hh_scot.iloc[:, 1:27]
+    hh_scot.columns = hh_scot.columns.astype(int)
+    # Define region code
+    hh_scot["region"] = "S92000003"
+
+    # WALES
+    hh_wales = pd.read_csv(
+        HOUSEHOLDS_ONS_DIR / "wales_2018_based_hh_projections.csv", header=5, nrows=1
+    )
+    hh_wales = hh_wales.drop(hh_wales.columns[0:2], axis=1)
+    hh_wales.columns = hh_wales.columns.str.strip().astype(int)
+    # Define region code
+    hh_wales["region"] = "W92000004"
+
+    # Join together England regions, Scotland and Wales 2018-based household data
+    hh_projs = pd.concat([hh_eng, hh_scot, hh_wales])
+
+    hh_projs = pp.infill_for_years(
+        df=hh_projs, forecast_years=[2023, 2033, 2038, 2043, 2048, 2053], extroplate_beyond_end="trend"
+    )
+
+    hh_projs["region_name"] = hh_projs["region"].map(region_mapping)
+    hh_projs = hh_projs.copy().drop(columns=["region"])
+
+    hh_north = hh_projs[hh_projs["region_name"].isin(["North East", "North West", "Yorkshire and The Humber"])]
+    hh_north = hh_north[[2023, 2033, 2038, 2043, 2048, 2053]].sum().to_frame().T
+    hh_north["region_name"] = "The North"
+
+    hh_eng = hh_projs[hh_projs["region_name"].isin(["North East", "North West", "Yorkshire and The Humber",
+                                                    "East Midlands", "West Midlands", "East of England",
+                                                    "London", "South East", "South West"])]
+    hh_eng = hh_eng[[2023, 2033, 2038, 2043, 2048, 2053]].sum().to_frame().T
+    hh_eng["region_name"] = "England"
+
+    hh_all = hh_projs[[2023, 2033, 2038, 2043, 2048, 2053]].sum().to_frame().T
+    hh_all["region_name"] = "GB"
+
+    hh_projs = pd.concat([hh_projs, hh_north, hh_eng, hh_all])
+    hh_projs = hh_projs[["region_name", 2023, 2033, 2038, 2043, 2048, 2053]]
+
+    hh_projs.to_csv(POP_ANALYSIS_DIR / "ONS_household_projections_summary.csv", index=False)
+
+
 def combine_outputs_to_summary_regions(
         pop_summary_csv_path: Path,
         emp_summary_csv_path: Path,
@@ -615,7 +696,7 @@ def combine_outputs_to_summary_regions(
     hh_north["rgn"] = "The North"
     hh_north = hh_north[["seg", "seg_value", "rgn", "value", "year"]]
 
-    hh_eng = hh[hh["rgn"].isin(["NH", "NW", "YH",
+    hh_eng = hh[hh["rgn"].isin(["NE", "NW", "YH",
                                 "EM", "WM", "EoE",
                                 "Lon", "SE", "SW"])]
     hh_eng = hh_eng.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
@@ -662,7 +743,7 @@ def combine_base_to_summary_regions(
     pop_north["region"] = "The North"
     pop_north = pop_north[["filename", "segmentation", "output code", "region", "segment", "value"]]
 
-    pop_eng = pop[pop["region"].isin(["NH", "NW", "YH",
+    pop_eng = pop[pop["region"].isin(["NE", "NW", "YH",
                                       "EM", "WM", "EoE",
                                       "Lon", "SE", "SW"])]
     pop_eng = pop_eng.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
