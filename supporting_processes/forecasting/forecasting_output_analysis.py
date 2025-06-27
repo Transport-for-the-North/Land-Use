@@ -8,7 +8,7 @@ from caf.base.zoning import TranslationWeighting
 from land_use import constants, data_processing
 
 # Output directories
-POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_20250626\02_Final Outputs")
+POP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\forecast_population_20250626")
 EMP_OUTPUT_DIR = Path(r"F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config_with_ons_pop_growth_all_sic")
 POP_ANALYSIS_DIR = Path(
     r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop"
@@ -546,6 +546,157 @@ def summarise_hh_nssec_targets():
     final_output.to_csv(POP_ANALYSIS_DIR / f"hh_ns-sec_targets.csv")
 
 
+def combine_outputs_to_summary_regions(
+        pop_summary_csv_path: Path,
+        emp_summary_csv_path: Path,
+        hh_summary_csv_path: Path,
+        pop_output_csv_path: Path,
+        emp_output_csv_path: Path,
+        hh_output_csv_path: Path
+):
+    """
+    Function to combine the population, employment and household outputs (already processed to csvs) into
+    aggregate regions (e.g. The North, England, GB)
+
+    pop_summary_csv_path: Path
+        File location of the already summarised population summary output
+    emp_summary_csv_path: Path
+        File location of the already summarised employment summary output
+    hh_summary_csv_path: Path
+        File location of the already summarised household summary output
+    pop_output_csv_path: Path
+        File location to save the population output summary to
+    emp_output_csv_path: Path
+        File location to save the employment output summary to
+    hh_output_csv_path: Path
+        File location to save the household output summary to
+    """
+    pop = pd.read_csv(pop_summary_csv_path)
+    emp = pd.read_csv(emp_summary_csv_path)
+    hh = pd.read_csv(hh_summary_csv_path)
+
+    # Population
+    pop_north = pop[pop["region"].isin(["North East", "North West", "Yorkshire and The Humber"])]
+    pop_north = pop_north.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    pop_north["region"] = "The North"
+    pop_north = pop_north[["seg_value", "region", "value", "seg", "year"]]
+
+    pop_eng = pop[pop["region"].isin(["North East", "North West", "Yorkshire and The Humber",
+                                      "East Midlands", "West Midlands", "East of England",
+                                      "London", "South East", "South West"])]
+    pop_eng = pop_eng.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    pop_eng["region"] = "England"
+    pop_eng = pop_eng[["seg_value", "region", "value", "seg", "year"]]
+
+    pop_all = pop.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    pop_all["region"] = "GB"
+    pop_all = pop_all[["seg_value", "region", "value", "seg", "year"]]
+
+    # Employment
+    emp_north = emp[emp["region"].isin(["North East", "North West", "Yorkshire and The Humber"])]
+    emp_north = emp_north.groupby(["segmentation", "segment", "year"], as_index=False)[["value"]].sum()
+    emp_north["region"] = "The North"
+    emp_north = emp_north[["year", "segmentation", "region", "segment", "value"]]
+
+    emp_eng = emp[emp["region"].isin(["North East", "North West", "Yorkshire and The Humber",
+                                      "East Midlands", "West Midlands", "East of England",
+                                      "London", "South East", "South West"])]
+    emp_eng = emp_eng.groupby(["segmentation", "segment", "year"], as_index=False)[["value"]].sum()
+    emp_eng["region"] = "England"
+    emp_eng = emp_eng[["year", "segmentation", "region", "segment", "value"]]
+
+    emp_all = emp.groupby(["segmentation", "segment", "year"], as_index=False)[["value"]].sum()
+    emp_all["region"] = "GB"
+    emp_all = emp_all[["year", "segmentation", "region", "segment", "value"]]
+
+    # Households
+    hh_north = hh[hh["rgn"].isin(["NE", "NW", "YH"])]
+    hh_north = hh_north.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    hh_north["rgn"] = "The North"
+    hh_north = hh_north[["seg", "seg_value", "rgn", "value", "year"]]
+
+    hh_eng = hh[hh["rgn"].isin(["NH", "NW", "YH",
+                                "EM", "WM", "EoE",
+                                "Lon", "SE", "SW"])]
+    hh_eng = hh_eng.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    hh_eng["rgn"] = "England"
+    hh_eng = hh_eng[["seg", "seg_value", "rgn", "value", "year"]]
+
+    hh_all = hh.groupby(["seg_value", "seg", "year"], as_index=False)[["value"]].sum()
+    hh_all["rgn"] = "GB"
+    hh_all = hh_all[["seg", "seg_value", "rgn", "value", "year"]]
+
+    pop_output = pd.concat([pop_north, pop_eng, pop_all])
+    emp_output = pd.concat([emp_north, emp_eng, emp_all])
+    hh_output = pd.concat([hh_north, hh_eng, hh_all])
+
+    pop_output.to_csv(pop_output_csv_path)
+    emp_output.to_csv(emp_output_csv_path)
+    hh_output.to_csv(hh_output_csv_path)
+
+
+def combine_base_to_summary_regions(
+        base_pop_summary_csv_path: Path,
+        base_emp_summary_csv_path: Path,
+        pop_output_csv_path: Path,
+        emp_output_csv_path: Path
+):
+    """
+    Function to combine the population, employment and household outputs (already processed to csvs) into
+    aggregate regions (e.g. The North, England, GB)
+
+    base_pop_summary_csv_path: Path
+        File location of the already summarised population summary output
+    base_emp_summary_csv_path: Path
+        File location of the already summarised employment summary output
+    output_csv_path: Path
+        File location to save the output summary to
+    """
+    # Base
+    pop = pd.read_csv(base_pop_summary_csv_path)
+    emp = pd.read_csv(base_emp_summary_csv_path)
+
+    # Population
+    pop_north = pop[pop["region"].isin(["NE", "NW", "YH"])]
+    pop_north = pop_north.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    pop_north["region"] = "The North"
+    pop_north = pop_north[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    pop_eng = pop[pop["region"].isin(["NH", "NW", "YH",
+                                      "EM", "WM", "EoE",
+                                      "Lon", "SE", "SW"])]
+    pop_eng = pop_eng.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    pop_eng["region"] = "England"
+    pop_eng = pop_eng[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    pop_all = pop.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    pop_all["region"] = "GB"
+    pop_all = pop_all[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    # Employment
+    emp_north = emp[emp["region"].isin(["North East", "North West", "Yorkshire and The Humber"])]
+    emp_north = emp_north.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    emp_north["region"] = "The North"
+    emp_north = emp_north[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    emp_eng = emp[emp["region"].isin(["North East", "North West", "Yorkshire and The Humber",
+                                      "East Midlands", "West Midlands", "East of England",
+                                      "London", "South East", "South West"])]
+    emp_eng = emp_eng.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    emp_eng["region"] = "England"
+    emp_eng = emp_eng[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    emp_all = emp.groupby(["filename", "segmentation", "output code", "segment"], as_index=False)[["value"]].sum()
+    emp_all["region"] = "GB"
+    emp_all = emp_all[["filename", "segmentation", "output code", "region", "segment", "value"]]
+
+    pop_output = pd.concat([pop_north, pop_eng, pop_all])
+    emp_output = pd.concat([emp_north, emp_eng, emp_all])
+
+    pop_output.to_csv(pop_output_csv_path)
+    emp_output.to_csv(emp_output_csv_path)
+
+
 summarise_population_outputs(
     output_file_name='population_forecast_output_summary_20250626',
     regions=constants.GORS + ["Scotland"],
@@ -568,10 +719,10 @@ summarise_emp_outputs(
 summarise_household_outputs(
     output_file_name='household_forecast_output_summary_20250626',
     regions=constants.GORS + ["Scotland"],
-    years_to_extract=[2023, 2053])
+    years_to_extract=[2023, 2033, 2038, 2043, 2048, 2053])
 
 calculate_occupancies(
-    forecast_years=[2053],
+    forecast_years=[2033, 2038, 2043, 2048, 2053],
     regions=constants.GORS + ["Scotland"],
     base_pop_path=Path(fr"F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs"),
     forecast_pop_path=Path(
@@ -589,4 +740,24 @@ calculate_occupancies(
 #         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\test.csv"
 #     ),
 #     forecast_type="emp"
+# )
+
+combine_outputs_to_summary_regions(
+    pop_summary_csv_path=POP_ANALYSIS_DIR / "population_forecast_output_summary_20250626.csv",
+    emp_summary_csv_path=EMP_ANALYSIS_DIR / "employment_forecast_output_summary_20250519.csv",
+    hh_summary_csv_path=POP_ANALYSIS_DIR / "household_forecast_output_summary_20250626.csv",
+    pop_output_csv_path=POP_ANALYSIS_DIR / "population_forecast_output_summary_20250626_agg_rgns.csv",
+    emp_output_csv_path=EMP_ANALYSIS_DIR / "employment_forecast_output_summary_20250519_agg_rgns.csv",
+    hh_output_csv_path=POP_ANALYSIS_DIR / "household_forecast_output_summary_20250626_agg_rgns.csv"
+)
+
+# combine_base_to_summary_regions(
+#     base_pop_summary_csv_path=Path(
+#         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop\Base_segment_totals_rgn.csv"),
+#     base_emp_summary_csv_path=Path(
+#         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\emp\Base_emp_segment_totals_rgn.csv"),
+#     pop_output_csv_path=Path(
+#         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\pop\Base_segment_totals_rgn_agg_rgns.csv"),
+#     emp_output_csv_path=Path(
+#         r"F:\Working\Land-Use\FORECASTING_analysis\Analysis\outputs\emp\Base_emp_segment_totals_rgn_agg_rgns.csv")
 # )
