@@ -463,6 +463,8 @@ def calculate_occupancies(
             if "total" in agg_segments:
                 if "total" not in forecast_pop.segmentation.names:
                     forecast_pop = forecast_pop.add_segments(["total"])
+                if "total" not in forecast_hh.segmentation.names:
+                    forecast_hh = forecast_hh.add_segments(["total"])
 
             forecast_pop_agg = forecast_pop.aggregate(agg_segments)
             forecast_hh_agg = forecast_hh.aggregate(agg_segments)
