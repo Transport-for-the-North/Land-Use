@@ -444,12 +444,18 @@ def calculate_occupancies(
         base_occs = base_occs.data.T.reset_index(names="LSOA2021")
         if len(agg_segments) == 2:
             base_occs.columns = ["{} / {}".format(x, y) for x, y in base_occs.columns]
+        if len(agg_segments) == 7:
+            base_occs.columns = ["{} / {} / {} / {} / {} / {} / {}".format(
+                a, b, c, d, e, f, g) for a, b, c, d, e, f, g in base_occs.columns]
         base_occs['year'] = 2023
 
         base_occs_rgn = base_pop_agg_rgn / base_hh_agg_rgn
         base_occs_rgn = base_occs_rgn.data.T.reset_index(names="region")
         if len(agg_segments) == 2:
             base_occs_rgn.columns = ["{} / {}".format(x, y) for x, y in base_occs_rgn.columns]
+        if len(agg_segments) == 7:
+            base_occs_rgn.columns = ["{} / {} / {} / {} / {} / {} / {}".format(
+                a, b, c, d, e, f, g) for a, b, c, d, e, f, g in base_occs_rgn.columns]
         base_occs_rgn['year'] = 2023
 
         base.append(base_occs)
@@ -486,12 +492,18 @@ def calculate_occupancies(
             forecast_occs = forecast_occs.data.T.reset_index(names="LSOA2021")
             if len(agg_segments) == 2:
                 forecast_occs.columns = ["{} / {}".format(x, y) for x, y in forecast_occs.columns]
+            if len(agg_segments) == 7:
+                forecast_occs.columns = ["{} / {} / {} / {} / {} / {} / {}".format(
+                    a, b, c, d, e, f, g) for a, b, c, d, e, f, g in forecast_occs.columns]
             forecast_occs['year'] = year
 
             forecast_occs_rgn = forecast_pop_agg_rgn / forecast_hh_agg_rgn
             forecast_occs_rgn = forecast_occs_rgn.data.T.reset_index(names="region")
             if len(agg_segments) == 2:
                 forecast_occs_rgn.columns = ["{} / {}".format(x, y) for x, y in forecast_occs_rgn.columns]
+            if len(agg_segments) == 7:
+                forecast_occs_rgn.columns = ["{} / {} / {} / {} / {} / {} / {}".format(
+                    a, b, c, d, e, f, g) for a, b, c, d, e, f, g in forecast_occs_rgn.columns]
             forecast_occs_rgn['year'] = year
 
             f_years.append(forecast_occs)
