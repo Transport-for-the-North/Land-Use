@@ -360,7 +360,6 @@ def process_forecast_households_by_gor(
 
 
 def process_forecast_households_based_on_pop(
-        config: dict,
         base_occs: DVector,
         forecast_year: int,
         gor: str
@@ -371,8 +370,6 @@ def process_forecast_households_based_on_pop(
 
     Parameters
     ----------
-    config: dictionary
-        config file including the targets (e.g. total household projections)
     base_occs: DVector
         base occupancies DVector that has been read in previously using "fetch_base_occs" function
     forecast_year: int
@@ -465,7 +462,7 @@ for region in run_for_regions:
         if config["forecast_data"]["household_targets"] is None:
             # Calculate households based off the forecast population and base occupancies
             process_forecast_households_based_on_pop(
-                config=config, base_occs=base_occs, forecast_year=forecast_year, gor=region
+                base_occs=base_occs, forecast_year=forecast_year, gor=region
             )
 
         else:
