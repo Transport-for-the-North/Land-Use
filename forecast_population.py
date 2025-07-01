@@ -148,8 +148,12 @@ def process_forecast_pop_by_gor(
         whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
     segments_to_maintain: Optional[list]
         option defining which segments to maintain from the base, defined in the config
-    """
 
+    Returns
+    -------
+    DVector
+        resulting population DVector
+    """
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
     LOGGER.info("Load in IPF targets")
@@ -241,6 +245,8 @@ def process_forecast_pop_by_gor(
         index=False
     )
 
+    return rebalanced_pop
+
 
 def process_forecast_households_by_gor(
         config: dict,
@@ -250,7 +256,7 @@ def process_forecast_households_by_gor(
         target_dvector_key: int,
         maintain_base_distributions: bool,
         segments_to_maintain: Optional[list] = None
-):
+) -> DVector:
     """
     Function to process and generate forecast households by regions
     Reads in from the config file, with IPF targets defined in the config
@@ -271,6 +277,11 @@ def process_forecast_households_by_gor(
         whether to include maintaining base distributions in the IPF targets (e.g. maintaining NS-SEC distributions)
     segments_to_maintain: Optional[list]
         option defining which segments to maintain from the base, defined in the config
+
+    Returns
+    -------
+    DVector
+        resulting household DVector
     """
     # --- Step 1 --- #
     LOGGER.info("--- Step 1 ---")
@@ -358,12 +369,14 @@ def process_forecast_households_by_gor(
         index=False,
     )
 
+    return rebalanced_hhs
+
 
 def process_forecast_households_based_on_pop(
         base_occs: DVector,
         forecast_year: int,
         gor: str
-):
+) -> DVector:
     """
     Function to process and generate forecast households by regions, based on the forecast population
     Reads in from the config file, with IPF targets defined in the config
@@ -376,6 +389,11 @@ def process_forecast_households_based_on_pop(
         year to calculate forecasts for
     gor: str
         region to calculate forecasts for
+
+    Returns
+    -------
+    DVector
+        resulting household DVector
     """
 
     pop_output_reference = f"Output Pop_{gor}_{forecast_year}.hdf"
@@ -412,6 +430,8 @@ def process_forecast_households_based_on_pop(
         float_format="%.5f",
         index=False,
     )
+
+    return forecast_hhs
 
 
 # %%
