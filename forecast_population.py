@@ -4,10 +4,9 @@ from pathlib import Path
 from typing import Optional
 import shutil
 
-import yaml
-
 from caf.base.data_structures import DVector
 from caf.base.segmentation import SegmentsSuper
+import yaml
 
 from land_use.constants import CACHE_FOLDER
 from land_use import logging as lu_logging
@@ -225,7 +224,7 @@ def process_forecast_pop_by_gor(
         output_folder=OUTPUT_DIR,
         output_reference=output_reference,
         dvector=rebalanced_pop,
-        dvector_dimension="people",
+        dvector_dimension="population",
         output_level=OutputLevel.INTERMEDIATE,
     )
 
@@ -502,3 +501,61 @@ for region in run_for_regions:
             )
 
         # TODO apply NorCOM
+        # load the NorCOM results
+        zonal_lookups = Path(config["zonal_data"]) / f"zonal_logit_data_v38_{forecast_year}.csv"
+        any_car_ownership = NorCOMResult.from_coefficients_csv(
+            csv_path=Path(config["0v1+_model_coefficients"]),
+            case_category='1+', noncase_category='0',
+            zonal_lookups=zonal_lookups
+        )
+        multiple_car_ownership = NorCOMResult.from_coefficients_csv(
+            csv_path=Path(config["1v2+_model_coefficients"]),
+            case_category='2+', noncase_category='1', dependent_category='1+',
+            zonal_lookups=zonal_lookups
+        )
+
+        # apply norcom
+        output_households = apply_norcom(
+            any_car_ownership_result=any_car_ownership,
+            multiple_car_ownership_result=multiple_car_ownership,
+            input_dvector=forecast_hh,
+            any_car_ownership_correction=config["adjustment_factors"].get(region).get("0_v_1+"),
+            multiple_car_ownership_correction=config["adjustment_factors"].get(region).get("1_v_2+")
+        )
+
+        # save household outputs
+        output_reference = f"Output Households_{region}_{forecast_year}"
+        save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=output_reference,
+            dvector=output_households,
+            dvector_dimension="households",
+            output_level=OutputLevel.FINAL,
+        )
+
+        # calculate resulting factors from NorCOM to apply to population
+        # get segmentations from the resulting households *except* car availability
+        hh_segs = [
+            seg for seg in output_households.segmentation.names if seg != "car_availability"
+        ]
+
+        # calculate factors of car available splits by zone and segment that have resulted from norcom application
+        factors = output_households / output_households.aggregate(hh_segs)
+
+        # get segmentations from the input population *except* car availability
+        pop_segs = [
+            seg for seg in forecast_pop.segmentation.names if seg != "car_availability"
+        ]
+
+        # apply factors to population
+        output_pop = forecast_pop.aggregate(pop_segs) * factors
+
+        # save population outputs
+        output_reference = f"Output Pop_{region}_{forecast_year}"
+        save_output(
+            output_folder=OUTPUT_DIR,
+            output_reference=output_reference,
+            dvector=output_pop,
+            dvector_dimension="population",
+            output_level=OutputLevel.FINAL,
+        )
