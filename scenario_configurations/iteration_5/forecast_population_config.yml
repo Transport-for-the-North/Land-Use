@@ -51,9 +51,6 @@ forecast_data:
           geographical_level: RGN2021
           input_segments: [g, soc]
 
-        - file_path: pop_g_adults_targets.hdf
-          geographical_level: LAD2021
-          input_segments: [g, adults]
 
     household_targets:
         # - file_path: household_totals_targets.hdf

@@ -1,4 +1,3 @@
-# %%
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Optional
@@ -126,7 +125,6 @@ def fetch_base_occs(config: dict, gor: str) -> DVector:
     return base_occs
 
 
-# %%
 def process_forecast_pop_by_gor(
         config: dict,
         base_pop: DVector,
@@ -440,9 +438,6 @@ def process_forecast_households_based_on_pop(
 
     return forecast_hhs
 
-
-# %%
-# python forecast_population.py "path/to_file/forecast_population_config.yml"
 
 # TODO: expand on the documentation here
 parser = ArgumentParser("Land-Use forecast population command line runner")
