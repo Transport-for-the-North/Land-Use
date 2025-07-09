@@ -1,7 +1,10 @@
 Data Sources
 ############
 
-The data sources used in the employment model are primarily from three sources:
+Base Year Model Data
+********************
+
+The data sources used in the base employment model are primarily from three sources:
 
 - Business Register and Employment Survey (BRES),
 - the Office of National Statistics, and
@@ -15,9 +18,6 @@ The sections below describe each input dataset with the:
 - the source location,
 - the file location stored on TfN's local drive, and
 - the access requirements for the data.
-
-Base Year Model Data
-********************
 
 2022 BRES Data
 ==================================
@@ -157,3 +157,39 @@ SOC 4 factors
 
 Forecast Model Data
 ********************
+
+The data sources used in the forecast employment model are from two sources the Labour Market and Skills analysis.
+
+The sections below describe each input dataset with the:
+
+- unit of the data,
+- geographical level the data are provided in,
+- the characteristics (or segmentations) that the data include,
+- the range of years the data include,
+- the source location,
+- the file location stored on TfN's local drive, and
+- the access requirements for the data.
+
+Labour Market and Skills Projections
+================================================================================
+England Regions, Wales, Scotland LM&S Projections (published March 2023)
+------------------------------------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - Jobs
+   * - Geography
+     - GOR
+   * - Segmentation
+     - SIC 1 digit, SOC
+   * - Years
+     - 2025 to 2035
+   * - Source
+     - `Labour Market and Skills <https://www.gov.uk/government/publications/labour-market-and-skills-projections-2020-to-2035>`_
+   * - Files Location
+     - I:/NorMITs Land Use/2023/import/Labour Market and Skills
+   * - Access
+     - Freely available to download
