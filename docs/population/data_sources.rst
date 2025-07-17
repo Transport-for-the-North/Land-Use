@@ -1,7 +1,10 @@
 Data Sources
 ############
 
-The data sources used in the population model are primarily from two sources; Census
+Base Year Model Data
+********************
+
+The data sources used in the base population model are primarily from two sources; Census
 (both England and Wales, and Scotland) and the Office of National Statistics.
 The sections below describe each input dataset with the:
 
@@ -11,9 +14,6 @@ The sections below describe each input dataset with the:
 - the source location,
 - the file location stored on TfN's local drive, and
 - the access requirements for the data.
-
-Base Year Model Data
-********************
 
 2021 England and Wales Census Data
 ==================================
@@ -690,3 +690,139 @@ Dataset 8
 
 Forecast Model Data
 ********************
+
+The data sources used in the forecast population model are primarily from two sources:
+
+- Office for National Statistics (ONS); and
+- Labour Market and Skills.
+
+Investigations were made into available datasets which includes the ONS and NTEM (National Trip End Model).
+It was concluded that ONS was most appropriate for use in Land-Use forecasting at this stage, as:
+
+- The ONS has been updated more recently; and
+- It is consistent with other uses of ONS within TfN and note that it has been used for apportioning/allocation the impact of schemes across regions rather than as an input to transport models.
+
+The sections below describe each input dataset with the:
+
+- unit of the data,
+- geographical level the data are provided in,
+- the characteristics (or segmentations) that the data include,
+- the range of years the data include,
+- the source location,
+- the file location stored on TfN's local drive, and
+- the access requirements for the data.
+
+
+Population Projections
+=====================================================
+ONS England Regions Population Projections (2018-based)
+-------------------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - People
+   * - Geography
+     - GOR
+   * - Segmentation
+     - Age (NTEM), Gender
+   * - Years
+     - 2018 to 2043
+   * - Source
+     - `Office for National Statistics <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationprojections/datasets/regionsinenglandtable1>`__
+   * - File Location
+     - I:/NorMITs Land Use/2023/import/ONS/forecasting/pop_projs/2018_based_england_regions_pop_projections.xlsx
+   * - Access
+     - Freely available to download
+
+ONS England Population Projections (2021-based)
+-----------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - People
+   * - Geography
+     - England
+   * - Segmentation
+     - Age (NTEM), Gender
+   * - Years
+     - 2023 to 2121
+   * - Source
+     - `Office for National Statistics <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationprojections/datasets/z3zippedpopulationprojectionsdatafilesengland>`__
+   * - File Location
+     - I:/NorMITs Land Use/2023/import/ONS/forecasting/pop_projs/2021_based_interim_england_pop_projections.xlsx
+   * - Access
+     - Freely available to download
+
+ONS Wales Population Projections (2021-based)
+---------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - People
+   * - Geography
+     - Wales
+   * - Segmentation
+     - Age (NTEM), Gender
+   * - Years
+     - 2023 to 2121
+   * - Source
+     - `Office for National Statistics <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationprojections/datasets/z4zippedpopulationprojectionsdatafileswales>`__
+   * - File Location
+     - I:/NorMITs Land Use/2023/import/ONS/forecasting/pop_projs/2021_based_interim_wales_pop_projections.xlsx
+   * - Access
+     - Freely available to download
+
+ONS Scotland Population Projections (2022-based)
+------------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - People
+   * - Geography
+     - Scotland
+   * - Segmentation
+     - Age (NTEM), Gender
+   * - Years
+     - 2022 to 2122
+   * - Source
+     - `Office for National Statistics <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationprojections/datasets/z5zippedpopulationprojectionsdatafilesscotland>`__
+   * - File Location
+     - I:/NorMITs Land Use/2023/import/ONS/forecasting/pop_projs/2022_based_scotland_pop_projections.xlsx
+   * - Access
+     - Freely available to download
+
+Labour Market and Skills Projections
+================================================================================
+England Regions, Wales, Scotland LM&S Projections (published March 2023)
+------------------------------------------------------------------------
+.. list-table::
+   :header-rows: 0
+   :widths: 1 2
+   :stub-columns: 1
+
+   * - Unit
+     - Jobs
+   * - Geography
+     - GOR
+   * - Segmentation
+     - SIC 1 digit, SOC
+   * - Years
+     - 2025 to 2035
+   * - Source
+     - `Labour Market and Skills <https://www.gov.uk/government/publications/labour-market-and-skills-projections-2020-to-2035>`_
+   * - Files Location
+     - I:/NorMITs Land Use/2023/import/Labour Market and Skills
+   * - Access
+     - Freely available to download
