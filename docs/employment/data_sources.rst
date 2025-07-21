@@ -16,7 +16,7 @@ The sections below describe each input dataset with the:
 - geographical level the data are provided in,
 - the characteristics (or segmentations) that the data include,
 - the source location,
-- the file location stored on TfN's local drive, and
+- the file location stored on TfN's local drive (not publicly available), and
 - the access requirements for the data.
 
 2022 BRES Data
@@ -167,7 +167,7 @@ The sections below describe each input dataset with the:
 - the characteristics (or segmentations) that the data include,
 - the range of years the data include,
 - the source location,
-- the file location stored on TfN's local drive, and
+- the file location stored on TfN's local drive (not publicly available), and
 - the access requirements for the data.
 
 Labour Market and Skills Projections

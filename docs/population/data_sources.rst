@@ -4,7 +4,7 @@ Data Sources
 Base Year Model Data
 ********************
 
-The data sources used in the base population model are primarily from two sources; Census
+The data sources used in the base population model are primarily from two sources: Census
 (both England and Wales, and Scotland) and the Office of National Statistics.
 The sections below describe each input dataset with the:
 
@@ -12,7 +12,7 @@ The sections below describe each input dataset with the:
 - geographical level the data are provided in,
 - the characteristics (or segmentations) that the data include,
 - the source location,
-- the file location stored on TfN's local drive, and
+- the file location stored on TfN's local drive (not publicly available), and
 - the access requirements for the data.
 
 2021 England and Wales Census Data
@@ -700,7 +700,7 @@ Investigations were made into available datasets which includes the ONS and NTEM
 It was concluded that ONS was most appropriate for use in Land-Use forecasting at this stage, as:
 
 - The ONS has been updated more recently; and
-- It is consistent with other uses of ONS within TfN and note that it has been used for apportioning/allocation the impact of schemes across regions rather than as an input to transport models.
+- It is consistent with other uses of ONS within TfN and note that it has been used for apportioning the impact of schemes across regions, rather than as an input to transport models.
 
 The sections below describe each input dataset with the:
 
@@ -709,7 +709,7 @@ The sections below describe each input dataset with the:
 - the characteristics (or segmentations) that the data include,
 - the range of years the data include,
 - the source location,
-- the file location stored on TfN's local drive, and
+- the file location stored on TfN's local drive (not publicly available), and
 - the access requirements for the data.
 
 

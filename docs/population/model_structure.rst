@@ -150,17 +150,19 @@ The forecasting targets have been derived from the data sources previously defin
 based on the datasets and applied to the Land-Use Base DVectors, to derive targets.
 
 As the ONS regional population projections only cover up to 2043 at the time of developing the forecasts, the growth
-targets up to 2053 have been extrapolated from the final year of 2043.
+targets from 2043 to 2053 have been extrapolated, using national growth projections, from the final year of 2043.
 
 As the Labour Market & Skills data only projects up to 2035, this data has been extrapolated for use in the forecasts.
 For this, the SIC 1 digit / SOC segment splits were taken from the final year of 2035 and then the population growth
-from 2035 onwards has been used to align the jobs growth with the total population.
+from 2035 onwards has been used to align the jobs growth with the total population. This maintains the same jobs per
+resident ratio at the regional level.
 
 The population targets are calculated prior to the main forecast process, in the following script:
 
 - reformat_forecast_population_input_data.py
 
-The target hdf files contain the forecast years required - further years can be calculated and added as hdf keys.
+The target hdf files contain the forecast years required - additional years can be calculated and added as as separate
+key within the hdf.
 
 The config files are set up to allow various input targets, as well as the option to maintain Base Land-Use
 distributions for specific segments. This allows for flexibility and additional targets to be processed and added in

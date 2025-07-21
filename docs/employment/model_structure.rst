@@ -14,7 +14,7 @@ Where the year for geographical area is not stated then it is 2021. Geographies 
 SIC Section is the first level (at 1 digit)
 SIC Division is the second level (at 2 digit)
 SIC Groups is the third level (at 3 digits) which is not used in this process
-SIC Class is the forth level (at 4 digit)
+SIC Class is the forth level (at 4 digit).
 
 SOC has 4 categories, but some of the datasets do not include the full range as SOC=4 represents unemployed people.
 For datasets with a SOC Segmentation but where the range is not stated then it will be the full range (1-4).
@@ -110,13 +110,15 @@ based on the datasets and applied to the Land-Use Base DVectors, to derive targe
 
 As the Labour Market & Skills data only projects up to 2035, this data has been extrapolated for use in the forecasts.
 For this, the SIC 1 digit / SOC segment splits were taken from the final year of 2035 and then the population growth
-from 2035 onwards has been used to align the jobs growth with the total population.
+from 2035 onwards has been used to align the jobs growth with the total population. This maintains the same jobs per
+resident ratio at the regional level.
 
-The population targets are calculated prior to the main forecast process, in the following script:
+The employment targets are calculated prior to the main forecast process, in the following script:
 
 - reformat_forecast_employment_input_data.py
 
-The target hdf files contain the forecast years required - further years can be calculated and added as hdf keys.
+The target hdf files contain the forecast years required - additional years can be calculated and added as as separate
+key within the hdf.
 
 The config files are set up to allow various input targets, as well as the option to maintain Base Land-Use
 distributions for specific segments. This allows for flexibility and additional targets to be processed and added in
