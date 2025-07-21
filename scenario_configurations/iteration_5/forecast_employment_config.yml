@@ -4,7 +4,7 @@
 
 # input_root_directory: F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth
 input_root_directory: F:\Working\Land-Use\EMPLOYMENT_TARGETS\based_on_241213_Employment_test_with_ons_pop_growth_no_sic_20_21
-output_directory: F:\Working\Land-Use\temp_forecast_employment_testing_moving_to_config_with_ons_pop_growth_all_sic
+output_directory: F:\Working\Land-Use\forecast_employment_20250717
 
 base_year: 2023
 forecast_years: 
