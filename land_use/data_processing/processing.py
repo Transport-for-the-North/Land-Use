@@ -1,0 +1,1310 @@
+import logging
+from pathlib import Path
+import warnings
+import psutil
+from typing import Any, Dict, List, Union, Optional, Tuple
+from functools import reduce
+
+from caf.base.data_structures import DVector, IpfTarget
+from caf.base.zoning import ZoningSystem, TranslationWeighting, TranslationWarning
+from caf.base.segmentation import Segmentation, SegmentationInput, Segment, SegmentsSuper
+import pandas as pd
+import numpy as np
+
+from land_use.constants import segments, split_input_segments, CUSTOM_SEGMENTS
+from land_use.constants.geographies import CACHE_FOLDER, KNOWN_GEOGRAPHIES
+from land_use.data_processing.inputs import create_dvector_from_data
+
+
+LOGGER = logging.getLogger(__name__)
+
+def add_total_segmentation(dvector: DVector) -> DVector:
+    """Function to add a 'total' segmentation to the DVector.
+
+    This does not actually "add" a segmentation, it is just effectively adding a
+    common '1' to the index of a DVector to allow the DVector to have calculations
+    on it based on the 'total' of each column. This will be used a lot with
+    aggregate DVector I think.
+
+    Parameters
+    ----------
+    dvector : DVector
+        DVector to add 'total' segmentation to.
+
+    Returns
+    -------
+    DVector
+        DVector with additional 'total' segmentation (as defined in
+        constants.segments.py) with the same zone system as dvector
+    """
+    # get data from dvector
+    df = dvector.data.reset_index()
+    df['total'] = 1
+
+    # get zoning from dvector
+    zoning = dvector.zoning_system
+
+    # get original segmentation from dvector
+    segmentation = dvector.segmentation.seg_dict
+
+    # create total segmentation
+    total_segmentation = Segment(name='total', values=segments._CUSTOM_SEGMENT_CATEGORIES['total'])
+
+    # create DVector with the same segmentation, plus the 'total' segmentation,
+    # in the same zone system
+    # TODO this wont work with default TfN super segments so needs rethinking, this is good enough for now
+    names_list = ['total'] + [val for val in segmentation.keys()]
+    segment_list = [total_segmentation] + [seg for seg in segmentation.values()]
+
+    new_segmentation_input = SegmentationInput(
+        enum_segments=[],
+        naming_order=names_list,
+        custom_segments=segment_list
+    )
+    new_segmentation = Segmentation(new_segmentation_input)
+
+    # set new index
+    df = df.set_index(names_list)
+
+    return DVector(
+        segmentation=new_segmentation,
+        zoning_system=zoning,
+        import_data=df
+    )
+
+
+def expand_segmentation(
+        dvector: DVector,
+        segmentation_to_add: Segment
+    ) -> DVector:
+    """Function to basically copy the values in the existing segmentation of
+    dvector and replicate the values for all segmentations within the
+    segmentation to add.
+
+    If dvector has segmentation of two categories, like
+    {   'index': [1, 2],
+        'zone1': [10, 20],
+        'zone2': [50, 40]
+    }
+
+    and we want to expand the segmentation to another segmentation, with
+    definition A B, then the expanded DVector will have the form of
+    {   'index': [(1, a), (1, b), (2, a), (2, b)],
+        'zone1': [10, 10, 20, 20],
+        'zone2': [50, 50, 40, 40]
+    }
+
+    Parameters
+    ----------
+    dvector : DVector
+        DVector of a given segmentation
+    segmentation_to_add : Segment
+        This should be a defined segment, either in the constants\segments.py,
+        or in TfN's SuperSegment
+
+    Returns
+    -------
+    DVector
+        DVector with expanded segmentation
+    """
+    # get segmentation values from the segmentation_to_add
+    val_dict = segmentation_to_add.values
+
+    # get segmentation name from the segmentation_to_add
+    new_name = segmentation_to_add.name
+
+    # copy and append the data with the expanded segmentation
+    expanded_segmentation = pd.concat([
+        dvector.data.copy().assign(**{new_name: value}).set_index([new_name], append=True)
+        for value in val_dict.keys()
+    ])
+
+    # create DVector with the same segmentation, plus the segmentation_to_add
+    # segmentation, in the same zone system
+    segment_list = list(dvector.segmentation.segments) + [segmentation_to_add]
+
+    standard_segs = [s.name for s in segment_list if segments.is_standard_segment(s.name)]
+    custom_segs = [s for s in segment_list if not segments.is_standard_segment(s.name)]
+
+    new_segmentation_input = SegmentationInput(
+        enum_segments=standard_segs,
+        naming_order=[s.name for s in segment_list],
+        custom_segments=custom_segs
+    )
+    new_segmentation = Segmentation(new_segmentation_input)
+
+    return DVector(
+        segmentation=new_segmentation,
+        zoning_system=dvector.zoning_system,
+        import_data=expanded_segmentation
+    )
+
+
+def replace_segment_combination(
+        data: pd.DataFrame,
+        segment_combination: Dict[str, List[int]],
+        value: Any,
+        how: str = 'all',
+        include_zeroes: bool = True
+    ) -> pd.DataFrame:
+    """Function to replace values for specific segmentation (index) values in a
+    dataframe.
+
+    The assumption is the data will be in a DVector format with the index as a
+    multi-level index of different values
+    with index references of strings.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        data with index as single or multi-level index in DVector friendly format.
+    segment_combination : Dict
+        Dictionary of {'index_label': [value1, value2], ... , 'x': [a],
+        'y': [b], 'z': [c], ...} where the dictionary keys are the index
+        references (i.e. for specific levels of the index) and the dictionary values
+        are lists of values for that specific index label.
+    value : Any
+        value to insert into the dataframe in specific locations (e.g. set all
+        values of a given index to 0)
+    how : str, default 'all'
+        'all' or 'any'. 'all' will change the cells of the dataframe to `value`
+        if the segment_combination is satisfied with 'and' logic (i.e. rows of
+        the dataframe where index 'x' = a *and* 'y' = b *and* 'z' = c) and 'any' will
+        change the cells of the dataframe to 'value' if the segment_combination
+        is satisified with 'or' logic (i.e. rows of the dataframe where
+        index 'x' = a *or* 'y' = b *or* 'z' = c).
+    include_zeroes : bool, default True
+        boolean, if True then any zeros in the data (which when .div(False) result
+        in np.nan, not np.inf) are infilled with the value provided. If False,
+        they are infilled with zeros instead. Not sure why or when infilling
+        with zeroes would be preferred, but it's an option anyway.
+
+    Returns
+    -------
+    pd.DataFrame
+        same as input data, but with specific cell values replaced with `value`
+        based on the `segment_combination` and `how` provided
+    """
+    # all is and logic, any is or logic
+    if how not in ('all', 'any'):
+        raise ValueError(f'parmeter "how" must be either "all" or "any" (got {how})')
+    if how == 'all':
+        combination_method = np.multiply
+    else:
+        combination_method = np.add
+
+    # check for any np.inf values in the frame before this
+    if data.replace(np.inf, np.nan).isnull().values.sum() > 0:
+        raise ValueError(
+            'There are null values in your data, please sort before '
+            'calling replace_segment_combination()'
+        )
+
+    # TODO: check each specified segmentation a) is present in the data, b) *possibly* that the segments are valid for that segmentation
+
+    # Find out which records match our segmentation, aggregate in the appropriate way
+    flags = reduce(
+        combination_method,
+        [
+            data.index.isin(segments, level=segmentation)
+            for segmentation, segments in segment_combination.items()
+        ]
+    )
+
+    LOGGER.info(f'Replacing {flags.sum():,.0f} entries')
+
+    # Divide by *inverted* flags (i.e. divide by 0) to get infinity, and replace
+    # note: zeroes divided by false = nan not inf
+    inverted = data.div(~flags, axis=0).replace(np.inf, value)
+
+    # do you want to replace zeroes with value or no
+    if include_zeroes:
+        return inverted.fillna(value)
+    else:
+        return inverted.fillna(0)
+
+
+def rebalance_zone_totals(
+        input_dvector: DVector,
+        desired_totals: Union[DVector, pd.Series, float, int]
+    ) -> None:
+    """Rebalance zone totals to some other value or values.
+
+    Occasionally we may end up with a DVector that has lost some values e.g. due
+    to proportions being applied without pre-consideration of exclusions. This
+    allows for the zone totals to effectively be "reset", retaining the original
+    distribution.
+
+    Parameters
+    ----------
+    input_dvector : DVector
+        The source object requiring rebalanced totals. The _data attribute is
+        directly modified in-place
+    desired_totals : Union[DVector, pd.Series, float, int]
+        The zone totals to match. Can be one of several forms:
+        - Another DVector, in which case the zone totals are calculated
+        - A Series, with the required ZoneSystem zones as index
+        - A constant value (e.g. 1, if proportions need to be rebalanced)
+    """
+
+    if isinstance(desired_totals, DVector):
+        # Get the total per zone within the DVector
+        desired_totals = desired_totals.data.sum(axis=0)
+    elif isinstance(desired_totals, (int, float)):
+        desired_totals = pd.Series(
+            data=desired_totals, index=input_dvector.data.columns
+        )
+
+    LOGGER.info(
+        f'Adjusting totals from {input_dvector.total:,.0f} '
+        f'to {desired_totals.sum():,.0f}'
+    )
+
+    scaling_factors = input_dvector.data.sum(axis=0) / desired_totals
+
+    input_dvector._data = input_dvector._data.div(scaling_factors, axis=1)
+
+
+def _report_memory() -> str:
+    current_memuse = psutil.virtual_memory()
+    return (
+        f'{psutil._common.bytes2human(current_memuse.used)}'
+        f'/{psutil._common.bytes2human(current_memuse.total)}'
+    )
+
+
+def clear_dvectors(*dvectors: List[DVector]) -> None:
+    LOGGER.info(f'About to clear dataframes, current usage: {_report_memory()}')
+    for dvec in dvectors:
+        dvec._data = None
+    LOGGER.info(f'Finished clearing dataframes, current usage: {_report_memory()}')
+
+
+def expand_segmentation_to_match(
+        dvector: DVector, match_to: DVector, split_method: str = 'duplicate'
+    ) -> DVector:
+    """Utility function for expanding one DVector to match another's.
+
+    Generally this should be used with proportions, and as a prep stage for 
+    combining two DVectors together. Care should be taken, and outputs should
+    be checked to ensure they contain the appropriate values.
+
+    Parameters
+    ----------
+    dvector : DVector
+        the DVector to be expanded
+    match_to : DVector
+        the DVector to match the segmentation to.
+    split_method : str, optional
+        how to "expand", by default 'duplicate'. The other option is "split",
+        i.e. equally split the input values across the additional segments.
+
+    Returns
+    -------
+    DVector
+        dvector expanded to match the segmentation of match_to
+
+    Raises
+    ------
+    ValueError
+        if dvector's segmentation is not a strict subset of match_to's 
+        segmentation
+    """
+
+    source_segmentation = set(dvector.segmentation.names)
+    desired_segmentation = set(match_to.segmentation.names)
+
+    # Can't match if source is not fully contained within desired
+    if not source_segmentation < desired_segmentation:
+
+        # If they're the same - nothing to do! Warn the user though, this might
+        # suggest something unexpected
+        if source_segmentation == desired_segmentation:
+            warnings.warn(
+                'No segments to add. This seems unexpected, but may be fine. '
+                'Returning a copy of the original.'
+            )
+            return dvector.copy()
+
+        missing_segments = source_segmentation - desired_segmentation
+        raise ValueError(
+            f'Cannot match segmentation when source segmentation is not fully '
+            f'contained in desired segmentation - desired segmentation does not '
+            f'feature {missing_segments}'
+        )
+    
+    # Figure out what segments we want to add, and split into standard vs custom
+    segment_dict = split_input_segments(
+        desired_segmentation - source_segmentation
+    )
+
+    if segment_dict[False]:
+        warnings.warn(
+            f'The following segments seem to be custom: {segment_dict[False]}. '
+            f'Ensure this is double-checked'
+        )
+
+    # Copy the object, then add in the standard and custom segments respectively
+    working = dvector.copy()
+    for standard_segment in segment_dict[True]:
+        working = working.add_segment(
+            SegmentsSuper(standard_segment).get_segment(),
+            split_method=split_method
+        )
+    
+    for custom_segment in segment_dict[False]:
+        working = working.add_segment(
+            CUSTOM_SEGMENTS.get(custom_segment),
+            split_method=split_method
+        )
+
+    return working
+
+
+def collapse_segmentation_to_match(
+        dvector: DVector, match_to: DVector, strict: bool = False
+    ) -> DVector:
+    """Utility function for collapsing one DVector's segmentation to match another's.
+
+    Values are summed when the collapsing is undertaken.
+
+    Parameters
+    ----------
+    dvector : DVector
+        the DVector to be collapsed
+    match_to : DVector
+        the DVector to take the desired segmentation from
+    strict : bool
+        if True, ensure match_to's segmentation is a strict subset of dvector's.
+        If False, use the intersection of the segmentation of the two DVectors.
+        By default, False.
+
+    Returns
+    -------
+    DVector
+        dvector aggregated to the segmentation of match_to
+
+    Raises
+    ------
+    ValueError
+        when strict is True - if match_to's segmentation is not a strict subset 
+        of dvector's segmentation.
+        When strict is False - if there is no overlap between the two 
+        segmentations
+    """
+    
+    source_segmentation = set(dvector.segmentation.names)
+    # Set desired segmentation based on strict or not
+    if strict:
+        desired_segmentation = set(match_to.segmentation.names)
+    else:
+        desired_segmentation = source_segmentation.intersection(
+            set(match_to.segmentation.names)
+        )
+        if len(desired_segmentation) == 0:
+            raise ValueError('No common segmentation found')
+
+    # Can't match if source is not fully contained within desired
+    if not source_segmentation > desired_segmentation:
+
+        # If they're the same - nothing to do! Warn the user though, this might
+        # suggest something unexpected
+        if source_segmentation == desired_segmentation:
+            warnings.warn(
+                'No segments to aggregate. This seems unexpected, but may be fine. '
+                'Returning a copy of the original.'
+            )
+            return dvector.copy()
+        
+        missing_segments = desired_segmentation - source_segmentation
+        raise ValueError(
+            f'Cannot aggregate segmentation when desired segmentation is not fully '
+            f'contained in source segmentation - source segmentation does not '
+            f'feature {missing_segments}'
+        )
+
+    return dvector.aggregate(list(desired_segmentation))
+
+
+def is_strict_zone_aggregation_of(
+        larger_zs: ZoningSystem, 
+        smaller_zs: ZoningSystem,
+        cache_path: Path = CACHE_FOLDER,
+    ) -> bool:
+    """Determine whether one ZoningSystem is a strict (i.e. one-to-many) aggregation of another
+
+    This is strictly one-way - you may have to undertake the comparison in both
+    directions to be certain if you have unknown ZoningSystems and just want
+    to know if one "fits" into the other
+
+    Parameters
+    ----------
+    larger_zs : ZoningSystem
+        the zoning system assumed to be "larger"
+    smaller_zs : ZoningSystem
+        the zoning system assumed to be "smaller"
+    cache_path : Path, optional
+        path to the zoning translation cache, by default CACHE_FOLDER
+
+    Returns
+    -------
+    bool
+        True if larger_zs is an aggregation of (or the same as) smaller_zs, else
+        False
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', TranslationWarning)
+        translation_frame = smaller_zs._get_translation_definition(
+            larger_zs, weighting=TranslationWeighting.SPATIAL,
+            trans_cache=cache_path
+        )
+    
+    comparison_col = translation_frame[
+        smaller_zs.translation_column_name(larger_zs)
+    ]
+    
+    return comparison_col.eq(1).all()
+
+
+def find_largest_zoning_system(
+        *zoning_systems: ZoningSystem,
+        cache_path: Path = CACHE_FOLDER
+    ) -> ZoningSystem:
+    """Find the "largest" zoning system that all of the others have a many-to-one translation into
+
+    Parameters
+    ----------
+    *zoning_systems : ZoningSystem
+        some number of ZoningSystem objects to be compared
+    cache_path : Path, optional
+        path to the zoning translation cache, by default CACHE_FOLDER
+
+    Returns
+    -------
+    ZoningSystem
+        the "largest" ZoningSystem, that all of the others can be many-to-one
+        translated into
+
+    Raises
+    ------
+    ValueError
+        if there is not a direct compatibility between two ZoningSystems, i.e.
+        overlapping boundaries
+    """
+    # Ideally we would do the following, but ZoningSystem is unhashable
+    # unique_zs = set(zoning_systems)
+    
+    # So grab a list!
+    zs_list = list(zoning_systems)
+
+    # Initialise with first ZS
+    current_largest_zs = zs_list.pop(0)
+
+    # Compare pairs at a time, retain largest ZS if we can (i.e. if a strict superset of the other)
+    for other_zs in zs_list:
+        if current_largest_zs == other_zs:
+            continue
+        elif is_strict_zone_aggregation_of(current_largest_zs, other_zs, cache_path=cache_path):
+            continue
+        elif is_strict_zone_aggregation_of(other_zs, current_largest_zs, cache_path=cache_path):
+            current_largest_zs = other_zs
+        else:
+            raise ValueError('Incompatible zoning systems')
+    
+    return current_largest_zs
+
+
+def aggregate_and_compare(
+        first_dvector: DVector, 
+        second_dvector: DVector, 
+        strict: bool = False,
+        cache_path: Path = CACHE_FOLDER,
+        return_absolutes: bool = False
+    ) -> Union[DVector, tuple[DVector, DVector]]:
+    """Aggregates and compares two DVector files
+
+    The two must have compatible segmentation (i.e. one a complete subset of 
+    the other) and compatible zoning systems (i.e. one fitting "one to many" 
+    into the other)
+
+    Parameters
+    ----------
+    first_dvector : DVector
+        first DVector to aggregate
+    second_dvector : DVector
+        second DVector to aggregate
+    cache_path : Path, optional
+        path to the zoning translation cache, by default CACHE_FOLDER
+    strict : bool
+        if True, the segmentation of one DVector is entirely contained within 
+        the segmentation of the other. If False, use the intersection of the 
+        segmentation of the two DVectors. By default, False.
+    return_absolutes : bool, default False
+        if True, both the actual DVectors are returned, instead of just a
+        DVector of differences
+
+    Returns
+    -------
+    DVector
+        cell-level differences between the two DVectors (i.e. first_dvector 
+        minus second) at a common Segmentation and ZoningSystem level
+
+    Raises
+    ------
+    ValueError
+        if the segmentations are not compatible
+    """
+
+    incompatibility_message = (
+        'Provided with two DVectors with non-matching segmentation'
+    )
+    
+    common_zs = find_largest_zoning_system(
+        first_dvector.zoning_system, second_dvector.zoning_system,
+        cache_path=cache_path
+    )
+
+    # Step 2: aggregate whichever isn't ready into that zoning system
+    working_first_dvector = first_dvector.translate_zoning(
+        common_zs, cache_path=cache_path
+    )
+
+    working_second_dvector = second_dvector.translate_zoning(
+        common_zs, cache_path=cache_path
+    )
+
+    # Step 3: aggregate segmentation
+    try:
+        working_first_dvector = collapse_segmentation_to_match(
+            dvector=working_first_dvector, match_to=working_second_dvector,
+            strict=strict
+        )
+
+        if not strict:
+            working_second_dvector = collapse_segmentation_to_match(
+                dvector=working_second_dvector, match_to=working_first_dvector,
+                strict=strict
+            )
+        
+    except ValueError:
+        if strict:
+            try:
+                working_second_dvector = collapse_segmentation_to_match(
+                    dvector=working_second_dvector, match_to=working_first_dvector,
+                    strict=strict
+                )
+            except ValueError:
+                raise ValueError(incompatibility_message)
+        else:
+            raise ValueError(incompatibility_message)
+
+    if return_absolutes:
+        return working_first_dvector, working_second_dvector
+
+    # Step 4: do the difference calc
+    return working_first_dvector - working_second_dvector
+
+
+def apply_proportions(source_dvector: DVector, apply_to: DVector) -> DVector:
+    """Applies proportions calculated from one DVector to another
+
+    It's assumed that whatever intersection of segments between the two DVectors
+    should be the level at which proportions are calculated.
+
+    Args:
+        source_dvector (DVector): data to use to determine proportions (only!)
+        apply_to (DVector): data to use to determine values
+
+    Returns:
+        DVector: combination of the two objects
+    """
+
+    # Expand the segmentation to match the desired - this will apply any exclusions
+    expanded_source = source_dvector.expand_to_other(apply_to)
+
+    expanded_source.data = expanded_source.data.replace(to_replace=0, value=0.000000000001)
+
+    # Calculate totals - by *only* using the "desired" segmentation, we include all overlaps
+    totals = expanded_source.aggregate(apply_to.segmentation)
+
+    # Divide directly - the two will have the same set of exclusions applied - and fill NAs with 0
+    # TODO: Check filling NA with 0 is sensible!
+    proportions_to_apply = expanded_source / totals
+    proportions_to_apply.data.fillna(0, inplace=True)
+
+    # We'll get an error for the segmentation changing - we're happy with that though! So filter it away
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', message='.*changed the segmentation.*')
+        result = apply_to * proportions_to_apply
+
+    return result
+
+
+def match_target_total(
+        list_of_dvectors: list[DVector]
+) -> list[DVector]:
+    """
+
+    Parameters
+    ----------
+    list_of_dvectors: list[DVector]
+        List of DVectors to match totals of. By definition, the first DVector in
+        the list will provide the target total.
+
+        If *you do not want the first DVector to be the target total, then
+        reorder your list*.
+
+    Returns
+    -------
+     list[DVector]
+        List of DVectors, all with the same total based on the first DVector in
+        the list. Order of the list is the same as list_of_dvectors.
+    """
+    if len(list_of_dvectors) < 2:
+        LOGGER.warning(f'You have passed a list of length '
+                       f'{len(list_of_dvectors)} to match_target_total. If '
+                       f'{len(list_of_dvectors)} == 0 then there is nothing to '
+                       f'target, and if {len(list_of_dvectors)} == 1 there is '
+                       f'nothing to match to this target. Please check this is '
+                       f'what you were expecting.')
+        LOGGER.warning(f'This function call will now be skipped because it '
+                       f'wont do anything useful!')
+        return list_of_dvectors
+
+    # run function if the number of DVectors provided is at least 2
+    LOGGER.info(f'Matching the target totals between {len(list_of_dvectors)} '
+                f'DVectors')
+
+    # get the first DVector from the list and get the total, and report
+    target_dvector = list_of_dvectors[0]
+    LOGGER.info(f'Total of the target DVector is {target_dvector.total:,.0f}')
+
+    # create an output list to return
+    output = [target_dvector]
+
+    LOGGER.info(f'Adjusting remaining DVectors to the target')
+    # loop through remaining DVectors and adjust / report adjustment factors
+    for dvector in list_of_dvectors[1:]:
+        # calculate total of dvector and report - this should be checked to see
+        # if the totals are very different!
+        LOGGER.debug(f'Total of the DVector is {dvector.total:,.0f}')
+
+        # calculate the adjustment factor required based on the target
+        adjustment_factor = target_dvector.total / dvector.total
+        LOGGER.debug(f'Adjustment factor to be applied is '
+                    f'{adjustment_factor:,.5f}')
+
+        # apply the adjustment and append to the list of output DVectors
+        adjusted_dvector = dvector * adjustment_factor
+        output.append(adjusted_dvector)
+
+    return output
+
+
+def apply_ipf(
+        seed_data: DVector,
+        target_dvectors: Union[list, tuple],
+        cache_folder: Path,
+        target_dvector: Optional[DVector] = None
+) -> tuple[DVector, pd.DataFrame, list]:
+    """Apply the IPF to furness the seed_data to the multiple constraints of
+    the target_dvectors.
+
+    target_dvectors will be first processed to make sure the totals of the
+    target_dvectors all match; this is a requirement for the IPF to function
+    properly. By definition, the first element of the list target_dvectors will
+    be used to define this target total.
+
+    Parameters
+    ----------
+    seed_data: DVector
+        DVector with dvector.data you wish to furness to the target_dvector
+        targets.
+    target_dvectors: list
+        A list of dvectors you want to use as targets in the furnessing. These
+        can be in various zone systems / segmentations, as long as translations
+        between the zone systems / segmentations exist. See IpfTarget
+        documentation for clarity.
+    cache_folder: Path
+        Folder containing any zone systems and zone translations
+    target_dvector: Optional[DVector], default None
+        Provide target_dvector if there is a separate DVector from
+        target_dvectors that you want to match the totals of. If None, then by
+        default the first element of target_dvectors will be used, otherwise
+        this will be used.
+
+    Returns
+    -------
+    tuple[DVector, pd.DataFrame, list]
+        DVector: The post-IPF seed_data which has been adjusted based on the
+        provided targets.
+        pd.DataFrame: A summary of the differences between the post-IPF data
+        and the input targets. This is a validation that any observed
+        relationships in the input targets are maintained through the IPF.
+        list: A summary of the differences in the post-ipf and target proportions
+        by zone.
+
+    """
+    LOGGER.info('Preparing data for the IPF')
+    # make sure target totals match before calling IPF
+    rmses, list_of_dvectors, target_differences = IpfTarget.check_compatibility(
+        target_dvectors,
+        adjust=True,
+        reference=target_dvector,
+        chain_adjust=False,
+        trans_cache=cache_folder
+    )
+
+    # making sure all the segmentations in the targets are in the seed (not the
+    # case if one of the targets is at an aggregated segmentation)
+    existing_segmentations = seed_data.segmentation.names
+    required_segmentations = list()
+    for target in target_dvectors:
+        required_segmentations += target.segmentation.names
+
+    # get non-duplicated list of segmentations required in the target DVectors
+    required_segmentations = list(set(required_segmentations))
+    # find out the segmentations that are in the targets but are not in the
+    # existing segmentation, ORDER OF THIS MATTERS HERE!!
+    missing_segmentations = list(
+        set(required_segmentations) - set(existing_segmentations)
+    )
+    # if there are missing segmentations, add segments to the seed
+    # (lookups must exist in caf.base)
+    if len(missing_segmentations) > 0:
+        LOGGER.info(f'Adding {missing_segmentations} to the seed data for the IPF')
+        seed_data = seed_data.copy().add_segments(
+            new_segs=missing_segmentations
+        )
+
+    LOGGER.info('Applying the IPF')
+    rebalanced_data, rmse = seed_data.ipf(
+        targets=[IpfTarget(dvec) for dvec in list_of_dvectors],
+        zone_trans_cache=cache_folder
+    )
+
+    LOGGER.info(f'IPF finished with RMSE {rmse:,.2f}')
+
+    # run validation of IPF
+    summary = []
+    differences = []
+    for dvec in list_of_dvectors:
+        # get the post-IPF DVector in the same segmentation as the target data
+        result = collapse_segmentation_to_match(
+            dvector=rebalanced_data,
+            match_to=dvec
+        )
+
+        # find the largest zone system and aggregate if they are not the same
+        # and calculate absolute difference from the target dvector
+        difference_from_target = aggregate_and_compare(
+            first_dvector=result,
+            second_dvector=dvec
+        )
+        zone_cols = list(difference_from_target.data.columns)
+        ipfed, target = aggregate_and_compare(
+            first_dvector=result,
+            second_dvector=dvec,
+            return_absolutes=True
+        )
+
+        # get post-ipf and target totals across all zones
+        ipfed = ipfed.data.copy()
+        target = target.data.copy()
+        ipfed['post_ipf_total'] = ipfed.sum(axis=1)
+        target['input_target_total'] = target.sum(axis=1)
+
+        # calculate total, min, max, average error
+        df = difference_from_target.data.copy()
+        df = pd.merge(
+            df, target[['input_target_total']],
+            left_index=True, right_index=True
+        )
+        df = pd.merge(
+            df, ipfed[['post_ipf_total']],
+            left_index=True, right_index=True
+        )
+        df['total_error'] = df[zone_cols].sum(axis=1)
+        df['average_error'] = df[zone_cols].mean(axis=1)
+        df['max_error'] = df[zone_cols].max(axis=1)
+        df['min_error'] = df[zone_cols].min(axis=1)
+        df['zoning'] = difference_from_target.zoning_system.name
+        df['description'] = str(df.index.names)
+        df['segmentation'] = df.index
+        cols = [
+            'segmentation', 'description', 'zoning', 'input_target_total',
+            'post_ipf_total', 'total_error', 'average_error', 'max_error',
+            'min_error'
+        ]
+        summary.append(df[cols])
+
+        # get distribution of population across zones within each segment for
+        # both the post-ipf data and the target data
+        ipf_pivot = ipfed.reset_index().melt(
+            id_vars=ipfed.index.names,
+            value_vars=zone_cols,
+            var_name=difference_from_target.zoning_system.name,
+            value_name='ipf_total'
+        )
+        target_pivot = target.reset_index().melt(
+            id_vars=target.index.names,
+            value_vars=zone_cols,
+            var_name=difference_from_target.zoning_system.name,
+            value_name='target_total'
+        )
+        merging_cols = (
+                target.index.names + [difference_from_target.zoning_system.name]
+        )
+        comparison = pd.merge(
+            target_pivot, ipf_pivot, on=merging_cols, how='left'
+        )
+        comparison['target_distribution'] = (
+            comparison['target_total'] / comparison.groupby(
+                difference_from_target.zoning_system.name
+            )['target_total'].transform('sum')
+        )
+        comparison['ipf_distribution'] = (
+            comparison['ipf_total'] / comparison.groupby(
+                difference_from_target.zoning_system.name
+            )['ipf_total'].transform('sum')
+        )
+        comparison['pp_from_target'] = (
+                comparison['ipf_distribution'] - comparison['target_distribution']
+        )
+        differences.append(comparison)
+
+    return rebalanced_data, pd.concat(summary), differences
+
+
+def translate_and_combine_dvectors(
+        input_files: list[Path],
+        aggregate_zone_system: str,
+        cache_path: Path = CACHE_FOLDER
+
+) -> DVector:
+    """Combine multiple DVectors of potentially varying zone systems to a single
+    DVector.
+
+    Parameters
+    ----------
+    input_files: List[Path]
+        A list of files that can successfully be loaded as DVectors through
+        DVector.load()
+    aggregate_zone_system: str
+        A string reference to the zone system that all input_file DVectors will
+        be aggregated to. If a translation does not already exist in cache_path,
+        then caf.space will make one. If that's the case, this code will take
+        longer to run.
+    cache_path: Path, default CACHE_FOLDER
+        Directory containing all zone systems and zone translations
+
+    Returns
+    -------
+    DVector
+        DVector in aggregate_zone_system which is the sum of all the DVectors in
+        input_files.
+
+    """
+    if len(input_files) == 0:
+        raise RuntimeError('You must provide at least one DVector to aggegregate')
+
+    for i, file in enumerate(input_files):
+        LOGGER.info(f'*** Reading {file.name} ***')
+        example_output = DVector.load(file).translate_zoning(
+            ZoningSystem.get_zoning(aggregate_zone_system, search_dir=cache_path),
+            cache_path=cache_path
+        )
+        if i == 0:
+            totals = example_output.copy()
+        else:
+            totals += example_output
+        del example_output
+
+    return totals
+
+
+def filter_to_adults(
+        dvec: DVector,
+        age_segmentation: str = 'age_9',
+        adult_categories: Tuple[int] = (4, 5, 6, 7, 8, 9)
+) -> DVector:
+    """Filter a DVector to the adult age groups. This assumes that
+    age_segmentation (e.g. age_9) is in the current segmentation of the DVector,
+    otherwise this function will have no effect.
+
+    Parameters
+    ----------
+    dvec: DVector
+        Data to filter to only adult age groups. Assumed to have
+        `adult_segmentation` in the dvec.segmentation.names, otherwise this
+        function will return the original DVector.
+    age_segmentation: str, default 'age_9'
+        Segmentation name of the age category. Typically defined in SegmentsSuper.
+    adult_categories: Tuple[int], default (4, 5, 6, 7, 8, 9)
+        Values of the Segmentation that relate to the adult age groups of the
+        age_segmentation name. Again, see SegmentsSuper for definitions.
+
+    Returns
+    -------
+    DVector
+        dvec with only `age_segmentation` categories `adult_categories`, or dvec
+        if `age_segmentation` is not in dvec.segmentation.names.
+
+    """
+
+    # check if the segmentation is in the DVector
+    if not age_segmentation in dvec.segmentation.names:
+        LOGGER.warning(
+            f'{age_segmentation} is not in the provided DVector. This function '
+            f'will have no effect. Returning original DVector.'
+        )
+        return dvec
+
+    return dvec.filter_segment_value(
+        segment_name=age_segmentation, segment_values=list(adult_categories)
+    )
+
+
+def derive_household_occupancy_targets(
+        population_dvector: DVector,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        ),
+        children_segment_name: str = SegmentsSuper.CHILDREN.value,
+        adult_segment_name: str = SegmentsSuper.ADULTS.value,
+        no_children_hh_index: int = 1,
+        yes_children_hh_index: int = 2,
+        one_adult_hh_index: int = 1,
+        two_adult_hh_index: int = 2
+) -> list:
+    """Derivation of household based targets for the IPF based on logical
+    population and household linkages.
+
+    This will derive IPF targets to ensure:
+    - adult population in 1 adult households with no children should match
+    number of households with 1 adult and no children
+    - adult population in 1 adult households with children should match
+    number of households with 1 adult and children
+    - adult population in 2 adult households with no children should be
+    double number of households with 2 adult and no children
+    - adult population in 2 adult households with children should be
+    double number of households with 2 adult and children
+
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Must have segmentation of *at least* household_segments. Represents
+        total population.
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        )
+        Names of household segments to aggregate the population based targets to
+    children_segment_name: str = SegmentsSuper.CHILDREN.value
+        Name of the segmentation in population_dvector that represents the
+        number of children in a household
+    adult_segment_name: str = SegmentsSuper.ADULTS.value
+        Name of the segmentation in population_dvector that represents the
+        number of adults in a household
+    no_children_hh_index: int = 1
+        Segment value in children_segment_name that represents no children in
+        the household
+    yes_children_hh_index: int = 2
+        Segment value in children_segment_name that represents yes children in
+        the household
+    one_adult_hh_index: int = 1
+        Segment value in adult_segment_name that represents 1 adult in
+        the household
+    two_adult_hh_index: int = 2
+        Segment value in adult_segment_name that represents 2 adults in
+        the household
+
+    Returns
+    -------
+    list
+        Four DVectors that can be used as input targets to the IPF
+    """
+    targets = []
+
+    # adult population in 1 adult households with no children should match
+    # number of households with 1 adult and no children
+    household_adult_1_children_1_target = filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_1_target.data = household_adult_1_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 1 adult households with children should match
+    # number of households with 1 adult and children
+    household_adult_1_children_2_target = filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[one_adult_hh_index]
+    ).aggregate(list(household_segments))
+    household_adult_1_children_2_target.data = household_adult_1_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with no children should be
+    # double number of households with 2 adult and no children
+    household_adult_2_children_1_target = (filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[no_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_1_target.data = household_adult_2_children_1_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    # adult population in 2 adult households with children should be
+    # double number of households with 2 adult and children
+    household_adult_2_children_2_target = (filter_to_adults(
+        dvec=population_dvector
+    ).filter_segment_value(
+        segment_name=children_segment_name, segment_values=[yes_children_hh_index]
+    ).filter_segment_value(
+        segment_name=adult_segment_name, segment_values=[two_adult_hh_index]
+    ) / 2).aggregate(list(household_segments))
+    household_adult_2_children_2_target.data = household_adult_2_children_2_target.data.replace(
+        to_replace=0, value=0.000000000001
+    )
+
+    return [
+        household_adult_1_children_1_target, household_adult_1_children_2_target,
+        household_adult_2_children_1_target, household_adult_2_children_2_target
+        ]
+
+
+def mask_zero_population(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value
+        )
+) -> DVector:
+    """Set households in household_dvector to zero where there is no
+    population in a zone, when population_dvector is aggregated to
+    household_segments.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    household_segments: tuple, default (
+    SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value
+    )
+        Segment names over which to aggregate population_dvector to check if
+        there is zero population in a given zone.
+
+
+    Returns
+    -------
+    DVector
+        household_dvector with some data replaced with 0 where the corresponding
+        cell in population_dvector is zero.
+    """
+    # aggregate population to required segmentation
+    population_masking = population_dvector.aggregate(list(household_segments))
+
+    # set masking dataframe to 0 where the aggregated population is zero, otherwise 1
+    population_masking._data = population_masking._data.where(
+        population_masking._data == 0, 1
+    )
+
+    # multiply the households by the masking matrix to set households to zero
+    # where there is no population
+    return household_dvector * population_masking
+
+
+def cap_maximum_household_occupancy(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        aggregate_zone_system_name: str,
+        current_zone_system_name: str,
+        percentile: float,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        )
+) -> DVector:
+    """Calculate the percentile-th occupancy by household_segments for the
+    aggregate_zone_system_name and cap household occupancies at the
+    current_zone_system_name level based on this.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    aggregate_zone_system_name: str
+        Name of the zone system to provide the percentile-th occupancy.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN'.
+    current_zone_system_name: str
+        Name of the zone system to apply the percentile-th occupancy caps.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN' but we're applying it to
+        a DVector in zone system 'DZ2011', so current_zone_system_name = 'DZ2011'
+    percentile: float
+        Percentile to provide occupancy cap. E.g. 95th percentile as the maximum
+        means percentile=0.95
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        )
+        Names of household segments over which to calcualte occupancies
+
+    Returns
+    -------
+    DVector
+        household_dvector with maximum occupancy caps applied.
+    """
+    # get resulting occupancies by adults and children
+    resulting_occupancies = (
+            population_dvector.aggregate(list(household_segments))
+            / household_dvector.aggregate(list(household_segments))
+    )
+
+    # get max_percentile cap by adult and children combination for all zones in the data
+    region_code = KNOWN_GEOGRAPHIES.get(aggregate_zone_system_name).zone_ids[0]
+    percentiles = resulting_occupancies.data.quantile(
+        q=float(percentile), axis=1
+    ).rename(region_code).to_frame()
+
+    # convert the caps to DVector format at region level
+    percentiles = create_dvector_from_data(
+        dvector_data=percentiles,
+        geographical_level=aggregate_zone_system_name,
+        input_segments=list(household_segments)
+    )
+    # convert these percentiles to LSOA
+    percentiles = percentiles.translate_zoning(
+        new_zoning=KNOWN_GEOGRAPHIES.get(current_zone_system_name),
+        cache_path=CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = percentiles / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data < 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    return household_dvector / control_factors
+
+
+def cap_minimum_household_occupancy(
+        population_dvector: DVector,
+        household_dvector: DVector,
+        aggregate_zone_system_name: str,
+        current_zone_system_name: str,
+        household_segments: tuple = (
+                SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+                SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        ),
+        children_segment_name: str = SegmentsSuper.CHILDREN.value,
+        adult_segment_name: str = SegmentsSuper.ADULTS.value,
+        min_caps: dict = {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
+) -> DVector:
+    """Calculate the occupancy by household_segments and cap minimum household
+    occupancies at the current_zone_system_name level based on min_caps.
+
+    Parameters
+    ----------
+    population_dvector: DVector
+        Population data with segmentation *at least* household_segments
+    household_dvector: DVector
+        Household data with segmentation *at least* household_segments
+    aggregate_zone_system_name: str
+        Name of the zone system to provide the percentile-th occupancy.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN'.
+    current_zone_system_name: str
+        Name of the zone system to apply the percentile-th occupancy caps.
+        Must be available in constants.KNOWN_GEOGRAPHIES.
+        e.g.
+        the 95th percentile occupancy value for Scotland, then
+        aggregate_zone_system_name = 'SCOTLANDRGN' but we're applying it to
+        a DVector in zone system 'DZ2011', so current_zone_system_name = 'DZ2011'
+    household_segments: tuple, default (
+        SegmentsSuper.ADULTS.value, SegmentsSuper.CHILDREN.value,
+        SegmentsSuper.NS_SEC.value, SegmentsSuper.ACCOMODATION_TYPE_H.value
+        )
+        Names of household segments over which to calculate occupancies
+    children_segment_name: str, default SegmentsSuper.CHILDREN.value
+        Name of the segmentation in population_dvector that represents the
+        number of children in a household
+    adult_segment_name: str, default SegmentsSuper.ADULTS.value
+        Name of the segmentation in population_dvector that represents the
+        number of adults in a household
+    min_caps: dict, default {(1, 2): 1, (2, 2): 2, (3, 1): 3, (3, 2): 3}
+        Dictionary of minimum caps that relate to minimum required adult occupancies
+        for the (adult_segment_name, children_segment_name) combinations.
+        E.g. {(1, 2): 1, ...} means for adult_segment_name value 1 (1 adult in
+        the household) and children_segment_name value 1 (no children in
+        the household), the minimum household occupancy requirement is 1.
+    Returns
+    -------
+    DVector
+        household_dvector with minimum occupancy caps applied.
+    """
+    # get resulting occupancies by adults and children
+    resulting_occupancies = (
+            filter_to_adults(population_dvector).aggregate(list(household_segments))
+            / household_dvector.aggregate(list(household_segments))
+    )
+
+    # get lower caps by adult and children combinations
+    region_code = KNOWN_GEOGRAPHIES.get(aggregate_zone_system_name).zone_ids[0]
+    lower_caps = resulting_occupancies.data.min(axis=1).rename(region_code).to_frame()
+    lower_caps[region_code] = 0
+
+    for (adults, children), min_cap in min_caps.items():
+        lower_caps[
+            (lower_caps.index.get_level_values(adult_segment_name) == adults) &
+            (lower_caps.index.get_level_values(children_segment_name) == children)
+            ] = min_cap
+
+    # convert the caps to DVector format at region level
+    lower_caps = create_dvector_from_data(
+        dvector_data=lower_caps,
+        geographical_level=aggregate_zone_system_name,
+        input_segments=list(household_segments)
+    )
+    # convert these percentiles to LSOA
+    lower_caps = lower_caps.translate_zoning(
+        new_zoning=KNOWN_GEOGRAPHIES.get(current_zone_system_name),
+        cache_path=CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+
+    # calculate adjustment factors for zones which have occupancy over the max_percentile
+    control_factors = lower_caps / resulting_occupancies
+    control_factors._data = control_factors._data.replace(np.inf, np.nan).fillna(1)
+    control_factors._data = control_factors._data.where(control_factors._data > 1, 1)
+
+    # apply these factors back to the households, to increase the number of
+    # households to decrease occupancy
+    return household_dvector / control_factors

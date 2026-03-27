@@ -1,0 +1,31 @@
+``{{ segment_name }}``
+{{ '#' * (4 + segment_name|length) }}
+
+Plots
+=====
+
+{% for file_path in graph_paths %}
+.. image:: {{ file_path }}
+{% endfor %}
+
+Maps
+====
+
+{% for map_path in map_paths %}
+.. raw:: html
+   :file: {{ map_path }}
+
+|
+{% endfor %}
+
+Tables
+======
+
+{% for file_path in table_paths %}
+.. rst-class:: right-align
+
+.. csv-table::
+   :file: {{ file_path }}
+   :header-rows: 1
+   :align: right
+{% endfor %}

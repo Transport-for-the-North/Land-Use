@@ -1,0 +1,136 @@
+# Configuration file specifying the segmentation and geographical level of the input data.
+# All files here are assumed to be in a format ready for DVectors.
+# As the config is likely to be used for multiple files then the key will include the forecast year
+
+input_root_directory: F:\Working\Land-Use\POPULATION_TARGETS\based_on_250625_Population
+output_directory: F:\Working\Land-Use\forecast_population_norcom_test
+output_intermediate_outputs: False
+
+base_year: 2023
+forecast_years:
+- 2033
+- 2038
+- 2043
+- 2048
+- 2053
+
+run_for_regions:
+- NW
+- NE
+- YH
+- WM
+- EM
+- EoE
+- Wales
+- SW
+- SE
+- Lon
+- Scotland
+
+base_data:
+    pop_output_directory:
+        F:\Working\Land-Use\BASE_POPULATION_WITH_AGE_NTEM\based_on_250625_Population
+    occs_output_directory:
+        F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs
+    household_output_directory:
+        F:\Deliverables\Land-Use\2025-06 Release\Population\02_Final Outputs
+    base_pop_file_stem:
+        Output P11
+    base_households_file_stem:
+        Output P13.3
+    base_occs_file_stem:
+        Output P13.4
+
+forecast_data:
+    population_targets:
+        - file_path: pop_targets.hdf
+          geographical_level: RGN2021
+          input_segments: [age_ntem, g, soc]
+
+        - file_path: soc_targets.hdf
+          geographical_level: RGN2021
+          input_segments: [g, soc]
+
+
+    household_targets:
+        # - file_path: household_totals_targets.hdf
+        #   geographical_level: RGN2021
+        #   input_segments: [total]
+
+        #- file_path: household_children_targets.hdf
+        #  geographical_level: RGN2021
+        #  input_segments: [children]
+
+        #- file_path: household_single_adults_targets.hdf
+        #  geographical_level: LAD2021
+        #  input_segments: [adults]
+
+
+# Toggle option whether to maintain base population / household distributions
+maintain_population_base_distributions: False
+
+# add in order of priority (last being top priority)
+population_segments_to_maintain:
+# - accom_h
+# - pop_emp
+# - ns_sec
+
+maintain_households_base_distributions: False
+
+household_segments_to_maintain:
+# - accom_h
+
+# Keys defined to use to match totals to in the IPF
+forecast_population_total_target_key: None
+
+forecast_household_total_target_key: 0  # household total targets
+
+#-------------------#
+### NORCOM INPUTS ###
+#-------------------#
+# file path to folder containing zonal data by year
+zonal_data: I:\NorMITs NorCOM\Import\Zonal Data
+
+# csv files output from caf.brain when estimating the logit models (this shouldn't change without reason!)
+0v1+_model_coefficients: I:\NorMITs NorCOM\AECOM working\v38\0v1+\output\final_model_coefficients.csv
+1v2+_model_coefficients: I:\NorMITs NorCOM\AECOM working\v38\1v2+\output\final_model_coefficients.csv
+
+# model corrections based on "I:\NorMITs NorCOM\Validation\v38\2021\2021_validation_v38_correction test_GOR.xlsx"
+# analysis (this shouldn't change without reason!)
+# 0v1+ Model Correction (applied relative to 0 cars category)
+# 1v2+ Model Correction (applied relative to the 1 car category)
+# using just UK wide derived average for scotland as there's no detailed census data to compare
+adjustment_factors:
+  NE:
+    0_v_1+: -0.05
+    1_v_2+: -0.265
+  NW:
+    0_v_1+: -0.075
+    1_v_2+: -0.25
+  YH:
+    0_v_1+: -0.055
+    1_v_2+: -0.245
+  Wales:
+    0_v_1+: -0.07
+    1_v_2+: -0.3
+  WM:
+    0_v_1+: -0.08
+    1_v_2+: -0.27
+  EM:
+    0_v_1+: -0.05
+    1_v_2+: -0.25
+  SW:
+    0_v_1+: -0.07
+    1_v_2+: -0.23
+  EoE:
+    0_v_1+: -0.065
+    1_v_2+: -0.2
+  Lon:
+    0_v_1+: -0.015
+    1_v_2+: -0.23
+  SE:
+    0_v_1+: -0.06
+    1_v_2+: -0.2
+  Scotland:
+    0_v_1+: -0.1
+    1_v_2+: -0.2

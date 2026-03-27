@@ -1,0 +1,40 @@
+{{ data_type }}
+{{ '#' * data_type|length }}
+
+Information
+===========
+
+Generated on: {{ now() }}
+
+Sources
+-------
+
+.. list-table:: 
+   :header-rows: 1
+
+   * - File Path
+     - Last Modified
+{% for file in file_info %}
+   * - {{ file.path }}
+     - {{ file.modified }} {% endfor %}
+
+{% if skipped_segments is defined and skipped_segments|length > 0 %}
+
+Skipped Segments
+----------------
+The following segments are present in the output data, but have been omitted from reporting due to the number of categories found:
+{% for segment in skipped_segments %}
+- ``{{ segment }}``{% endfor %}
+
+{% endif %}
+
+Contents
+========
+
+The following pages provide {{ data_type }} results for each segment in turn
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   */*
