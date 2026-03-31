@@ -194,9 +194,12 @@ def constrain_to_lad_totals_w_farmers_adj(
         msoa_adj_factors_no_farmers.add_segments(["sic_2_digit"])
         .aggregate(["sic_2_digit"])
         .translate_zoning(
-            new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.MSOA_EWS_ZONING_SYSTEM,
+            new_zoning=constants.MSOA2021_SCOTLAND2022_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
+            # weighting=TranslationWeighting.NO_WEIGHT,
+            weighting=TranslationWeighting.SPATIAL,
             check_totals=False,
         )
     )
@@ -207,11 +210,28 @@ def constrain_to_lad_totals_w_farmers_adj(
         )
         .aggregate(["sic_1_digit"])
         .translate_zoning(
-            new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
+            new_zoning=constants.DZ2022_LSOA2021_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
+            # weighting=TranslationWeighting.NO_WEIGHT,
+            weighting=TranslationWeighting.SPATIAL,
             check_totals=False,
         )
+    )
+
+    msoa_dv = msoa_dv.translate_zoning(
+        new_zoning=rehydrated_adj_factors_for_msoa.zoning_system,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False,
+    )
+
+    lsoa_dv = lsoa_dv.translate_zoning(
+        new_zoning=rehydrated_adj_factors_for_lsoa.zoning_system,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False,
     )
 
     # apply proportions and fill in nas with 0 (which will be for the unemployed rows)
@@ -227,7 +247,9 @@ def constrain_to_lad_totals_w_farmers_adj(
     # Moving onto the farmers part of the process
     # Find the number of farmers provided at LAD but translate to MSOA
     lad_data_in_msoa = lad_dv.translate_zoning(
-        new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+        # new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+        # new_zoning=constants.MSOA_EWS_ZONING_SYSTEM,
+        new_zoning=constants.MSOA2021_SCOTLAND2022_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
         check_totals=False,
@@ -250,7 +272,9 @@ def constrain_to_lad_totals_w_farmers_adj(
 
     # Find the number of farmers provided at LAD but translate to LSOA
     lad_data_in_lsoa = lad_dv.translate_zoning(
-        new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+        # new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+        # new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
+        new_zoning=constants.DZ2022_LSOA2021_ZONING_SYSTEM,
         cache_path=constants.CACHE_FOLDER,
         weighting=TranslationWeighting.SPATIAL,
         check_totals=False,
@@ -331,9 +355,12 @@ def constrain_to_lad_totals(
         msoa_adj_factors.add_segments([SegmentsSuper('sic_2_digit').get_segment()])
         .aggregate([SegmentsSuper('sic_2_digit').get_segment().name])
         .translate_zoning(
-            new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.MSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.MSOA_EWS_ZONING_SYSTEM,
+            new_zoning=constants.MSOA2021_SCOTLAND2022_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER, 
-            weighting=TranslationWeighting.NO_WEIGHT,
+            # weighting=TranslationWeighting.NO_WEIGHT,
+            weighting=TranslationWeighting.SPATIAL,
             check_totals=False,
         )
     )
@@ -348,9 +375,12 @@ def constrain_to_lad_totals(
         lsoa_adj_factors.add_segments([SegmentsSuper('sic_1_digit').get_segment()])
         .aggregate([SegmentsSuper('sic_1_digit').get_segment().name])
         .translate_zoning(
-            new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.LSOA_2011_EWS_ZONING_SYSTEM,
+            # new_zoning=constants.LSOA_EWS_ZONING_SYSTEM,
+            new_zoning=constants.DZ2022_LSOA2021_ZONING_SYSTEM,
             cache_path=constants.CACHE_FOLDER,
-            weighting=TranslationWeighting.NO_WEIGHT,
+            # weighting=TranslationWeighting.NO_WEIGHT,
+            weighting=TranslationWeighting.SPATIAL,
             check_totals=False,
         )
     )

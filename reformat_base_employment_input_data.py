@@ -7,7 +7,7 @@ from land_use.constants import geographies
 import pandas as pd
 
 # TODO consider sending this to a global config/settings file as shared with reformat population script
-INPUT_DIR = Path(r"I:\NorMITs Land Use\2023\import")
+INPUT_DIR = Path(r"D:\NorMITs\LandUse\Input\2024\import")
 
 # General structure is to repeat the following steps for a series of different data tables
 # 1. set file_path, which will be stored in a subdirectory of input_dir
@@ -24,7 +24,7 @@ def main():
     soc_4_factors()
     process_bres(year=2023)
 
-def process_bres(year:int=2022):
+def process_bres(year:int=2024):
     bres_lad_4_digit(year=year)
     bres_msoa_2_digit(year=year)
     bres_lsoa_1_digit(year=year)
@@ -94,11 +94,13 @@ def hse_lsoa_1_digit():
     pp.save_preprocessed_hdf(source_file_path=file_path, df=df_wide)
 
 
-def bres_lad_4_digit(year:int=2022):
+def bres_lad_4_digit(year:int=2024):
     if year == 2022:
         filename = f"bres_employment22_lad_4digit_sic.csv"
     elif year == 2023:
         filename = f"bres_employment23_lad2011_4digit_sic.csv"
+    elif year == 2024:
+        filename = f"bres_employment24_lad2021_4digit_sic.csv"
     else:
         raise NotImplementedError (f"year {year} is not supported")
     
@@ -153,8 +155,15 @@ def fetch_lad_lu(zoning: str) -> pd.DataFrame:
 
 def bres_msoa_2_digit(year:int=2022):
     year_final_two = str(year)[2:4]
-    filename = f"bres_employment{year_final_two}_msoa2011_2digit_sic.csv"
-    zoning = geographies.MSOA_2011_NAME
+    if year in [2022, 2023]:
+        filename = f"bres_employment{year_final_two}_msoa2011_2digit_sic.csv"
+        zoning = geographies.MSOA_2011_NAME
+    elif year == 2024:
+        filename = f"bres_employment{year_final_two}_msoa2021_2digit_sic.csv"
+        zoning = geographies.MSOA_2021_NAME
+    else:
+        raise NotImplementedError(f"year {year} is not supported")
+
     seg_name = "sic_2_digit"
     header_string = "Area"
 
@@ -184,10 +193,12 @@ def bres_msoa_2_digit(year:int=2022):
         pp.SIC_2_DIGIT_TO_SIC_1_DIGIT_AGGREGATIONS
     )
 
-    df_long = df_sic_1_sic_2.melt(id_vars=["sic_1_digit", "sic_2_digit"])
+    df_long = df_sic_1_sic_2.melt(
+        id_vars=["sic_1_digit", "sic_2_digit"], var_name=zoning
+    )
 
     df_long["sic_1_to_sic_2_split"] = df_long["value"] / df_long.groupby(
-        ["MSOA2011", "sic_1_digit"]
+        [zoning, "sic_1_digit"]
     )["value"].transform("sum")
 
     # infill nas with 0's note this might be risky
@@ -199,7 +210,7 @@ def bres_msoa_2_digit(year:int=2022):
 
     df_wide = df_long.pivot(
         index=["sic_1_digit", "sic_2_digit"],
-        columns=["MSOA2011"],
+        columns=[zoning],
         values="sic_1_to_sic_2_split",
     )
 
@@ -211,9 +222,15 @@ def bres_msoa_2_digit(year:int=2022):
 def bres_lsoa_1_digit(year:int=2022):
 
     year_final_two = str(year)[2:4]
+    if year in [2022, 2023]:
+        filename = f"bres_employment{year_final_two}_lsoa2011_1digit_sic.csv"
+        zoning = geographies.LSOA_2011_NAME
+    elif year == 2024:
+        filename = f"bres_employment{year_final_two}_lsoa2021_1digit_sic.csv"
+        zoning = geographies.LSOA_2021_NAME
+    else:
+        raise NotImplementedError(f"year {year} is not supported")
 
-    filename = f"bres_employment{year_final_two}_lsoa2011_1digit_sic.csv"
-    zoning = geographies.LSOA_2011_NAME
     seg_name = "sic_1_digit"
     header_string = "Area"
 

@@ -150,6 +150,12 @@ LSOA_ZONING_SYSTEM = generate_zoning_system(
     shapefile_path=SHAPEFILE_DIRECTORY / 'LSOA (2021)' / 'LSOA_2021_EnglandWales.shp',
     id_col='LSOA21CD', desc_col='LSOA21NM'
 )
+LSOA_2021_NAME = 'LSOA2021'
+LSOA_2021_ZONING_SYSTEM = generate_zoning_system(
+    name=LSOA_2021_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'LSOA (2021)' / 'LSOA_2021_EnglandWales.shp',
+    id_col='LSOA21CD', desc_col='LSOA21NM'
+)
 LSOA_2011_NAME = 'LSOA2011'
 LSOA_2011_ZONING_SYSTEM = generate_zoning_system(
     name=LSOA_2011_NAME,
@@ -161,6 +167,12 @@ LSOA_2011_ZONING_SYSTEM = generate_zoning_system(
 MSOA_NAME = 'MSOA2021'
 MSOA_ZONING_SYSTEM = generate_zoning_system(
     name=MSOA_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'MSOA (2021)' / 'MSOA_2021_EnglandWales.shp',
+    id_col='MSOA21CD', desc_col='MSOA21NM'
+)
+MSOA_2021_NAME = 'MSOA2021'
+MSOA_2021_ZONING_SYSTEM = generate_zoning_system(
+    name=MSOA_2021_NAME,
     shapefile_path=SHAPEFILE_DIRECTORY / 'MSOA (2021)' / 'MSOA_2021_EnglandWales.shp',
     id_col='MSOA21CD', desc_col='MSOA21NM'
 )
@@ -188,7 +200,7 @@ LAD23_ZONING_SYSTEM = generate_zoning_system(
 LAD19_EWS_NAME = 'LAD2019_EWS'
 LAD19_EWS_ZONING_SYSTEM = generate_zoning_system(
     name=LAD19_EWS_NAME,
-    shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2019)' / 'LAD_Dec_2019__EWS.shp',
+    shapefile_path=SHAPEFILE_DIRECTORY / 'LAD (2019)' / 'LAD_Dec_2019_EWS.shp',
     id_col='lad19cd', desc_col='lad19nm'
 )
 
@@ -246,7 +258,20 @@ SCOTLAND_INTZONE_ZONING_SYSTEM = generate_zoning_system(
     id_col="InterZone",
     desc_col="Name",
 )
-
+SCOTLAND2022_INT_ZONE_NAME = "SCOTLAND2022-INT-ZONE"
+SCOTLAND2022_INT_ZONE_ZONING_SYSTEM = generate_zoning_system(
+    name="SCOTLAND2022-INT-ZONE",
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SG_IntermediateZoneBdry_2022' / 'SG_IntermediateZoneBdry_2022_MHW.shp',
+    id_col='IZCode',
+    desc_col="IZName",
+)
+DZ2022_NAME = "DZ2022"
+DZ2022_ZONING_SYSTEM = generate_zoning_system(
+    name=DZ2022_NAME,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SG_DataZoneBdry_2022' / 'SG_DataZone_Bdry_2022.shp',
+    id_col='dzcode',
+    desc_col="dzname",
+)
 # Added generating DZ2011+LSOA2021 from new shapefile created
 LSOA_EWS_NAME = "DZ2011+LSOA2021"
 LSOA_EWS_ZONING_SYSTEM = generate_zoning_system(
@@ -277,11 +302,19 @@ MSOA_2011_EWS_NAME = "MSOA2011+SCOTLAND-INT-ZONE"
 MSOA_2011_EWS_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_INTZONE_ZONING_SYSTEM, MSOA_2011_ZONING_SYSTEM, 
 )
+MSOA2021_SCOTLAND2022_NAME = "MSOA2021+SCOTLAND2022-INT-ZONE"
+MSOA2021_SCOTLAND2022_ZONING_SYSTEM = combine_zoning_systems(
+    SCOTLAND2022_INT_ZONE_ZONING_SYSTEM, MSOA_ZONING_SYSTEM, 
+)
 # Commented out as now generating from shapefile
 # LSOA_EWS_NAME = "DZ2011+LSOA2021"
 # LSOA_EWS_ZONING_SYSTEM = combine_zoning_systems(
-#     SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_ZONING_SYSTEM
-# )
+#      SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_ZONING_SYSTEM
+#  )
+DZ2022_LSOA2021_NAME = "DZ2022+LSOA2021"
+DZ2022_LSOA2021_ZONING_SYSTEM = combine_zoning_systems(
+    DZ2022_ZONING_SYSTEM, LSOA_ZONING_SYSTEM, 
+)
 LSOA_2011_EWS_NAME = "DZ2011+LSOA2011" 
 LSOA_2011_EWS_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_DZONE_ZONING_SYSTEM, LSOA_2011_ZONING_SYSTEM
@@ -290,6 +323,7 @@ LAD_EWS_2023_NAME = "LAD2023+SCOTLANDLAD"
 LAD_EWS_2023_ZONING_SYSTEM = combine_zoning_systems(
     SCOTLAND_LAD_ZONING_SYSTEM, LAD23_ZONING_SYSTEM
 )
+
 # --- Define zone systems by GOR to chunk the processing by GOR to save memory issues --- #
 LSOAS_BY_GOR = dict()
 MSOAS_BY_GOR = dict()
@@ -298,6 +332,8 @@ LADS23_BY_GOR = dict()
 LADS19_BY_GOR = dict()
 RGNS_BY_GOR = dict()
 LSOA_EWS_BY_GOR = dict()
+DZ2022_BY_GOR = dict()
+SCOTLAND2022_INT_BY_GOR = dict()
 for gor in GORS:
     # LSOA CORRESPONDENCES
     lsoa_zone_name = f'LSOA2021-{gor}'
@@ -352,13 +388,13 @@ for gor in GORS:
     RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
 
     # Added generating DZ2011+LSOA2021 by regions
-    LSOA_EWS_NAME = f'DZ2011+LSOA2021-{gor}'
-    LSOA_EWS_RGN_ZONING_SYSTEM = generate_zoning_system(
-        name=LSOA_EWS_NAME,
+    lsoa_ews_gor_name = f'DZ2011+LSOA2021-{gor}'
+    lsoa_ews_gor_zoning = generate_zoning_system(
+        name=lsoa_ews_gor_name,
         shapefile_path=SHAPEFILE_DIRECTORY / 'DZ2011+LSOA2021' / f'DZ2011+LSOA_2021_{gor}.shp',
         id_col='DZ11LSOA21', desc_col='Desc'
     )
-    LSOA_EWS_BY_GOR[LSOA_EWS_NAME] = LSOA_EWS_RGN_ZONING_SYSTEM
+    LSOA_EWS_BY_GOR[lsoa_ews_gor_name] = lsoa_ews_gor_zoning
 
 # Generate for Scotland LAD2019
 lad19_zone_name = f'LAD2019_EWS-Scotland'
@@ -379,13 +415,13 @@ lad21_zone_system = generate_zoning_system(
 LADS_BY_GOR[lad21_zone_name] = lad21_zone_system
 
 # Generate for Scotland DZ2011+LSOA2021
-LSOA_EWS_NAME = f'DZ2011+LSOA2021-Scotland'
-LSOA_EWS_RGN_ZONING_SYSTEM = generate_zoning_system(
-    name=LSOA_EWS_NAME,
+lsoa_ews_scot_name = f'DZ2011+LSOA2021-Scotland'
+lsoa_ews_scot_zoning = generate_zoning_system(
+    name=lsoa_ews_scot_name,
     shapefile_path=SHAPEFILE_DIRECTORY / 'DZ2011+LSOA2021' / f'DZ2011+LSOA_2021_Scotland.shp',
     id_col='DZ11LSOA21', desc_col='Desc'
 )
-LSOA_EWS_BY_GOR[LSOA_EWS_NAME] = LSOA_EWS_RGN_ZONING_SYSTEM
+LSOA_EWS_BY_GOR[lsoa_ews_scot_name] = lsoa_ews_scot_zoning
 
 # Expand regions to include a Scotland 'subset' which is the whole of Scotland
 rgn_zone_name = f'RGN2021-Scotland'
@@ -395,6 +431,23 @@ rgn_zone_system = generate_zoning_system(
     id_col='RGN21CD', desc_col='RGN21NM'
 )
 RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
+
+# Add Scotland subset entries for the new 2022 Scotland-only zoning systems
+dz2022_zone_name = f'DZ2022-Scotland'
+dz2022_zone_system = generate_zoning_system(
+    name=dz2022_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SG_DataZoneBdry_2022' / 'SG_DataZone_Bdry_2022.shp',
+    id_col='dzcode', desc_col='dzname'
+)
+DZ2022_BY_GOR[dz2022_zone_name] = dz2022_zone_system
+
+scot2022_int_zone_name = f'SCOTLAND2022-INT-ZONE-Scotland'
+scot2022_int_zone_system = generate_zoning_system(
+    name=scot2022_int_zone_name,
+    shapefile_path=SHAPEFILE_DIRECTORY / 'SG_IntermediateZoneBdry_2022' / 'SG_IntermediateZoneBdry_2022_MHW.shp',
+    id_col='IZCode', desc_col='IZName'
+)
+SCOTLAND2022_INT_BY_GOR[scot2022_int_zone_name] = scot2022_int_zone_system
 
 # Define Scotland geographical subset
 #LSOA_EWS_scot_zone_name = f'DZ2011+LSOA2021-Scotland'
@@ -406,6 +459,12 @@ RGNS_BY_GOR[rgn_zone_name] = rgn_zone_system
 # Dictionary of references for the yaml file
 # TODO link with definitions above
 KNOWN_GEOGRAPHIES = {
+    DZ2022_LSOA2021_NAME: DZ2022_LSOA2021_ZONING_SYSTEM,
+    MSOA2021_SCOTLAND2022_NAME: MSOA2021_SCOTLAND2022_ZONING_SYSTEM,
+    DZ2022_NAME: DZ2022_ZONING_SYSTEM,
+    SCOTLAND2022_INT_ZONE_NAME: SCOTLAND2022_INT_ZONE_ZONING_SYSTEM,
+    LSOA_2021_NAME: LSOA_2021_ZONING_SYSTEM,
+    MSOA_2021_NAME: MSOA_2021_ZONING_SYSTEM,
     LSOA_NAME: LSOA_ZONING_SYSTEM,
     LSOA_2011_NAME: LSOA_2011_ZONING_SYSTEM,
     MSOA_NAME: MSOA_ZONING_SYSTEM,
@@ -438,7 +497,9 @@ KNOWN_GEOGRAPHIES = {
     **LADS23_BY_GOR,
     **LADS19_BY_GOR,
     **RGNS_BY_GOR,
-    **LSOA_EWS_BY_GOR
+    **LSOA_EWS_BY_GOR,
+    **DZ2022_BY_GOR,
+    **SCOTLAND2022_INT_BY_GOR
 }
 
 # --- GENERATE TRANSLATIONS FOR CACHE --- #
