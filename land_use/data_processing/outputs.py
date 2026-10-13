@@ -313,6 +313,10 @@ def save_output(
     LOGGER.info(fr'Writing to {write_directory}\{output_reference}.hdf')
     dvector.save(write_directory / f'{output_reference}.hdf')
 
+    # save to csv
+    LOGGER.info(fr'Writing to {write_directory}\{output_reference}.csv')
+    dvector.data.to_csv(write_directory / f'{output_reference}.csv', float_format='%.5f')
+
     LOGGER.info('Output summary:')
     # logging information
     summary_reporting(

@@ -19,6 +19,7 @@ def process_base(
         configuration: dict,
         geography_subset: str
 ) -> BaseYearPopulationData:
+    LOGGER.info(f'Processing base year population data for {geography_subset}')
     # --- Step 0 --- #
     # read in the base data from the config file
     block = 'base_data'
@@ -674,6 +675,7 @@ def rebase(
         base_year_data: BaseYearPopulationData,
         geography_subset: str
 ) -> Tuple[DVector]:
+    LOGGER.info(f'Rebasing population and households to 2023 for {geography_subset}')
 
     # read in the household validation data from the config file
     LOGGER.info(f'Importing household rebase data from config file')
@@ -851,7 +853,7 @@ def rebase(
         household_dvector=rebased_households,
         aggregate_zone_system_name=f'RGN2021-{geography_subset}',
         current_zone_system_name=f'LSOA2021-{geography_subset}',
-        percentile=float(config["occupancy_cap_percentile"])
+        percentile=float(configuration["occupancy_cap_percentile"]) # Yan: replace config with configuration 
     )
 
     # save output to hdf
@@ -920,335 +922,384 @@ def rebase(
 
     return rebased_pop, rebased_households
 
+def main(config_file: Path = None):
+    # TODO: expand on the documentation here
+    parser = ArgumentParser('Land-Use base population command line runner')
+    parser.add_argument('config_file', type=Path)
 
-# TODO: expand on the documentation here
-parser = ArgumentParser('Land-Use base population command line runner')
-parser.add_argument('config_file', type=Path)
-args = parser.parse_args()
+    # Addtional to allow hardcoded config file for testing
+    if config_file is None:
+        args = parser.parse_args()
 
-# load configuration file
-with open(args.config_file, 'r') as text_file:
-    config = yaml.load(text_file, yaml.SafeLoader)
+        if args.config_file is None:
+            raise ValueError('Please provide a config file path')
 
-# Get output directory for intermediate outputs from config file
-OUTPUT_DIR = Path(config['output_directory'])
-OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+        config_file = args.config_file
 
-# Define whether to output intermediate outputs, recommended to not output loads if debugging
-generate_summary_outputs = bool(config['output_intermediate_outputs'])
+    # load configuration file
+    with open(config_file, 'r') as text_file:
+        config = yaml.load(text_file, yaml.SafeLoader)
 
-# define whether to run scotland population only (requires outputs of all the
-# separate GOR population builds)
-run_scotland_only = bool(config['run_scotland_only'])
+    # Get output directory for intermediate outputs from config file
+    global OUTPUT_DIR, LOGGER, generate_summary_outputs, run_scotland_only
+    OUTPUT_DIR = Path(config['output_directory'])
+    OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
-# Set up logger (different name if running scotland only)
-if not run_scotland_only:
-    LOGGER = lu_logging.configure_logger(
-        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
-        log_name='population'
+    # Define whether to output intermediate outputs, recommended to not output loads if debugging
+    generate_summary_outputs = bool(config['output_intermediate_outputs'])
+
+    # define whether to run scotland population only (requires outputs of all the
+    # separate GOR population builds)
+    run_scotland_only = bool(config['run_scotland_only'])
+
+    # Set up logger (different name if running scotland only)
+    if not run_scotland_only:
+        LOGGER = lu_logging.configure_logger(
+            output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+            log_name='population'
+        )
+
+        # copy config file for traceability
+        shutil.copy(
+            src=config_file,
+            dst=OUTPUT_DIR / OutputLevel.SUPPORTING / Path(config_file).name
+        )
+
+
+
+        # loop through GORs to save memory issues further down the line
+        for GOR in constants.GORS:
+            base_year_folder = Path(config['base_year_folder'])
+            LOGGER.info(f"GOR={GOR}")
+            LOGGER.info(f"Base_year_folder={base_year_folder}")
+            # LOGGER.info(f"Folder exists? {base_year_folder.exists()}")
+            # LOGGER.info(f"Folder resolved path ? {base_year_folder.resolve()}")
+            # Try and load in base year data
+            try:
+                base_data = BaseYearPopulationData.from_folder(
+                    Path(config['base_year_folder']), identifier=f'_{GOR}'
+                )
+            except (KeyError, FileNotFoundError) as e:
+                if isinstance(e, FileNotFoundError):
+                    LOGGER.warning('Base year data could not be found. Attempting to re-process')
+                base_data = process_base(config, geography_subset=GOR)
+
+            rebase(config, base_data, geography_subset=GOR)
+
+            # trying to delete data to save memory to hopefully allow scotland
+            # processing to run subsequently, currently crashes with memory error
+            base_data = None
+
+            LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
+
+    # SCOTLAND-SPECIFIC PROCESSING
+    else:
+        LOGGER = lu_logging.configure_logger(
+            output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
+            log_name='scotland_population'
+        )
+
+    LOGGER.info('Applying regional profiles to Scotland population data')
+    area_type_agg = []
+    for gor in config['scotland_donor_regions']:
+        LOGGER.debug(f'Re-reading P11 for {gor}')
+        final_pop = DVector.load(
+            OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_{gor}.hdf'
+        )
+        area_type_agg.append(
+            final_pop.translate_zoning(constants.TFN_AT_AGG_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER)
+        )
+
+    LOGGER.debug('Disaggregating area types to Scotland')
+    # Accumulate England totals at area type, then disaggregate to Scotland zoning
+    # Yan: the issue was caused by reduce() being applied to a single-element list of DVectors.
+    # In that case, reduce() returns the original DVector rather than a newly combined result
+    # Since that same object was later included in clear_dvectors(),
+    # the aggregated result was cleared unintentionally,causing england_totals to have no data.
+    # Applying .copy() to the reduced result resolves the issue by ensuring 
+    # that england_totals is a new DVector object with its own data.
+    england_totals = reduce(lambda x, y: x+y, area_type_agg).copy()
+
+    # # Debugging:
+    # print("before clear:", england_totals._data is None, england_totals.sum())
+    # for i, d in enumerate(area_type_agg):
+    #     print(
+    #         i,
+    #         "is england_totals?", d is england_totals,
+    #         "same _data?", d._data is england_totals._data,
+    #         "d id:", id(d), "england_totals id:", id(england_totals),
+    #         "d sum:", d.sum(), "england_totals sum:", england_totals.sum
+    #     )
+    # # End of Debugging
+
+    # Clear out the individual DVectors for England (in case of memory issues)
+    data_processing.clear_dvectors(*area_type_agg)
+
+    # # Debugging
+    # print("after clear:", england_totals._data is None, england_totals.sum())
+    # print("after clear _data:", england_totals._data)
+    # # End of Debugging
+
+    england_totals_scotland_zoning = england_totals.translate_zoning(
+        constants.SCOTLAND_DZONE_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER
     )
 
-    # copy config file for traceability
-    shutil.copy(
-        src=args.config_file,
-        dst=OUTPUT_DIR / OutputLevel.SUPPORTING / args.config_file.name
+    # Read in the Scotland data, and then apply proportions
+    scotland_population = data_processing.read_dvector_from_config(
+        config=config,
+        data_block='base_data',
+        key='scotland_population'
     )
 
-    # loop through GORs to save memory issues further down the line
-    for GOR in constants.GORS:
-        # Try and load in base year data
-        try:
-            base_data = BaseYearPopulationData.from_folder(
-                Path(config['base_year_folder']), identifier=f'_{GOR}'
+    scotland_hydrated = data_processing.apply_proportions(
+        source_dvector=england_totals_scotland_zoning, apply_to=scotland_population
+    )
+
+    # get rid of any additional segmentations that aren't required
+    LOGGER.debug('Removing any superfluous segments from Scotland data')
+    scotland_hydrated = scotland_hydrated.aggregate(
+        england_totals.segmentation
+    )
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P11_Scotland',
+        dvector=scotland_hydrated,
+        dvector_dimension='population',
+        detailed_logs=True,
+        output_level=OutputLevel.FINAL
+    )
+
+    # collapse segmentation to household-specific segmentations (i.e. remove population segmentation)
+    aggregated_pop = scotland_hydrated.aggregate(
+        segs=['accom_h', 'ns_sec', 'adults', 'children', 'car_availability', 'adult_nssec']
+    )
+
+    # # Clear out the massive DVector for scotland (in case of memory issues)
+    # data_processing.clear_dvectors(scotland_hydrated)
+
+    # read in the occupied and unoccupied households from the donor regions
+    area_type_agg_ons = []
+    area_type_agg_occ = []
+    area_type_agg_unocc = []
+    for gor in config['scotland_donor_regions']:
+        LOGGER.debug(f'Re-reading ONS table 1 for {gor}')
+        ons_table_1 = data_processing.read_dvector_from_config(
+            config=config,
+            data_block='base_data',
+            key='ons_table_1',
+            geography_subset=gor
+        )
+        area_type_agg_ons.append(
+            ons_table_1.translate_zoning(
+                constants.TFN_AT_AGG_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER
             )
-        except (KeyError, FileNotFoundError) as e:
-            if isinstance(e, FileNotFoundError):
-                LOGGER.warning('Base year data could not be found. Attempting to re-process')
-            base_data = process_base(config, geography_subset=GOR)
-
-        rebase(config, base_data, geography_subset=GOR)
-
-        # trying to delete data to save memory to hopefully allow scotland
-        # processing to run subsequently, currently crashes with memory error
-        base_data = None
-
-        LOGGER.info(f'*****COMPLETED PROCESSING FOR {GOR}*****')
-
-# SCOTLAND-SPECIFIC PROCESSING
-else:
-    LOGGER = lu_logging.configure_logger(
-        output_dir=OUTPUT_DIR / OutputLevel.SUPPORTING,
-        log_name='scotland_population'
-    )
-
-LOGGER.info('Applying regional profiles to Scotland population data')
-area_type_agg = []
-for gor in config['scotland_donor_regions']:
-    LOGGER.debug(f'Re-reading P11 for {gor}')
-    final_pop = DVector.load(
-        OUTPUT_DIR / OutputLevel.FINAL / f'Output P11_{gor}.hdf'
-    )
-    area_type_agg.append(
-        final_pop.translate_zoning(constants.TFN_AT_AGG_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER)
-    )
-
-LOGGER.debug('Disaggregating area types to Scotland')
-# Accumulate England totals at area type, then disaggregate to Scotland zoning
-england_totals = reduce(lambda x, y: x+y, area_type_agg)
-
-# Clear out the individual DVectors for England (in case of memory issues)
-data_processing.clear_dvectors(*area_type_agg)
-
-england_totals_scotland_zoning = england_totals.translate_zoning(
-    constants.SCOTLAND_DZONE_ZONING_SYSTEM, cache_path=constants.CACHE_FOLDER
-)
-
-# Read in the Scotland data, and then apply proportions
-scotland_population = data_processing.read_dvector_from_config(
-    config=config,
-    data_block='base_data',
-    key='scotland_population'
-)
-
-scotland_hydrated = data_processing.apply_proportions(
-    source_dvector=england_totals_scotland_zoning, apply_to=scotland_population
-)
-
-# get rid of any additional segmentations that aren't required
-LOGGER.debug('Removing any superfluous segments from Scotland data')
-scotland_hydrated = scotland_hydrated.aggregate(
-    england_totals.segmentation
-)
-
-# save output to hdf
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P11_Scotland',
-    dvector=scotland_hydrated,
-    dvector_dimension='population',
-    detailed_logs=True,
-    output_level=OutputLevel.FINAL
-)
-
-# collapse segmentation to household-specific segmentations (i.e. remove population segmentation)
-aggregated_pop = scotland_hydrated.aggregate(
-    segs=['accom_h', 'ns_sec', 'adults', 'children', 'car_availability', 'adult_nssec']
-)
-
-# # Clear out the massive DVector for scotland (in case of memory issues)
-# data_processing.clear_dvectors(scotland_hydrated)
-
-# read in the occupied and unoccupied households from the donor regions
-area_type_agg_ons = []
-area_type_agg_occ = []
-area_type_agg_unocc = []
-for gor in config['scotland_donor_regions']:
-    LOGGER.debug(f'Re-reading ONS table 1 for {gor}')
-    ons_table_1 = data_processing.read_dvector_from_config(
-        config=config,
-        data_block='base_data',
-        key='ons_table_1',
-        geography_subset=gor
-    )
-    area_type_agg_ons.append(
-        ons_table_1.translate_zoning(
-            constants.TFN_AT_AGG_ZONING_SYSTEM,
-            cache_path=constants.CACHE_FOLDER
         )
-    )
-    LOGGER.debug(f'Re-reading occupied households for {gor}')
-    occupied_households = data_processing.read_dvector_from_config(
-        config=config,
-        data_block='base_data',
-        key='occupied_households',
-        geography_subset=gor
-    )
-
-    area_type_agg_occ.append(
-        occupied_households.translate_zoning(
-            constants.TFN_AT_AGG_ZONING_SYSTEM,
-            cache_path=constants.CACHE_FOLDER
+        LOGGER.debug(f'Re-reading occupied households for {gor}')
+        occupied_households = data_processing.read_dvector_from_config(
+            config=config,
+            data_block='base_data',
+            key='occupied_households',
+            geography_subset=gor
         )
-    )
-    LOGGER.debug(f'Re-reading unoccupied households for {gor}')
-    unoccupied_households = data_processing.read_dvector_from_config(
-        config=config,
-        data_block='base_data',
-        key='unoccupied_households',
-        geography_subset=gor
-    )
 
-    area_type_agg_unocc.append(
-        unoccupied_households.translate_zoning(
-            constants.TFN_AT_AGG_ZONING_SYSTEM,
-            cache_path=constants.CACHE_FOLDER
+        area_type_agg_occ.append(
+            occupied_households.translate_zoning(
+                constants.TFN_AT_AGG_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER
+            )
         )
+        LOGGER.debug(f'Re-reading unoccupied households for {gor}')
+        unoccupied_households = data_processing.read_dvector_from_config(
+            config=config,
+            data_block='base_data',
+            key='unoccupied_households',
+            geography_subset=gor
+        )
+
+        area_type_agg_unocc.append(
+            unoccupied_households.translate_zoning(
+                constants.TFN_AT_AGG_ZONING_SYSTEM,
+                cache_path=constants.CACHE_FOLDER
+            )
+        )
+
+    LOGGER.debug('Disaggregating area types to Scotland')
+    # Accumulate England totals at area type
+    # Yan: the issue was caused by reduce() being applied to a single-element list of DVectors.
+    # In that case, reduce() returns the original DVector rather than a newly combined result
+    # Since that same object was later included in clear_dvectors(),
+    # the aggregated result was cleared unintentionally,causing england_totals to have no data.
+    # Applying .copy() to the reduced result resolves the issue by ensuring 
+    # that england_totals is a new DVector object with its own data.
+    england_ons_totals = reduce(lambda x, y: x+y, area_type_agg_ons).copy()
+    england_occ_totals = reduce(lambda x, y: x+y, area_type_agg_occ).copy()
+    england_unocc_totals = reduce(lambda x, y: x+y, area_type_agg_unocc).copy()
+
+
+    # Clear out the individual DVectors for England (in case of memory issues)
+    data_processing.clear_dvectors(
+        *area_type_agg_ons, *area_type_agg_occ, *area_type_agg_unocc
     )
 
-LOGGER.debug('Disaggregating area types to Scotland')
-# Accumulate England totals at area type
-england_ons_totals = reduce(lambda x, y: x+y, area_type_agg_ons)
-england_occ_totals = reduce(lambda x, y: x+y, area_type_agg_occ)
-england_unocc_totals = reduce(lambda x, y: x+y, area_type_agg_unocc)
-
-# Clear out the individual DVectors for England (in case of memory issues)
-data_processing.clear_dvectors(
-    *area_type_agg_ons, *area_type_agg_occ, *area_type_agg_unocc
-)
-
-# calculate average occupancy, as in base_population.py
-england_average_occupancy = (england_ons_totals / england_occ_totals)
-# replace infinities with nans for infilling
-# this is where the occupied_households value is zero for a dwelling type and zone,
-# but the ons_table_1 has non-zero population. E.g. LSOA E01007423 in GOR = 'YH'
-# caravans and mobile homes, the occupied households = 0 but ons_table_1 population = 4
-england_average_occupancy._data = england_average_occupancy._data.replace(np.inf, np.nan)
-# infill missing occupancies with average value of other properties in the zone
-# i.e. based on column
-england_average_occupancy._data = england_average_occupancy._data.fillna(
-    england_average_occupancy._data.mean(axis=0), axis=0
-)
-
-# convert occupancy factors to scotland zoning
-england_occupancy_scotland_zoning = england_average_occupancy.translate_zoning(
-    constants.SCOTLAND_DZONE_ZONING_SYSTEM,
-    cache_path=constants.CACHE_FOLDER,
-    weighting=TranslationWeighting.NO_WEIGHT,
-    check_totals=False
-)
-
-# divide scottish population by average occupancy to get households
-rebase_hh = aggregated_pop / england_occupancy_scotland_zoning
-
-# derive household constraints from population data (required occupancies)
-household_adjustment_targets = data_processing.derive_household_occupancy_targets(
-    population_dvector=scotland_hydrated
-)
-rebased_households, summary, differences = data_processing.apply_ipf(
-    seed_data=rebase_hh,
-    target_dvectors=list(household_adjustment_targets),
-    cache_folder=constants.CACHE_FOLDER,
-)
-# save output to hdf and csvs for checking
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P12_Scotland',
-    dvector=rebased_households,
-    dvector_dimension='households',
-    output_level=OutputLevel.INTERMEDIATE
-)
-(OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
-summary.to_csv(
-    OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_Scotland_VALIDATION.csv',
-    float_format='%.5f', index=False
-)
-data_processing.write_to_excel(
-    output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
-    file=f'Output P12_Scotland_VALIDATION.xlsx',
-    dfs=differences
-)
-
-LOGGER.info('Set households to 0 where there is 0 population')
-# set households to zero where there is no population in a given ['adult', 'children'] segment and zone
-rebased_households = data_processing.mask_zero_population(
-    population_dvector=scotland_hydrated, household_dvector=rebased_households,
-    household_segments=('adults', 'children', 'ns_sec', 'accom_h')
-)
-
-# save output to hdf
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13.1_Scotland',
-    dvector=rebased_households,
-    dvector_dimension='households',
-    output_level=OutputLevel.INTERMEDIATE
-)
-
-LOGGER.info(
-        f'Cap maximum occupancies based on the '
-        f'{float(config["occupancy_cap_percentile"])}th percentile'
+    # calculate average occupancy, as in base_population.py
+    england_average_occupancy = (england_ons_totals / england_occ_totals)
+    # replace infinities with nans for infilling
+    # this is where the occupied_households value is zero for a dwelling type and zone,
+    # but the ons_table_1 has non-zero population. E.g. LSOA E01007423 in GOR = 'YH'
+    # caravans and mobile homes, the occupied households = 0 but ons_table_1 population = 4
+    england_average_occupancy._data = england_average_occupancy._data.replace(np.inf, np.nan)
+    # infill missing occupancies with average value of other properties in the zone
+    # i.e. based on column
+    england_average_occupancy._data = england_average_occupancy._data.fillna(
+        england_average_occupancy._data.mean(axis=0), axis=0
     )
-# get max_percentile cap by adult and children combination for all zones in the
-# data and cap resulting occupancies
-rebased_households = data_processing.cap_maximum_household_occupancy(
-    population_dvector=scotland_hydrated,
-    household_dvector=rebased_households,
-    aggregate_zone_system_name='SCOTLANDRGN',
-    current_zone_system_name='DZ2011',
-    percentile=float(config["occupancy_cap_percentile"])
-)
 
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13.2_Scotland',
-    dvector=rebased_households,
-    dvector_dimension='households',
-    output_level=OutputLevel.INTERMEDIATE
-)
+    # convert occupancy factors to scotland zoning
+    england_occupancy_scotland_zoning = england_average_occupancy.translate_zoning(
+        constants.SCOTLAND_DZONE_ZONING_SYSTEM,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
 
-LOGGER.info(f'Cap minimum occupancies based on the household type')
-# apply minimum occupancy requirements for all zones in the data
-rebased_households = data_processing.cap_minimum_household_occupancy(
-    population_dvector=scotland_hydrated,
-    household_dvector=rebased_households,
-    aggregate_zone_system_name='SCOTLANDRGN',
-    current_zone_system_name='DZ2011'
-)
+    # divide scottish population by average occupancy to get households
+    rebase_hh = aggregated_pop / england_occupancy_scotland_zoning
 
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13.3_Scotland',
-    dvector=rebased_households,
-    dvector_dimension='households',
-    detailed_logs=True,
-    output_level=OutputLevel.FINAL
-)
+    # derive household constraints from population data (required occupancies)
+    household_adjustment_targets = data_processing.derive_household_occupancy_targets(
+        population_dvector=scotland_hydrated
+    )
+    rebased_households, summary, differences = data_processing.apply_ipf(
+        seed_data=rebase_hh,
+        target_dvectors=list(household_adjustment_targets),
+        cache_folder=constants.CACHE_FOLDER,
+    )
+    # save output to hdf and csvs for checking
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P12_Scotland',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
+    )
+    (OUTPUT_DIR / OutputLevel.ASSURANCE).mkdir(parents=True, exist_ok=True)
+    summary.to_csv(
+        OUTPUT_DIR / OutputLevel.ASSURANCE / f'Output P12_Scotland_VALIDATION.csv',
+        float_format='%.5f', index=False
+    )
+    data_processing.write_to_excel(
+        output_folder=OUTPUT_DIR / OutputLevel.ASSURANCE,
+        file=f'Output P12_Scotland_VALIDATION.xlsx',
+        dfs=differences
+    )
 
-# calculate resulting zone occupancies between the "final" population and households
-occupancies = scotland_hydrated.aggregate(
-    [nom for nom in rebased_households.segmentation.names if nom in scotland_hydrated.segmentation.names]
-) / rebased_households
+    LOGGER.info('Set households to 0 where there is 0 population')
+    # set households to zero where there is no population in a given ['adult', 'children'] segment and zone
+    rebased_households = data_processing.mask_zero_population(
+        population_dvector=scotland_hydrated, household_dvector=rebased_households,
+        household_segments=('adults', 'children', 'ns_sec', 'accom_h')
+    )
 
-# save output to hdf
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P13.4_Scotland',
-    dvector=occupancies,
-    dvector_dimension='occupancies',
-    output_level=OutputLevel.FINAL
-)
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.1_Scotland',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
+    )
 
-LOGGER.info('Getting occupied and unoccupied dwellings')
+    LOGGER.info(
+            f'Cap maximum occupancies based on the '
+            f'{float(config["occupancy_cap_percentile"])}th percentile'
+        )
+    # get max_percentile cap by adult and children combination for all zones in the
+    # data and cap resulting occupancies
+    rebased_households = data_processing.cap_maximum_household_occupancy(
+        population_dvector=scotland_hydrated,
+        household_dvector=rebased_households,
+        aggregate_zone_system_name='SCOTLANDRGN',
+        current_zone_system_name='DZ2011',
+        percentile=float(config["occupancy_cap_percentile"])
+    )
 
-occupied_households = rebased_households.aggregate(['accom_h'])
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.2_Scotland',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.INTERMEDIATE
+    )
 
-# calculate unoccupied households
-empty_proportion = (england_unocc_totals / england_occ_totals)
-empty_proportion._data = empty_proportion._data.replace(np.inf, np.nan)
-# infill missing occupancies with average value of other properties in the zone
-# i.e. based on column
-empty_proportion._data = empty_proportion._data.fillna(
-    empty_proportion._data.mean(axis=0), axis=0
-)
-unoccupied_households = occupied_households * empty_proportion.translate_zoning(
-    constants.SCOTLAND_DZONE_ZONING_SYSTEM,
-    cache_path=constants.CACHE_FOLDER,
-    weighting=TranslationWeighting.NO_WEIGHT,
-    check_totals=False
-)
+    LOGGER.info(f'Cap minimum occupancies based on the household type')
+    # apply minimum occupancy requirements for all zones in the data
+    rebased_households = data_processing.cap_minimum_household_occupancy(
+        population_dvector=scotland_hydrated,
+        household_dvector=rebased_households,
+        aggregate_zone_system_name='SCOTLANDRGN',
+        current_zone_system_name='DZ2011'
+    )
 
-# save outputs to hdf
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P14.1_Scotland',
-    dvector=occupied_households,
-    dvector_dimension='households',
-    output_level=OutputLevel.FINAL
-)
-data_processing.save_output(
-    output_folder=OUTPUT_DIR,
-    output_reference=f'Output P14.2_Scotland',
-    dvector=unoccupied_households,
-    dvector_dimension='households',
-    output_level=OutputLevel.FINAL
-)
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.3_Scotland',
+        dvector=rebased_households,
+        dvector_dimension='households',
+        detailed_logs=True,
+        output_level=OutputLevel.FINAL
+    )
+
+    # calculate resulting zone occupancies between the "final" population and households
+    occupancies = scotland_hydrated.aggregate(
+        [nom for nom in rebased_households.segmentation.names if nom in scotland_hydrated.segmentation.names]
+    ) / rebased_households
+
+    # save output to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P13.4_Scotland',
+        dvector=occupancies,
+        dvector_dimension='occupancies',
+        output_level=OutputLevel.FINAL
+    )
+
+    LOGGER.info('Getting occupied and unoccupied dwellings')
+
+    occupied_households = rebased_households.aggregate(['accom_h'])
+
+    # calculate unoccupied households
+    empty_proportion = (england_unocc_totals / england_occ_totals)
+    empty_proportion._data = empty_proportion._data.replace(np.inf, np.nan)
+    # infill missing occupancies with average value of other properties in the zone
+    # i.e. based on column
+    empty_proportion._data = empty_proportion._data.fillna(
+        empty_proportion._data.mean(axis=0), axis=0
+    )
+    unoccupied_households = occupied_households * empty_proportion.translate_zoning(
+        constants.SCOTLAND_DZONE_ZONING_SYSTEM,
+        cache_path=constants.CACHE_FOLDER,
+        weighting=TranslationWeighting.NO_WEIGHT,
+        check_totals=False
+    )
+
+    # save outputs to hdf
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P14.1_Scotland',
+        dvector=occupied_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+    data_processing.save_output(
+        output_folder=OUTPUT_DIR,
+        output_reference=f'Output P14.2_Scotland',
+        dvector=unoccupied_households,
+        dvector_dimension='households',
+        output_level=OutputLevel.FINAL
+    )
+
+if __name__ == '__main__':
+    main(config_file=Path(r"C:\Github\NorMITs\Land-Use\scenario_configurations\iteration_5\base_population_config_yan_v3.yml"))
